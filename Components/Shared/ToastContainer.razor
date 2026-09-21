@@ -1,0 +1,49 @@
+﻿@using Almacen.Services
+@implements IDisposable
+@inject ToastService Toast
+
+<div class="toast-stack">
+    @foreach (var t in _toasts)
+    {
+        <div class="toast toast-@(t.Tipo.ToString().ToLower())" @key="t.Id">
+            <i class="bi @(Icono(t.Tipo))"></i>
+            <span>@t.Texto</span>
+        </div>
+    }
+</div>
+
+@code {
+    private List<ToastMensaje> _toasts = new();
+
+    protected override void OnInitialized()
+    {
+        Toast.OnShow += HandleToast;
+    }
+
+    private async void HandleToast(ToastMensaje t)
+    {
+        await InvokeAsync(async () =>
+        {
+            _toasts.Add(t);
+            StateHasChanged();
+
+            await Task.Delay(3200);
+
+            _toasts.Remove(t);
+            StateHasChanged();
+        });
+    }
+
+    private static string Icono(ToastTipo tipo) => tipo switch
+    {
+        ToastTipo.Success => "bi-check-circle-fill",
+        ToastTipo.Danger => "bi-x-circle-fill",
+        ToastTipo.Warning => "bi-exclamation-triangle-fill",
+        _ => "bi-info-circle-fill"
+    };
+
+    public void Dispose()
+    {
+        Toast.OnShow -= HandleToast;
+    }
+}

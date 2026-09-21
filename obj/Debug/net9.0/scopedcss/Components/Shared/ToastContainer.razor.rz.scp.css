@@ -1,0 +1,59 @@
+/* CSS for ToastContainer component */
+.toast-stack[b-0tytsfn8xw] {
+    position: fixed;
+    top: 80px;
+    right: 24px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+    pointer-events: none;
+}
+
+.toast[b-0tytsfn8xw] {
+    display: flex;
+    align-items: center;
+    gap: .65rem;
+    padding: .75rem 1.15rem;
+    border-radius: 10px;
+    color: #fff;
+    font-size: .9rem;
+    font-weight: 500;
+    box-shadow: 0 10px 25px rgba(15, 23, 42, .18), 0 4px 8px rgba(15, 23, 42, .1);
+    min-width: 260px;
+    max-width: 420px;
+    pointer-events: auto;
+    animation: toastIn-b-0tytsfn8xw .25s cubic-bezier(.4, 0, .2, 1);
+}
+
+@keyframes toastIn-b-0tytsfn8xw {
+    from {
+        opacity: 0;
+        transform: translateX(30px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.toast i[b-0tytsfn8xw] {
+    font-size: 1.15rem;
+}
+
+.toast-success[b-0tytsfn8xw] {
+    background: linear-gradient(135deg, #16a34a, #15803d);
+}
+
+.toast-danger[b-0tytsfn8xw] {
+    background: linear-gradient(135deg, #dc2626, #b91c1c);
+}
+
+.toast-warning[b-0tytsfn8xw] {
+    background: linear-gradient(135deg, #d97706, #b45309);
+}
+
+.toast-info[b-0tytsfn8xw] {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+}

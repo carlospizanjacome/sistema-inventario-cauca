@@ -1,0 +1,73 @@
+﻿@using Almacen.Helpers
+
+@typeparam T
+
+@* ═══════════ PAGINADOR REUTILIZABLE ═══════════ *@
+
+<div class="paginador-container">
+    <div class="paginador-info">
+        Mostrando <strong>@Resultado.PrimerRegistro</strong> - <strong>@Resultado.UltimoRegistro</strong>
+        de <strong>@Resultado.TotalRegistros</strong> registros
+    </div>
+
+    <div class="paginador-controles">
+        <button class="pg-btn"
+                @onclick="IrPrimera"
+                disabled="@(!Resultado.TieneAnterior)"
+                title="Primera página">
+            <i class="bi bi-chevron-double-left"></i>
+        </button>
+
+        <button class="pg-btn"
+                @onclick="IrAnterior"
+                disabled="@(!Resultado.TieneAnterior)"
+                title="Anterior">
+            <i class="bi bi-chevron-left"></i>
+        </button>
+
+        <span class="pg-page">
+            Página <strong>@Resultado.PaginaActual</strong> de <strong>@Resultado.TotalPaginas</strong>
+        </span>
+
+        <button class="pg-btn"
+                @onclick="IrSiguiente"
+                disabled="@(!Resultado.TieneSiguiente)"
+                title="Siguiente">
+            <i class="bi bi-chevron-right"></i>
+        </button>
+
+        <button class="pg-btn"
+                @onclick="IrUltima"
+                disabled="@(!Resultado.TieneSiguiente)"
+                title="Última página">
+            <i class="bi bi-chevron-double-right"></i>
+        </button>
+    </div>
+
+    <div class="paginador-size">
+        <label>Mostrar:</label>
+        <select value="@Resultado.TamanoPagina" @onchange="CambiarTamano">
+            <option value="10">10</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+        </select>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public ResultadoPaginado<T> Resultado { get; set; } = default!;
+    [Parameter] public EventCallback<int> OnCambioPagina { get; set; }
+    [Parameter] public EventCallback<int> OnCambioTamano { get; set; }
+
+    private async Task IrPrimera() => await OnCambioPagina.InvokeAsync(1);
+    private async Task IrAnterior() => await OnCambioPagina.InvokeAsync(Resultado.PaginaActual - 1);
+    private async Task IrSiguiente() => await OnCambioPagina.InvokeAsync(Resultado.PaginaActual + 1);
+    private async Task IrUltima() => await OnCambioPagina.InvokeAsync(Resultado.TotalPaginas);
+
+    private async Task CambiarTamano(ChangeEventArgs e)
+    {
+        var nuevo = Convert.ToInt32(e.Value);
+        await OnCambioTamano.InvokeAsync(nuevo);
+    }
+}

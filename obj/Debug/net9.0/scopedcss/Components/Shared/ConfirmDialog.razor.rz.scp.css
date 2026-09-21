@@ -1,0 +1,125 @@
+/* CSS for ConfirmDialog component */
+.confirm-backdrop[b-wuprdo0uk4] {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, .55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 1rem;
+    animation: confirmFadeIn-b-wuprdo0uk4 .18s ease;
+}
+
+@keyframes confirmFadeIn-b-wuprdo0uk4 {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.confirm-modal[b-wuprdo0uk4] {
+    background: #ffffff;
+    border-radius: 16px;
+    width: 100%;
+    max-width: 460px;
+    overflow: hidden;
+    box-shadow: 0 25px 70px rgba(15, 23, 42, .4);
+    animation: confirmSlide-b-wuprdo0uk4 .22s cubic-bezier(.4, 0, .2, 1);
+}
+
+@keyframes confirmSlide-b-wuprdo0uk4 {
+    from {
+        transform: translateY(20px) scale(.96);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
+}
+
+.confirm-header[b-wuprdo0uk4] {
+    padding: 1.5rem 1.5rem 1.25rem;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: .65rem;
+    text-align: center;
+}
+
+    .confirm-header i[b-wuprdo0uk4] {
+        font-size: 2.5rem;
+        opacity: .95;
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,.2));
+    }
+
+    .confirm-header h3[b-wuprdo0uk4] {
+        margin: 0;
+        font-size: 1.15rem;
+        font-weight: 700;
+        letter-spacing: -.3px;
+    }
+
+.confirm-body[b-wuprdo0uk4] {
+    padding: 1.5rem 1.75rem;
+    text-align: center;
+}
+
+    .confirm-body p[b-wuprdo0uk4] {
+        margin: 0;
+        color: #475569;
+        font-size: .95rem;
+        line-height: 1.55;
+    }
+
+.confirm-footer[b-wuprdo0uk4] {
+    display: flex;
+    gap: .65rem;
+    padding: 0 1.5rem 1.35rem;
+}
+
+.btn-confirm-cancel[b-wuprdo0uk4],
+.btn-confirm-ok[b-wuprdo0uk4] {
+    flex: 1;
+    padding: .7rem 1.2rem;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: .9rem;
+    cursor: pointer;
+    border: none;
+    transition: all .15s ease;
+    font-family: inherit;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-confirm-cancel[b-wuprdo0uk4] {
+    background: #f1f5f9;
+    color: #475569;
+}
+
+    .btn-confirm-cancel:hover[b-wuprdo0uk4] {
+        background: #e2e8f0;
+        color: #334155;
+    }
+
+.btn-confirm-ok[b-wuprdo0uk4] {
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(79, 70, 229, .3);
+}
+
+    .btn-confirm-ok:hover[b-wuprdo0uk4] {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(79, 70, 229, .4);
+    }
+
+    .btn-confirm-ok.peligroso[b-wuprdo0uk4] {
+        box-shadow: 0 4px 12px rgba(220, 38, 38, .3);
+    }

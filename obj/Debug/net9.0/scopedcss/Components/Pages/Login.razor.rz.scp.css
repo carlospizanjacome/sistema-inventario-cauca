@@ -1,0 +1,194 @@
+/* CONTENEDOR PRINCIPAL */
+.login-container[b-uw6fc3ptkg] {
+    display: flex;
+    min-height: 100vh;
+    width: 100vw;
+    background-color: #f8fafc;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    overflow: hidden;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 9999;
+}
+
+/* MARCO INSTITUCIONAL DE LA ALCALDÍA */
+.brand-panel[b-uw6fc3ptkg] {
+    position: relative;
+    flex: 1.2;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 60px;
+    background-image: linear-gradient(135deg, #b91c1c 0%, #1e3a8a 100%);
+    color: #ffffff;
+}
+
+@media (max-width: 900px) {
+    .brand-panel[b-uw6fc3ptkg] {
+        display: none;
+    }
+}
+
+.brand-overlay[b-uw6fc3ptkg] {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(circle at 20% 30%, rgba(255,255,255,0.08) 0%, transparent 60%);
+    pointer-events: none;
+}
+
+.brand-content h1[b-uw6fc3ptkg] {
+    font-size: 2.6rem;
+    font-weight: 800;
+    margin: 0 0 6px 0;
+    color: #ffffff;
+}
+
+.brand-content h2[b-uw6fc3ptkg] {
+    font-size: 1.45rem;
+    font-weight: 400;
+    margin: 0 0 24px 0;
+    color: #f3f4f6;
+}
+
+.brand-content p[b-uw6fc3ptkg] {
+    font-size: 1.05rem;
+    line-height: 1.6;
+    color: #e5e7eb;
+}
+
+.brand-footer[b-uw6fc3ptkg] {
+    position: absolute;
+    bottom: 40px;
+    left: 60px;
+    font-size: 0.85rem;
+    color: #d1d5db;
+}
+
+/* MARCO DERECHO DEL FORMULARIO Y TEXTOS */
+.form-panel[b-uw6fc3ptkg] {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+}
+
+.form-container-box[b-uw6fc3ptkg] {
+    width: 100%;
+    max-width: 440px;
+    background: #ffffff;
+    padding: 50px 40px;
+    border-radius: 16px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    border: 1px solid #e2e8f0;
+}
+
+.form-header h2[b-uw6fc3ptkg] {
+    font-size: 1.85rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0 0 6px 0;
+    letter-spacing: -0.5px;
+}
+
+.form-header p[b-uw6fc3ptkg] {
+    font-size: 0.9rem;
+    color: #64748b;
+    margin: 0 0 28px 0;
+}
+
+.form-group-custom[b-uw6fc3ptkg] {
+    margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+}
+
+.input-title-label[b-uw6fc3ptkg] {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #475569;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.input-with-icon[b-uw6fc3ptkg] {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+.input-icon-inner[b-uw6fc3ptkg] {
+    position: absolute;
+    left: 14px;
+    color: #94a3b8;
+    font-size: 1rem;
+    z-index: 10;
+    pointer-events: none;
+}
+
+/* SELECTOR PROFUNDO PARA RE-ESTILIZAR LOS COMPONENTES DE BLAZOR */
+[b-uw6fc3ptkg] .modern-input-field {
+    width: 100% !important;
+    padding: 13px 16px 13px 42px !important; /* Espacio exacto a la izquierda para el icono */
+    border-radius: 8px !important;
+    border: 1px solid #cbd5e1 !important;
+    background-color: #ffffff !important;
+    font-size: 0.95rem !important;
+    color: #0f172a !important;
+    box-sizing: border-box !important;
+    transition: all 0.15s ease-in-out !important;
+}
+
+    [b-uw6fc3ptkg] .modern-input-field:focus {
+        outline: none !important;
+        border-color: #1e3a8a !important;
+        box-shadow: 0 0 0 4px rgba(30, 58, 138, 0.1) !important;
+    }
+
+/* COMPONENTE DE VALIDACIÓN DE ERRORES DE BLAZOR */
+[b-uw6fc3ptkg] .validation-error-message {
+    font-size: 0.8rem !important;
+    color: #ef4444 !important;
+    margin-top: 6px !important;
+    display: block !important;
+    font-weight: 500 !important;
+}
+
+/* BOTÓN DE ACCIÓN Y ALERTAS */
+.modern-btn-primary[b-uw6fc3ptkg] {
+    width: 100%;
+    padding: 14px;
+    background-color: #1e3a8a;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 10px;
+    box-shadow: 0 4px 6px -1px rgba(30, 58, 138, 0.2);
+    transition: background-color 0.2s;
+}
+
+    .modern-btn-primary:hover[b-uw6fc3ptkg] {
+        background-color: #172554;
+    }
+
+.modern-alert-error[b-uw6fc3ptkg] {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background-color: #fef2f2;
+    border: 1px solid #fee2e2;
+    color: #991b1b;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    margin-bottom: 24px;
+}

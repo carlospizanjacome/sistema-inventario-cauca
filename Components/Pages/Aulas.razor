@@ -1,0 +1,229 @@
+﻿@page "/aulas"
+@using Almacen.DTOs
+@using Almacen.Interfaces
+@using Almacen.Services
+@inject IAulaRepository AulaRepo
+@inject IBloqueRepository BloqueRepo
+@inject ToastService Toast
+@inject IJSRuntime JS
+
+<PageTitle>Aulas · Almacén</PageTitle>
+
+<div class="page-container">
+
+    <div class="page-header">
+        <div>
+            <h1><i class="bi bi-door-open"></i> Aulas y Espacios</h1>
+            <p class="subtitle">Aulas, laboratorios, oficinas y demás espacios físicos</p>
+        </div>
+    </div>
+
+    <div class="card-form">
+        <h3>
+            <i class="bi bi-@(_editando ? "pencil-square" : "plus-circle")"></i>
+            @(_editando ? "Editar Aula" : "Nueva Aula")
+        </h3>
+
+        <EditForm Model="_model" OnValidSubmit="Guardar">
+            <DataAnnotationsValidator />
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Bloque *</label>
+                    <InputSelect @bind-Value="_model.BloqueId" class="form-control">
+                        <option value="0">— Seleccione —</option>
+                        @foreach (var b in _bloques)
+                        {
+                            <option value="@b.Id">
+                                @b.InstitucionNombre / @b.SedeNombre / @b.Nombre
+                            </option>
+                        }
+                    </InputSelect>
+                    <ValidationMessage For="() => _model.BloqueId" />
+                </div>
+
+                <div class="form-group">
+                    <label>Nombre *</label>
+                    <InputText @bind-Value="_model.Nombre" class="form-control"
+                               placeholder="Ej: Aula 101" />
+                    <ValidationMessage For="() => _model.Nombre" />
+                </div>
+
+                <div class="form-group">
+                    <label>Tipo</label>
+                    <InputSelect @bind-Value="_model.Tipo" class="form-control">
+                        <option value="Aula">Aula</option>
+                        <option value="Laboratorio">Laboratorio</option>
+                        <option value="Oficina">Oficina</option>
+                        <option value="Bodega">Bodega</option>
+                        <option value="Biblioteca">Biblioteca</option>
+                        <option value="Baño">Baño</option>
+                        <option value="Otro">Otro</option>
+                    </InputSelect>
+                </div>
+
+                <div class="form-group">
+                    <label>Capacidad</label>
+                    <InputNumber @bind-Value="_model.Capacidad" class="form-control" />
+                    <ValidationMessage For="() => _model.Capacidad" />
+                </div>
+
+                <div class="form-group checkbox-group">
+                    <label>
+                        <InputCheckbox @bind-Value="_model.Activo" />
+                        Activa
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn-primary">
+                    <i class="bi bi-check-lg"></i>
+                    @(_editando ? "Actualizar" : "Guardar")
+                </button>
+                @if (_editando)
+                {
+                    <button type="button" class="btn-secondary" @onclick="Cancelar">
+                        <i class="bi bi-x-lg"></i> Cancelar
+                    </button>
+                }
+            </div>
+        </EditForm>
+    </div>
+
+    <div class="card-table">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Bloque</th>
+                    <th>Aula</th>
+                    <th>Tipo</th>
+                    <th>Capacidad</th>
+                    <th>Estado</th>
+                    <th class="text-end">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (_aulas.Count == 0)
+                {
+                    <tr><td colspan="6" class="empty">Sin aulas registradas.</td></tr>
+                }
+                else
+                {
+                    @foreach (var a in _aulas)
+                    {
+                        <tr>
+                            <td>@a.InstitucionNombre / @a.SedeNombre / @a.BloqueNombre</td>
+                            <td><strong>@a.Nombre</strong></td>
+                            <td>@a.Tipo</td>
+                            <td>@a.Capacidad</td>
+                            <td>
+                                <span class="badge @(a.Activo ? "badge-ok" : "badge-off")">
+                                    @(a.Activo ? "Activa" : "Inactiva")
+                                </span>
+                            </td>
+                            <td class="text-end">
+                                <button class="btn-icon" @onclick="() => Editar(a)" title="Editar">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn-icon danger" @onclick="() => Eliminar(a)" title="Eliminar">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@code {
+    private List<AulaDTO> _aulas = new();
+    private List<BloqueDTO> _bloques = new();
+    private AulaDTO _model = new();
+    private bool _editando = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _bloques = (await BloqueRepo.ObtenerTodosAsync()).ToList();
+        await Cargar();
+    }
+
+    private async Task Cargar()
+        => _aulas = (await AulaRepo.ObtenerTodasAsync()).ToList();
+
+    private async Task Guardar()
+    {
+        if (_model.BloqueId <= 0)
+        {
+            Toast.Error("Debe seleccionar un bloque.");
+            return;
+        }
+
+        try
+        {
+            if (_editando)
+            {
+                await AulaRepo.ActualizarAsync(_model);
+                Toast.Exito("Aula actualizada correctamente");
+            }
+            else
+            {
+                await AulaRepo.CrearAsync(_model);
+                Toast.Exito("Aula creada correctamente");
+            }
+
+            Cancelar();
+            await Cargar();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+    }
+
+    private void Editar(AulaDTO a)
+    {
+        _model = new AulaDTO
+        {
+            Id = a.Id,
+            BloqueId = a.BloqueId,
+            Nombre = a.Nombre,
+            Tipo = a.Tipo,
+            Capacidad = a.Capacidad,
+            Activo = a.Activo
+        };
+        _editando = true;
+    }
+
+    private void Cancelar()
+    {
+        _model = new AulaDTO();
+        _editando = false;
+    }
+
+    private async Task Eliminar(AulaDTO a)
+    {
+        var ok = await JS.InvokeAsync<bool>("confirm",
+            $"¿Eliminar el aula '{a.Nombre}'?");
+        if (!ok) return;
+
+        if (await AulaRepo.TieneBienesAsync(a.Id))
+        {
+            Toast.Error("No se puede eliminar: el aula tiene bienes asignados.");
+            return;
+        }
+
+        try
+        {
+            await AulaRepo.EliminarAsync(a.Id);
+            Toast.Exito("Aula eliminada correctamente");
+            await Cargar();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+    }
+}

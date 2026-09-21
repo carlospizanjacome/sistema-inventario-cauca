@@ -1,0 +1,302 @@
+﻿@page "/instituciones"
+@rendermode InteractiveServer
+
+@using Almacen.DTOs
+@using Almacen.Interfaces
+@using Almacen.Services
+@using Microsoft.AspNetCore.Components.Forms
+
+@inject IInstitucionRepository InstRepo
+@inject UsuarioSesionService Sesion
+@inject SeguridadService Seguridad
+@inject NavigationManager Navigation
+@inject ToastService Toast
+@inject ConfirmService Confirm
+
+<PageTitle>Instituciones · Almacén</PageTitle>
+
+<div class="page-container">
+
+    <div class="page-header">
+        <div>
+            <h1><i class="bi bi-bank"></i> Instituciones Educativas</h1>
+            <p class="subtitle">Registro de IE administradas por el sistema</p>
+        </div>
+        @if (Sesion.EsSuperAdmin)
+        {
+            <span class="badge-super">🔑 Super-Admin</span>
+        }
+    </div>
+
+    <div class="card-form">
+        <h3>
+            <i class="bi bi-@(_editando ? "pencil-square" : "plus-circle")"></i>
+            @(_editando ? "Editar Institución" : "Nueva Institución")
+        </h3>
+
+        <EditForm @key="institucionEditandoId" Model="_model" OnValidSubmit="Guardar">
+            <DataAnnotationsValidator />
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Nombre *</label>
+                    <div class="input-modern">
+                        <i class="bi bi-bank"></i>
+                        <InputText class="form-control" @bind-Value="_model.Nombre" placeholder="Ej: IE Ciudad de Popayán" />
+                    </div>
+                    <ValidationMessage For="() => _model.Nombre" />
+                </div>
+
+                <div class="form-group">
+                    <label>NIT</label>
+                    <div class="input-modern">
+                        <i class="bi bi-hash"></i>
+                        <InputText class="form-control" @bind-Value="_model.Nit" placeholder="900123456-7" />
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Código DANE</label>
+                    <div class="input-modern">
+                        <i class="bi bi-bookmark"></i>
+                        <InputText class="form-control" @bind-Value="_model.CodigoDane" />
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Rector</label>
+                    <div class="input-modern">
+                        <i class="bi bi-person-badge"></i>
+                        <InputText class="form-control" @bind-Value="_model.Rector" />
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Dirección</label>
+                    <div class="input-modern">
+                        <i class="bi bi-geo-alt"></i>
+                        <InputText class="form-control" @bind-Value="_model.Direccion" />
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Teléfono</label>
+                    <div class="input-modern">
+                        <i class="bi bi-telephone"></i>
+                        <InputText class="form-control" @bind-Value="_model.Telefono" />
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Email</label>
+                    <div class="input-modern">
+                        <i class="bi bi-envelope"></i>
+                        <InputText class="form-control" type="email" @bind-Value="_model.Email" />
+                    </div>
+                    <ValidationMessage For="() => _model.Email" />
+                </div>
+
+                <div class="form-group checkbox-group">
+                    <label>
+                        <InputCheckbox @bind-Value="_model.Activo" />
+                        Activa
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                @if (_editando)
+                {
+                    <button type="button" class="btn btn-cancel" @onclick="Cancelar">
+                        <i class="bi bi-x-lg"></i> Cancelar
+                    </button>
+                }
+                <button type="submit" class="btn btn-save">
+                    <i class="bi @(_editando ? "bi-check-circle-fill" : "bi-save-fill")"></i>
+                    @(_editando ? "Actualizar" : "Guardar")
+                </button>
+            </div>
+        </EditForm>
+    </div>
+
+    <div class="card-table">
+        <div class="table-responsive">
+            <table class="table modern-table">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>NIT</th>
+                        <th>DANE</th>
+                        <th>Rector</th>
+                        <th>Contacto</th>
+                        <th>Estado</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (_instituciones == null)
+                    {
+                        <tr><td colspan="7" class="text-center py-3">Cargando...</td></tr>
+                    }
+                    else if (!_instituciones.Any())
+                    {
+                        <tr><td colspan="7" class="text-center py-3">Sin instituciones registradas.</td></tr>
+                    }
+                    else
+                    {
+                        @foreach (var i in _instituciones)
+                        {
+                            <tr class="table-row-hover">
+                                <td><strong>@i.Nombre</strong></td>
+                                <td><code>@i.Nit</code></td>
+                                <td>@i.CodigoDane</td>
+                                <td>@i.Rector</td>
+                                <td>
+                                    <div class="contact-cell">
+                                        @if (!string.IsNullOrEmpty(i.Telefono))
+                                        {
+                                            <span><i class="bi bi-telephone"></i> @i.Telefono</span>
+                                        }
+                                        @if (!string.IsNullOrEmpty(i.Email))
+                                        {
+                                            <span><i class="bi bi-envelope"></i> @i.Email</span>
+                                        }
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge @(i.Activo ? "badge-ok" : "badge-off")">
+                                        @(i.Activo ? "Activa" : "Inactiva")
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    <button class="btn-icon me-1" @onclick="() => Editar(i)">
+                                        <i class="bi bi-pencil-fill"></i>
+                                    </button>
+                                    <button class="btn-icon danger" @onclick="() => Eliminar(i)">
+                                        <i class="bi bi-trash-fill"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<InstitucionDTO>? _instituciones;
+    private InstitucionDTO _model = new();
+    private bool _editando = false;
+    private int institucionEditandoId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Solo super-admin puede ver TODAS las IE
+        // Los demás solo ven la suya (filtrado por el repositorio)
+        await Cargar();
+    }
+
+    private async Task Cargar()
+        => _instituciones = (await InstRepo.ObtenerTodasAsync()).ToList();
+
+    private async Task Guardar()
+    {
+        // Solo super-admin puede crear/editar instituciones
+        if (!Sesion.EsSuperAdmin)
+        {
+            Toast.Error("Solo el super-administrador puede gestionar instituciones.");
+            return;
+        }
+
+        // Validar NIT único
+        if (!string.IsNullOrWhiteSpace(_model.Nit))
+        {
+            if (await InstRepo.ExisteNitAsync(_model.Nit, _editando ? institucionEditandoId : null))
+            {
+                Toast.Error($"El NIT '{_model.Nit}' ya está registrado.");
+                return;
+            }
+        }
+
+        try
+        {
+            if (_editando)
+            {
+                await InstRepo.ActualizarAsync(_model);
+                Toast.Exito("Institución actualizada correctamente");
+            }
+            else
+            {
+                await InstRepo.CrearAsync(_model);
+                Toast.Exito("Institución creada correctamente");
+            }
+
+            Cancelar();
+            await Cargar();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+    }
+
+    private void Editar(InstitucionDTO i)
+    {
+        if (!Sesion.EsSuperAdmin) return;
+
+        _editando = true;
+        institucionEditandoId = i.Id;
+
+        _model.Id = i.Id;
+        _model.Nombre = i.Nombre;
+        _model.Nit = i.Nit;
+        _model.CodigoDane = i.CodigoDane;
+        _model.Direccion = i.Direccion;
+        _model.Telefono = i.Telefono;
+        _model.Email = i.Email;
+        _model.Rector = i.Rector;
+        _model.Activo = i.Activo;
+
+        StateHasChanged();
+    }
+
+    private async Task Eliminar(InstitucionDTO i)
+    {
+        if (!Sesion.EsSuperAdmin)
+        {
+            Toast.Error("Solo el super-administrador puede eliminar instituciones.");
+            return;
+        }
+
+        var ok = await Confirm.Peligroso(
+            $"¿Eliminar la institución '{i.Nombre}'? Esta acción no se puede deshacer.");
+        if (!ok) return;
+
+        if (await InstRepo.TieneSedesAsync(i.Id))
+        {
+            Toast.Error("No se puede eliminar: la institución tiene sedes asociadas.");
+            return;
+        }
+
+        try
+        {
+            await InstRepo.EliminarAsync(i.Id);
+            Toast.Exito("Institución eliminada correctamente");
+            await Cargar();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+    }
+
+    private void Cancelar()
+    {
+        _model = new InstitucionDTO();
+        _editando = false;
+        institucionEditandoId = 0;
+        StateHasChanged();
+    }
+}

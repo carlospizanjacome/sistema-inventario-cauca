@@ -1,0 +1,463 @@
+﻿@page "/traslados"
+@rendermode InteractiveServer
+
+@using Almacen.DTOs
+@using Almacen.Interfaces
+@using Almacen.Models
+@using Almacen.Services
+@using Almacen.Helpers
+@using Almacen.Components.Shared
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
+
+@inject ITrasladoRepository TrasladoRepo
+@inject IBienRepository BienRepo
+@inject IAulaRepository AulaRepo
+@inject IFuncionarioRepository FuncRepo
+@inject IJSRuntime JS
+@inject SeguridadService Seguridad
+@inject NavigationManager Navigation
+@inject ToastService Toast
+@inject ConfirmService Confirm
+
+<PageTitle>Traslados · Almacén</PageTitle>
+
+<div class="usuarios-page usuarios-fullscreen">
+
+    <div class="modern-card panel-formulario">
+
+        <div class="card-top-compact d-flex align-items-center gap-2 mb-2 pb-2 border-bottom">
+            <div class="card-icon-small-inline">
+                <i class="bi @(editando ? "bi-pencil-square" : "bi-arrow-left-right")" style="color: #7c3aed; font-size: 1.1rem;"></i>
+            </div>
+            <div class="d-flex align-items-baseline gap-2">
+                <h5 class="m-0 fw-bold text-dark" style="font-size: 1rem;">@(editando ? "Ver Traslado" : "Nuevo Traslado")</h5>
+                <span class="text-muted d-none d-sm-inline" style="font-size: 0.75rem;">| Movimientos internos de bienes entre aulas</span>
+            </div>
+        </div>
+
+        @if (!editando)
+        {
+            <div class="alert alert-info mb-3" style="font-size:0.85rem; background:#eff6ff; border-color:#bfdbfe; color:#1e40af;">
+                <i class="bi bi-info-circle me-1"></i>
+                Al seleccionar el bien se cargará automáticamente su ubicación y responsable actuales.
+            </div>
+        }
+
+        <EditForm @key="trasladoEditandoId" Model="trasladoDTO" OnValidSubmit="Guardar">
+            <DataAnnotationsValidator />
+
+            <div class="container-fluid p-0">
+
+                <div class="row g-2 mb-2">
+                    <div class="col-md-4">
+                        <div class="modern-group">
+                            <label>Bien *</label>
+                            <div class="input-modern">
+                                <i class="bi bi-box-seam"></i>
+                                <select class="form-select"
+                                        value="@trasladoDTO.BienId"
+                                        @onchange="CambioBien"
+                                        disabled="@editando">
+                                    <option value="0">— Seleccione bien —</option>
+                                    @foreach (var b in bienes)
+                                    {
+                                        <option value="@b.Id">@b.Codigo — @b.Nombre</option>
+                                    }
+                                </select>
+                            </div>
+                            <ValidationMessage For="() => trasladoDTO.BienId" />
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="modern-group">
+                            <label>Fecha Traslado *</label>
+                            <div class="input-modern">
+                                <i class="bi bi-calendar-event"></i>
+                                <InputDate class="form-control" @bind-Value="trasladoDTO.FechaTraslado" disabled="@editando" />
+                            </div>
+                            <ValidationMessage For="() => trasladoDTO.FechaTraslado" />
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="modern-group">
+                            <label>Aula Destino *</label>
+                            <div class="input-modern">
+                                <i class="bi bi-door-open"></i>
+                                <InputSelect class="form-select" @bind-Value="trasladoDTO.AulaDestinoId" disabled="@editando">
+                                    <option value="0">— Seleccione aula —</option>
+                                    @foreach (var a in aulas)
+                                    {
+                                        <option value="@a.Id">@a.InstitucionNombre / @a.SedeNombre / @a.BloqueNombre / @a.Nombre</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                            <ValidationMessage For="() => trasladoDTO.AulaDestinoId" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-2 mb-2">
+                    <div class="col-md-4">
+                        <div class="modern-group">
+                            <label>Aula Origen</label>
+                            <div class="input-modern readonly-field">
+                                <i class="bi bi-geo-alt-fill"></i>
+                                <span class="readonly-value">@_aulaOrigenNombre</span>
+                            </div>
+                            <small class="text-muted" style="font-size:0.72rem;">Detectado del bien actual</small>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="modern-group">
+                            <label>Funcionario Anterior</label>
+                            <div class="input-modern readonly-field">
+                                <i class="bi bi-person-dash-fill"></i>
+                                <span class="readonly-value">@_funcionarioAnteriorNombre</span>
+                            </div>
+                            <small class="text-muted" style="font-size:0.72rem;">Detectado del bien actual</small>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="modern-group">
+                            <label>Funcionario Nuevo</label>
+                            <div class="input-modern">
+                                <i class="bi bi-person-check-fill"></i>
+                                <InputSelect class="form-select" @bind-Value="trasladoDTO.FuncionarioNuevoId" disabled="@editando">
+                                    <option value="">— Sin asignar —</option>
+                                    @foreach (var f in funcionarios)
+                                    {
+                                        <option value="@f.Id">@f.NombreCompleto (@f.Cedula)</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-2 mb-2">
+                    <div class="col-md-12">
+                        <div class="modern-group">
+                            <label>Motivo del Traslado</label>
+                            <InputTextArea class="form-control" rows="2" @bind-Value="trasladoDTO.Motivo" disabled="@editando" />
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="d-flex gap-2 mt-3 justify-content-end">
+                @if (editando)
+                {
+                    <button type="button" class="btn btn-cancel px-4" @onclick="Cancelar">
+                        <i class="bi bi-x-circle me-2"></i> Cerrar
+                    </button>
+                }
+                else
+                {
+                    <button type="submit" class="btn btn-save px-4" style="background:#7c3aed;">
+                        <i class="bi bi-arrow-left-right me-2"></i>
+                        Registrar Traslado
+                    </button>
+                }
+            </div>
+        </EditForm>
+    </div>
+
+    <!-- ═══════════ TABLA CON PAGINACIÓN ═══════════ -->
+    <div class="modern-card panel-tabla-elastic position-relative">
+
+        <div class="filtros-tabla">
+            <div class="filtro-busqueda">
+                <i class="bi bi-search"></i>
+                <input type="text"
+                       placeholder="Buscar por bien o motivo…"
+                       @bind="_filtroTexto"
+                       @bind:event="oninput"
+                       @bind:after="BuscarConDebounce" />
+                @if (!string.IsNullOrEmpty(_filtroTexto))
+                {
+                    <button class="filtro-clear" @onclick="LimpiarFiltro" title="Limpiar">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                }
+            </div>
+            <div class="filtro-info">
+                <span class="badge-total">
+                    <i class="bi bi-arrow-left-right"></i>
+                    <strong>@(_pagina?.TotalRegistros ?? 0)</strong> traslados
+                </span>
+            </div>
+        </div>
+
+        <div class="table-responsive style-scrollbar">
+            <table class="table modern-table align-middle m-0">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Bien</th>
+                        <th>Aula Origen</th>
+                        <th>Aula Destino</th>
+                        <th>Func. Anterior</th>
+                        <th>Func. Nuevo</th>
+                        <th>Motivo</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (_pagina is null)
+                    {
+                        <tr><td colspan="8" class="text-center py-3 text-muted">
+                            <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                            Cargando...
+                        </td></tr>
+                    }
+                    else if (!_pagina.Items.Any())
+                    {
+                        <tr><td colspan="8" class="text-center py-3 text-muted">Sin traslados registrados.</td></tr>
+                    }
+                    else
+                    {
+                        @foreach (var t in _pagina.Items)
+                        {
+                            <tr class="table-row-hover">
+                                <td>@t.FechaTraslado?.ToString("dd/MM/yyyy")</td>
+                                <td><code>@t.BienCodigo</code> @t.BienNombre</td>
+                                <td>@(t.AulaOrigenNombre ?? "—")</td>
+                                <td><strong>@t.AulaDestinoNombre</strong></td>
+                                <td>@(t.FuncionarioAnteriorNombre ?? "—")</td>
+                                <td>@(t.FuncionarioNuevoNombre ?? "—")</td>
+                                <td>@t.Motivo</td>
+                                <td class="text-center">
+                                    @if (puedeEliminar)
+                                    {
+                                        <button class="btn-icon danger" @onclick="() => Eliminar(t)">
+                                            <i class="bi bi-trash-fill"></i>
+                                        </button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (_pagina is not null && _pagina.TotalRegistros > 0)
+        {
+            <Paginador T="TrasladoDTO"
+                       Resultado="_pagina"
+                       OnCambioPagina="CambioPagina"
+                       OnCambioTamano="CambioTamano" />
+        }
+    </div>
+</div>
+
+@code {
+    private ResultadoPaginado<TrasladoDTO>? _pagina;
+    private IEnumerable<Bien> bienes = [];
+    private IEnumerable<AulaDTO> aulas = [];
+    private IEnumerable<FuncionarioDTO> funcionarios = [];
+
+    private TrasladoDTO trasladoDTO = new();
+    private bool editando = false;
+    private int trasladoEditandoId;
+
+    private string _aulaOrigenNombre = "— Sin ubicación previa —";
+    private string _funcionarioAnteriorNombre = "— Sin responsable previo —";
+
+    private int _paginaActual = 1;
+    private int _tamanoPagina = 25;
+    private string _filtroTexto = string.Empty;
+    private CancellationTokenSource? _debounceCts;
+
+    private bool puedeCrear;
+    private bool puedeEditar;
+    private bool puedeEliminar;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await Seguridad.TienePermisoAsync("traslados.ver"))
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+
+        puedeCrear = await Seguridad.TienePermisoAsync("traslados.crear");
+        puedeEditar = await Seguridad.TienePermisoAsync("traslados.editar");
+        puedeEliminar = await Seguridad.TienePermisoAsync("traslados.eliminar");
+
+        bienes = await BienRepo.ObtenerTodosAsync();
+        aulas = await AulaRepo.ObtenerTodasAsync();
+        funcionarios = await FuncRepo.ObtenerTodosAsync();
+
+        await Cargar();
+    }
+
+    private async Task Cargar()
+    {
+        _pagina = await TrasladoRepo.ObtenerPaginadoAsync(
+            _paginaActual,
+            _tamanoPagina,
+            string.IsNullOrWhiteSpace(_filtroTexto) ? null : _filtroTexto);
+    }
+
+    private async Task CambioPagina(int nuevaPagina)
+    {
+        _paginaActual = nuevaPagina;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task CambioTamano(int nuevoTamano)
+    {
+        _tamanoPagina = nuevoTamano;
+        _paginaActual = 1;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task BuscarConDebounce()
+    {
+        _debounceCts?.Cancel();
+        _debounceCts = new CancellationTokenSource();
+        var token = _debounceCts.Token;
+
+        try
+        {
+            await Task.Delay(350, token);
+            if (token.IsCancellationRequested) return;
+
+            _paginaActual = 1;
+            await Cargar();
+            StateHasChanged();
+        }
+        catch (TaskCanceledException) { }
+    }
+
+    private async Task LimpiarFiltro()
+    {
+        _filtroTexto = string.Empty;
+        _paginaActual = 1;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task CambioBien(ChangeEventArgs e)
+    {
+        var bienId = Convert.ToInt32(e.Value);
+        if (bienId <= 0)
+        {
+            trasladoDTO.AulaOrigenId = null;
+            trasladoDTO.FuncionarioAnteriorId = null;
+            trasladoDTO.BienId = 0;
+            _aulaOrigenNombre = "— Sin ubicación previa —";
+            _funcionarioAnteriorNombre = "— Sin responsable previo —";
+            StateHasChanged();
+            return;
+        }
+
+        trasladoDTO.BienId = bienId;
+
+        var (aulaId, funcId) = await TrasladoRepo.ObtenerUbicacionActualAsync(bienId);
+        trasladoDTO.AulaOrigenId = aulaId;
+        trasladoDTO.FuncionarioAnteriorId = funcId;
+
+        var aula = aulas.FirstOrDefault(a => a.Id == aulaId);
+        var func = funcionarios.FirstOrDefault(f => f.Id == funcId);
+
+        _aulaOrigenNombre = aula != null
+            ? $"{aula.InstitucionNombre} / {aula.SedeNombre} / {aula.BloqueNombre} / {aula.Nombre}"
+            : "— Sin ubicación previa —";
+
+        _funcionarioAnteriorNombre = func != null
+            ? $"{func.NombreCompleto} ({func.Cedula})"
+            : "— Sin responsable previo —";
+
+        StateHasChanged();
+    }
+
+    private async Task Guardar()
+    {
+        if (!puedeCrear)
+        {
+            Toast.Error("No tiene permiso para registrar traslados.");
+            return;
+        }
+
+        if (trasladoDTO.BienId <= 0)
+        {
+            Toast.Error("Debe seleccionar un bien.");
+            return;
+        }
+
+        if (trasladoDTO.AulaDestinoId <= 0)
+        {
+            Toast.Error("Debe seleccionar un aula destino.");
+            return;
+        }
+
+        if (trasladoDTO.AulaOrigenId == trasladoDTO.AulaDestinoId &&
+            trasladoDTO.FuncionarioAnteriorId == trasladoDTO.FuncionarioNuevoId)
+        {
+            Toast.Error("El aula y funcionario destino son iguales a los actuales.");
+            return;
+        }
+
+        try
+        {
+            await TrasladoRepo.CrearAsync(trasladoDTO);
+
+            await TrasladoRepo.ActualizarUbicacionBienAsync(
+                trasladoDTO.BienId,
+                trasladoDTO.AulaDestinoId,
+                trasladoDTO.FuncionarioNuevoId);
+
+            Toast.Exito("Traslado registrado. El bien fue actualizado.");
+            Cancelar();
+            await Cargar();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+    }
+
+    private async Task Eliminar(TrasladoDTO t)
+    {
+        if (!puedeEliminar)
+        {
+            Toast.Error("No tiene permiso para eliminar traslados.");
+            return;
+        }
+
+        var ok = await Confirm.Peligroso(
+            "¿Eliminar este traslado del histórico? El bien NO se revertirá automáticamente.");
+        if (!ok) return;
+
+        try
+        {
+            await TrasladoRepo.EliminarAsync(t.Id);
+            Toast.Exito("Traslado eliminado del histórico.");
+            await Cargar();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+    }
+
+    private void Cancelar()
+    {
+        trasladoDTO = new TrasladoDTO { FechaTraslado = DateTime.Today };
+        editando = false;
+        trasladoEditandoId = 0;
+        _aulaOrigenNombre = "— Sin ubicación previa —";
+        _funcionarioAnteriorNombre = "— Sin responsable previo —";
+        StateHasChanged();
+    }
+}

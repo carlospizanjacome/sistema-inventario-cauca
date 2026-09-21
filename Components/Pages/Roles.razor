@@ -1,0 +1,293 @@
+﻿@page "/roles"
+@rendermode InteractiveServer
+
+@using Almacen.Interfaces
+@using Almacen.Models
+@using Almacen.DTOs
+@using Almacen.Services
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
+
+@inject IRolRepository RolRepository
+@inject IJSRuntime JS
+@inject UsuarioSesionService Sesion
+@inject SeguridadService Seguridad
+@inject NavigationManager Navigation
+@inject ToastService Toast
+
+<PageTitle>Roles</PageTitle>
+
+<div class="usuarios-page usuarios-fullscreen">
+
+    <div class="modern-card mb-4">
+        <div class="card-top">
+            <div class="card-icon">
+                <i class="bi @(editando ? "bi-pencil-square" : "bi-person-badge-fill")"></i>
+            </div>
+            <div>
+                <h4 class="card-title">@(editando ? "Editar Rol" : "Nuevo Rol")</h4>
+                <div class="card-subtitle">
+                    @(editando ? "Actualización de información" : "Registro de roles del sistema")
+                </div>
+            </div>
+        </div>
+
+        <EditForm @key="rolEditandoId" Model="rolDTO" OnValidSubmit="GuardarRol">
+            <DataAnnotationsValidator />
+            <div class="container-fluid p-0">
+                <div class="row g-2 mb-3">
+                    <div class="col-12 col-md-6">
+                        <div class="modern-group">
+                            <label>Nombre del Rol</label>
+                            <div class="input-modern">
+                                <i class="bi bi-person-badge-fill"></i>
+                                <InputText class="form-control" @bind-Value="rolDTO.Nombre" />
+                            </div>
+                            <ValidationMessage For="@(() => rolDTO.Nombre)" class="validation-message" />
+                        </div>
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                        <div class="modern-group">
+                            <label>Estado</label>
+                            <div class="input-modern">
+                                <i class="bi bi-check-circle-fill"></i>
+                                <InputSelect class="form-select" @bind-Value="estadoString">
+                                    <option value="true">Activo</option>
+                                    <option value="false">Inactivo</option>
+                                </InputSelect>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-2 mb-3">
+                    <div class="col-12">
+                        <div class="modern-group">
+                            <label>Descripción</label>
+                            <InputTextArea class="form-control" rows="3" @bind-Value="rolDTO.Descripcion" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-3 mt-4">
+                @if ((editando && puedeEditar) || (!editando && puedeCrear))
+                {
+                    <button type="submit" class="btn btn-save px-4">
+                        <i class="bi @(editando ? "bi-check-circle-fill" : "bi-save-fill") me-2"></i>
+                        @(editando ? "Actualizar Rol" : "Guardar Rol")
+                    </button>
+                }
+
+                @if (editando && puedeEditar)
+                {
+                    <button type="button" class="btn btn-cancel px-4" @onclick="CancelarEdicion">
+                        <i class="bi bi-x-circle me-2"></i> Cancelar
+                    </button>
+                }
+            </div>
+        </EditForm>
+    </div>
+
+    <div class="modern-card">
+        <div class="table-responsive">
+            <table class="table modern-table align-middle">
+                <thead>
+                    <tr>
+                        <th>Rol</th>
+                        <th>Descripción</th>
+                        <th>Estado</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (roles == null)
+                    {
+                        <tr><td colspan="4" class="text-center py-5">Cargando roles...</td></tr>
+                    }
+                    else if (!roles.Any())
+                    {
+                        <tr><td colspan="4" class="text-center py-5">No existen roles registrados</td></tr>
+                    }
+                    else
+                    {
+                        @foreach (var rol in roles)
+                        {
+                            <tr>
+                                <td><strong>@rol.Nombre</strong></td>
+                                <td>@rol.Descripcion</td>
+                                <td>
+                                    @if (rol.Activo)
+                                    {
+                                        <span class="status-active">
+                                            <i class="bi bi-check-circle-fill me-1"></i> Activo
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="status-inactive">
+                                            <i class="bi bi-x-circle-fill me-1"></i> Inactivo
+                                        </span>
+                                    }
+                                </td>
+                                <td class="text-center">
+                                    @if (puedeEditar)
+                                    {
+                                        <button type="button" class="btn-action-edit me-2" @onclick="() => EditarRol(rol)">
+                                            <i class="bi bi-pencil-fill"></i>
+                                        </button>
+                                    }
+                                    @if (puedeEliminar)
+                                    {
+                                        <button type="button" class="btn-action-delete" @onclick="() => ConfirmarEliminar(rol.Id)">
+                                            <i class="bi bi-trash-fill"></i>
+                                        </button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@code {
+    private IEnumerable<Rol>? roles;
+    private RolDTO rolDTO = new();
+    private bool editando = false;
+    private int rolEditandoId;
+
+    private bool puedeCrear;
+    private bool puedeEditar;
+    private bool puedeEliminar;
+
+    private string estadoString
+    {
+        get => rolDTO.Activo.ToString().ToLower();
+        set => rolDTO.Activo = bool.Parse(value);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await Seguridad.TienePermisoAsync("roles.ver"))
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+
+        puedeCrear = await Seguridad.TienePermisoAsync("roles.crear");
+        puedeEditar = await Seguridad.TienePermisoAsync("roles.editar");
+        puedeEliminar = await Seguridad.TienePermisoAsync("roles.eliminar");
+
+        await CargarRoles();
+    }
+
+    private async Task CargarRoles()
+    {
+        roles = await RolRepository.ObtenerTodosAsync();
+    }
+
+    private async Task GuardarRol()
+    {
+        if (!editando && !puedeCrear)
+        {
+            Toast.Error("No tiene permiso para crear roles");
+            return;
+        }
+
+        if (editando && !puedeEditar)
+        {
+            Toast.Error("No tiene permiso para editar roles");
+            return;
+        }
+
+        try
+        {
+            if (editando)
+            {
+                await RolRepository.ActualizarAsync(new Rol
+                {
+                    Id = rolEditandoId,
+                    Nombre = rolDTO.Nombre,
+                    Descripcion = rolDTO.Descripcion,
+                    Activo = rolDTO.Activo
+                });
+                Toast.Exito("Rol actualizado correctamente");
+            }
+            else
+            {
+                await RolRepository.CrearAsync(new Rol
+                {
+                    Nombre = rolDTO.Nombre,
+                    Descripcion = rolDTO.Descripcion,
+                    Activo = rolDTO.Activo
+                });
+                Toast.Exito("Rol creado correctamente");
+            }
+
+            LimpiarFormulario();
+            await CargarRoles();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+    }
+
+    private void EditarRol(Rol rol)
+    {
+        if (!puedeEditar) return;
+
+        editando = true;
+        rolEditandoId = rol.Id;
+
+        // Mutar propiedades (NO reemplazar el objeto)
+        rolDTO.Id = rol.Id;
+        rolDTO.Nombre = rol.Nombre;
+        rolDTO.Descripcion = rol.Descripcion;
+        rolDTO.Activo = rol.Activo;
+
+        StateHasChanged();
+    }
+
+    private async Task ConfirmarEliminar(int id)
+    {
+        if (!puedeEliminar) return;
+
+        bool confirmar = await JS.InvokeAsync<bool>("confirm", "¿Desea eliminar este rol?");
+        if (!confirmar) return;
+
+        try
+        {
+            bool eliminado = await RolRepository.EliminarAsync(id);
+            if (eliminado)
+            {
+                Toast.Exito("Rol eliminado correctamente");
+                await CargarRoles();
+            }
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+    }
+
+    private void CancelarEdicion() => LimpiarFormulario();
+
+    private void LimpiarFormulario()
+    {
+        // Mutar propiedades (NO reemplazar el objeto)
+        rolDTO.Id = 0;
+        rolDTO.Nombre = string.Empty;
+        rolDTO.Descripcion = string.Empty;
+        rolDTO.Activo = true;
+
+        editando = false;
+        rolEditandoId = 0;
+
+        StateHasChanged();
+    }
+}

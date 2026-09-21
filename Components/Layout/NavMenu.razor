@@ -1,0 +1,289 @@
+﻿@using Almacen.Services
+@inject UsuarioSesionService Sesion
+@inject NavigationManager Navigation
+@inject SeguridadService Seguridad
+@inject IJSRuntime JS
+
+<div class="sidebar-inner @(Collapsed ? "is-collapsed" : "")">
+
+    <!-- ═══════════ BRAND ═══════════ -->
+    <div class="sidebar-brand">
+        <div class="brand-icon"><i class="bi bi-box-seam-fill"></i></div>
+        <div class="brand-text">
+            <span class="brand-title">Almacén</span>
+            <span class="brand-subtitle">Municipal</span>
+        </div>
+    </div>
+
+    <!-- ═══════════ BUSCADOR ═══════════ -->
+    @if (!Collapsed)
+    {
+        <div class="sidebar-search">
+            <i class="bi bi-search search-icon"></i>
+            <input type="text"
+                   placeholder="Buscar módulo…"
+                   @bind="_filtro"
+                   @bind:event="oninput" />
+            @if (!string.IsNullOrEmpty(_filtro))
+            {
+                <button class="search-clear" @onclick="() => _filtro = string.Empty" title="Limpiar">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            }
+        </div>
+    }
+
+    <!-- ═══════════ NAV ═══════════ -->
+    <nav class="sidebar-nav">
+
+        <!-- Inicio -->
+        <NavLink class="nav-item nav-item-root" href="" Match="NavLinkMatch.All">
+            <i class="bi bi-house-door-fill nav-icon"></i>
+            <span class="nav-text">Inicio</span>
+        </NavLink>
+
+        <!-- ESTRUCTURA -->
+        @RenderSeccion("estructura", "Estructura", "bi-diagram-3", new[]
+        {
+            new ItemMenu("instituciones", "Instituciones",  "bi-bank",          "instituciones.ver"),
+            new ItemMenu("sedes",         "Sedes",          "bi-buildings",     "sedes.ver"),
+            new ItemMenu("bloques",       "Bloques",        "bi-grid-3x3-gap",  "bloques.ver"),
+            new ItemMenu("aulas",         "Aulas",          "bi-door-open",     "aulas.ver"),
+        })
+
+        <!-- INVENTARIO -->
+        @RenderSeccion("inventario", "Inventario", "bi-boxes", new[]
+        {
+            new ItemMenu("categorias",        "Categorías",         "bi-tags-fill",              "categorias.ver"),
+            new ItemMenu("bienes",            "Bienes",             "bi-box-fill",               "bienes.ver"),
+            new ItemMenu("proveedores",       "Proveedores",        "bi-shop",                   "proveedores.ver"),
+            new ItemMenu("inventario-fisico", "Inventario Físico",  "bi-clipboard-check-fill",   "bienes.ver"),
+        })
+
+        <!-- MOVIMIENTOS -->
+        @RenderSeccion("movimientos", "Movimientos", "bi-arrow-left-right", new[]
+        {
+            new ItemMenu("entradas",  "Entradas",   "bi-arrow-down-circle-fill", "entradas.ver"),
+            new ItemMenu("salidas",   "Salidas",    "bi-arrow-up-circle-fill",   "salidas.ver"),
+            new ItemMenu("traslados", "Traslados",  "bi-arrow-left-right",       "traslados.ver"),
+        })
+
+        <!-- PERSONAL -->
+      @RenderSeccion("personal", "Personal", "bi-people", new[]
+        {
+            new ItemMenu("funcionarios",  "Funcionarios",  "bi-person-badge-fill", "funcionarios.ver"),
+            new ItemMenu("cuentandantes", "Cuentandantes", "bi-person-check-fill", "funcionarios.ver"),
+        })
+
+        <!-- CONTABILIDAD -->
+        @RenderSeccion("contabilidad", "Contabilidad", "bi-calculator", new[]
+        {
+            new ItemMenu("depreciacion", "Depreciación", "bi-graph-down-arrow", "depreciacion.ver"),
+        })
+
+        <!-- SEGURIDAD -->
+        @RenderSeccion("seguridad", "Seguridad", "bi-shield-lock", new[]
+        {
+            new ItemMenu("usuarios",    "Usuarios",         "bi-people-fill",         "usuarios.ver"),
+            new ItemMenu("roles",       "Roles",            "bi-person-badge-fill",   "roles.ver"),
+            new ItemMenu("permisos",    "Permisos",         "bi-shield-lock-fill",    "permisos.ver"),
+            new ItemMenu("rol-permisos","Asignar Permisos", "bi-shield-check",        "roles.permisos"),
+        })
+
+        <!-- CONFIGURACIÓN -->
+        @RenderSeccion("configuracion", "Configuración", "bi-gear", new[]
+        {
+            new ItemMenu("vidas-utiles", "Vidas Útiles", "bi-clock-history", "vidas_utiles.ver"),
+        })
+
+    </nav>
+
+    <!-- ═══════════ FOOTER USUARIO ═══════════ -->
+    @if (Sesion.UsuarioActual != null)
+    {
+        <div class="sidebar-footer">
+            <div class="user-card" title="@Sesion.UsuarioActual.NombreCompleto">
+                <div class="user-avatar">@InicialUsuario</div>
+                <div class="user-info">
+                    <div class="user-name">@Sesion.UsuarioActual.NombreCompleto</div>
+                    <div class="user-email">@Sesion.UsuarioActual.Email</div>
+                </div>
+            </div>
+
+            <button class="btn-logout" @onclick="CerrarSesion" title="Cerrar sesión">
+                <i class="bi bi-box-arrow-right"></i>
+                <span class="nav-text">Cerrar sesión</span>
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public bool Collapsed { get; set; }
+
+    private string _filtro = string.Empty;
+    private Dictionary<string, bool> _permisos = new();
+    private Dictionary<string, bool> _seccionesAbiertas = new();
+    private string _rutaActual = "/";
+
+    private record ItemMenu(string Ruta, string Nombre, string Icono, string Permiso);
+
+    private string InicialUsuario =>
+        string.IsNullOrWhiteSpace(Sesion.UsuarioActual?.NombreCompleto)
+            ? "U"
+            : Sesion.UsuarioActual!.NombreCompleto.Substring(0, 1).ToUpper();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var codigos = new[]
+        {
+            "instituciones.ver", "sedes.ver", "bloques.ver", "aulas.ver",
+            "categorias.ver", "bienes.ver", "proveedores.ver", "funcionarios.ver",
+            "entradas.ver", "salidas.ver", "traslados.ver",
+            "depreciacion.ver",
+            "usuarios.ver", "roles.ver", "permisos.ver", "roles.permisos",
+            "vidas_utiles.ver"
+        };
+
+        foreach (var c in codigos)
+            _permisos[c] = await Seguridad.TienePermisoAsync(c);
+
+        _rutaActual = "/" + Navigation.ToBaseRelativePath(Navigation.Uri);
+
+        try
+        {
+            var saved = await JS.InvokeAsync<string?>("almacenLayout.getStorageItem", "sidebarSecciones");
+            if (!string.IsNullOrWhiteSpace(saved))
+            {
+                var dict = System.Text.Json.JsonSerializer
+                    .Deserialize<Dictionary<string, bool>>(saved);
+                if (dict is not null) _seccionesAbiertas = dict;
+            }
+        }
+        catch { }
+
+        AutoAbrirSeccionActual();
+    }
+
+    private void AutoAbrirSeccionActual()
+    {
+        var todas = new Dictionary<string, string[]>
+        {
+            ["estructura"]    = new[] { "instituciones", "sedes", "bloques", "aulas" },
+            ["inventario"]    = new[] { "categorias", "bienes", "proveedores", "inventario-fisico" },
+            ["movimientos"]   = new[] { "entradas", "salidas", "traslados" },
+            ["personal"]      = new[] { "funcionarios" },
+            ["contabilidad"]  = new[] { "depreciacion" },
+            ["seguridad"]     = new[] { "usuarios", "roles", "permisos", "rol-permisos" },
+            ["configuracion"] = new[] { "vidas-utiles" },
+            ["personal"] = new[] { "funcionarios", "cuentandantes" }
+        };
+
+        foreach (var (key, rutas) in todas)
+        {
+            if (rutas.Any(r => _rutaActual.StartsWith($"/{r}", StringComparison.OrdinalIgnoreCase)))
+            {
+                _seccionesAbiertas[key] = true;
+                break;
+            }
+        }
+    }
+
+    private async Task ToggleSeccion(string key)
+    {
+        _seccionesAbiertas[key] = !_seccionesAbiertas.GetValueOrDefault(key, false);
+
+        try
+        {
+            var json = System.Text.Json.JsonSerializer.Serialize(_seccionesAbiertas);
+            await JS.InvokeVoidAsync("almacenLayout.setStorageItem", "sidebarSecciones", json);
+        }
+        catch { }
+    }
+
+    /// <summary>
+    /// Renderiza una sección acordeón. Solo aparece si:
+    /// - El usuario tiene al menos 1 permiso de sus ítems
+    /// - El filtro coincide con al menos 1 ítem (o no hay filtro)
+    /// </summary>
+    private RenderFragment RenderSeccion(string key, string titulo, string icono, ItemMenu[] items) => __builder =>
+    {
+        var visibles = items
+            .Where(i => _permisos.TryGetValue(i.Permiso, out var ok) && ok)
+            .ToList();
+
+        if (visibles.Count == 0) return;
+
+        var filtrando = !string.IsNullOrWhiteSpace(_filtro);
+        var visiblesFiltrados = filtrando
+            ? visibles.Where(i => i.Nombre.Contains(_filtro, StringComparison.OrdinalIgnoreCase)).ToList()
+            : visibles;
+
+        if (filtrando && visiblesFiltrados.Count == 0) return;
+
+        var abierta = filtrando || _seccionesAbiertas.GetValueOrDefault(key, false);
+
+        // ── Encabezado de sección ──
+        __builder.OpenElement(0, "div");
+        __builder.AddAttribute(1, "class", $"nav-section {(abierta ? "is-open" : "")}");
+
+        __builder.OpenElement(2, "button");
+        __builder.AddAttribute(3, "class", "nav-section-header");
+        __builder.AddAttribute(4, "type", "button");
+        __builder.AddAttribute(5, "onclick", Microsoft.AspNetCore.Components.EventCallback.Factory.Create<Microsoft.AspNetCore.Components.Web.MouseEventArgs>(
+            this, () => ToggleSeccion(key)));
+        __builder.AddAttribute(6, "title", titulo);
+
+        __builder.OpenElement(7, "i");
+        __builder.AddAttribute(8, "class", $"bi {icono} section-icon");
+        __builder.CloseElement();
+
+        __builder.OpenElement(9, "span");
+        __builder.AddAttribute(10, "class", "section-title-text");
+        __builder.AddContent(11, titulo);
+        __builder.CloseElement();
+
+        __builder.OpenElement(12, "i");
+        __builder.AddAttribute(13, "class", "bi bi-chevron-right section-chevron");
+        __builder.CloseElement();
+
+        __builder.CloseElement(); // button
+
+        // ── Items ──
+        if (abierta)
+        {
+            __builder.OpenElement(20, "div");
+            __builder.AddAttribute(21, "class", "nav-section-body");
+
+            foreach (var item in visiblesFiltrados)
+            {
+                __builder.OpenComponent<NavLink>(30);
+                __builder.AddAttribute(31, "class", "nav-item nav-item-child");
+                __builder.AddAttribute(32, "href", item.Ruta);
+                __builder.AddAttribute(33, "data-tooltip", item.Nombre);
+                __builder.AddAttribute(34, "ChildContent", (RenderFragment)(b =>
+                {
+                    b.OpenElement(40, "i");
+                    b.AddAttribute(41, "class", $"bi {item.Icono} nav-icon");
+                    b.CloseElement();
+
+                    b.OpenElement(50, "span");
+                    b.AddAttribute(51, "class", "nav-text");
+                    b.AddContent(52, item.Nombre);
+                    b.CloseElement();
+                }));
+                __builder.CloseComponent();
+            }
+
+            __builder.CloseElement(); // nav-section-body
+        }
+
+        __builder.CloseElement(); // nav-section
+    };
+
+    private void CerrarSesion()
+    {
+        Sesion.CerrarSesion();
+        Navigation.NavigateTo("/login", forceLoad: true);
+    }
+}

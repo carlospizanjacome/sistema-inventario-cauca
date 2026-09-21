@@ -1,0 +1,358 @@
+﻿@page "/usuarios"
+@rendermode InteractiveServer
+
+@using Almacen.Interfaces
+@using Almacen.Models
+@using Almacen.DTOs
+@using Almacen.Services
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
+
+@inject PermisoService Permisos
+@inject NavigationManager Navigation
+@inject SeguridadService Seguridad
+@inject IJSRuntime JS
+@inject IUsuarioRepository UsuarioRepository
+@inject IRolRepository RolRepository
+@inject UsuarioSesionService Sesion
+@inject ToastService Toast
+
+
+
+<PageTitle>Usuarios</PageTitle>
+
+<div class="usuarios-page usuarios-fullscreen">
+
+    @if (puedeCrear || editando)
+    {
+        <div class="modern-card mb-3 form-scroll-exclusivo">
+
+            <div class="d-flex align-items-center gap-2 mb-3">
+                <div class="card-icon-small-inline">
+                    <i class="bi @(editando ? "bi-pencil-square" : "bi-person-plus-fill")" style="color: #4f46e5;"></i>
+                </div>
+                <div class="d-flex align-items-baseline gap-2">
+                    <h4 class="card-title m-0" style="font-size: 1.1rem; font-weight: 700;">@(editando ? "Editar Usuario" : "Nuevo Usuario")</h4>
+                    <span class="text-muted" style="font-size: 0.8rem;">— @(editando ? "Actualización de información" : "Registro de usuarios del sistema")</span>
+                </div>
+            </div>
+
+            <EditForm Model="usuarioDTO" OnValidSubmit="GuardarUsuario" style="width: 100%;">
+                <DataAnnotationsValidator />
+
+                <div class="container-fluid p-0">
+
+                    <div class="row g-2 mb-2">
+                        <div class="col-12 col-md-4">
+                            <div class="modern-group">
+                                <label>Nombre Completo</label>
+                                <div class="input-modern">
+                                    <i class="bi bi-person-fill"></i>
+                                    <InputText class="form-control" @bind-Value="usuarioDTO.NombreCompleto" />
+                                </div>
+                                <ValidationMessage For="@(() => usuarioDTO.NombreCompleto)" class="validation-message" />
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-md-4">
+                            <div class="modern-group">
+                                <label>Correo Electrónico</label>
+                                <div class="input-modern">
+                                    <i class="bi bi-envelope-fill"></i>
+                                    <InputText class="form-control" @bind-Value="usuarioDTO.Email" />
+                                </div>
+                                <ValidationMessage For="@(() => usuarioDTO.Email)" class="validation-message" />
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-md-4">
+                            <div class="modern-group">
+                                <label>Contraseña</label>
+                                <div class="input-modern">
+                                    <i class="bi bi-shield-lock-fill"></i>
+                                    <InputText type="password" class="form-control" @bind-Value="usuarioDTO.Password"
+                                               placeholder="@(editando ? "En blanco para mantener" : "")" />
+                                </div>
+                                <ValidationMessage For="@(() => usuarioDTO.Password)" class="validation-message" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-2 align-items-end">
+                        <div class="col-12 col-md-4">
+                            <div class="modern-group">
+                                <label>Estado</label>
+                                <div class="input-modern">
+                                    <i class="bi bi-check-circle-fill"></i>
+                                    <InputSelect class="form-select" @bind-Value="estadoString">
+                                        <option value="true">Activo</option>
+                                        <option value="false">Inactivo</option>
+                                    </InputSelect>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-md-4">
+                            <div class="modern-group">
+                                <label>Rol</label>
+                                <div class="input-modern">
+                                    <i class="bi bi-person-badge-fill"></i>
+                                    <InputSelect class="form-select" @bind-Value="usuarioDTO.RolId">
+                                        <option value="">Seleccione...</option>
+                                        @if (roles != null)
+                                        {
+                                            @foreach (var rol in roles)
+                                            {
+                                                <option value="@rol.Id">@rol.Nombre</option>
+                                            }
+                                        }
+                                    </InputSelect>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-md-4 d-flex justify-content-end">
+                            @if ((editando && puedeEditar) || (!editando && puedeCrear))
+                            {
+                                <button type="submit" class="btn btn-save px-4" style="height: 36px !important; width: auto; min-width: 140px;">
+                                    <i class="bi @(editando ? "bi-check-circle-fill" : "bi-save-fill") me-1"></i>
+                                    @(editando ? "Actualizar" : "Guardar")
+                                </button>
+                            }
+
+                            @if (editando)
+                            {
+                                <button type="button" class="btn btn-cancel px-4 ms-2" @onclick="CancelarEdicion" style="height: 36px !important;">
+                                    <i class="bi bi-x-circle me-1"></i>
+                                    Cancelar
+                                </button>
+                            }
+                        </div>
+                    </div>
+
+                </div>
+            </EditForm>
+        </div>
+    }
+
+    <div class="modern-card tabla-elastic-exclusiva">
+        <div class="tabla-scroll-interno">
+            <table class="table modern-table align-middle" style="min-width: 800px; width: 100%;">
+                <thead>
+                    <tr>
+                        <th>Usuario</th>
+                        <th>Email</th>
+                        <th>Estado</th>
+                        <th>Rol</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (usuarios == null)
+                    {
+                        <tr><td colspan="5" class="text-center py-5">Cargando usuarios...</td></tr>
+                    }
+                    else if (!usuarios.Any())
+                    {
+                        <tr><td colspan="5" class="text-center py-5">No existen usuarios registrados</td></tr>
+                    }
+                    else
+                    {
+                        @foreach (var usuario in usuarios)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="user-cell">
+                                        <div class="avatar-user" style="width: 28px; height: 28px; font-size: 0.8rem; flex-shrink: 0;">
+                                            @(!string.IsNullOrEmpty(usuario.NombreCompleto) ? usuario.NombreCompleto.Substring(0, 1).ToUpper() : "U")
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="user-name">@usuario.NombreCompleto</span>
+                                            <small class="text-muted" style="font-size: 0.75rem;">(ID: @usuario.Id)</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>@usuario.Email</td>
+                                <td>
+                                    @if (usuario.Activo)
+                                    {
+                                        <span class="status-active">
+                                            <i class="bi bi-check-circle-fill me-1"></i> Activo
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="status-inactive">
+                                            <i class="bi bi-x-circle-fill me-1"></i> Inactivo
+                                        </span>
+                                    }
+                                </td>
+                                <td>
+                                    @(string.IsNullOrWhiteSpace(usuario.NombreRol) ? "Sin rol" : usuario.NombreRol)
+                                </td>
+                                <td class="text-center">
+                                    @if (puedeEditar)
+                                    {
+                                        <button type="button" class="btn-action-edit me-2" @onclick="() => EditarUsuario(usuario)">
+                                            <i class="bi bi-pencil-fill"></i>
+                                        </button>
+                                    }
+                                    @if (puedeEliminar)
+                                    {
+                                        <button type="button" class="btn-action-delete" @onclick="() => ConfirmarEliminar(usuario.Id)">
+                                            <i class="bi bi-trash-fill"></i>
+                                        </button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+@code {
+    private IEnumerable<Usuario>? usuarios;
+    private UsuarioDTO usuarioDTO = new();
+    private bool editando = false;
+    private int usuarioEditandoId;
+
+    private bool puedeCrear;
+    private bool puedeEditar;
+    private bool puedeEliminar;
+
+    private IEnumerable<Rol>? roles;
+
+    private string estadoString
+    {
+        get => usuarioDTO.Activo.ToString().ToLower();
+        set => usuarioDTO.Activo = bool.Parse(value);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await Seguridad.TienePermisoAsync("usuarios.ver"))
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        puedeCrear = await Seguridad.TienePermisoAsync("usuarios.crear");
+        puedeEditar = await Seguridad.TienePermisoAsync("usuarios.editar");
+        puedeEliminar = await Seguridad.TienePermisoAsync("usuarios.eliminar");
+
+        await CargarUsuarios();
+
+        roles = await RolRepository.ObtenerTodosAsync();
+    }
+
+    private async Task CargarUsuarios()
+    {
+        usuarios = await UsuarioRepository.ObtenerTodosAsync();
+    }
+
+    private async Task GuardarUsuario()
+    {
+        if (!editando && !puedeCrear) return;
+        if (editando && !puedeEditar) return;
+
+        try
+        {
+            if (editando)
+            {
+                var usuarioActualizar = new Usuario
+                {
+                    Id = usuarioEditandoId,
+                    NombreCompleto = usuarioDTO.NombreCompleto,
+                    Email = usuarioDTO.Email,
+                    PasswordHash = usuarioDTO.Password,
+                    Activo = usuarioDTO.Activo,
+                    RolId = usuarioDTO.RolId
+                };
+
+                await UsuarioRepository.ActualizarAsync(usuarioActualizar);
+                Toast.Exito("Usuario actualizado correctamente");
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(usuarioDTO.Password))
+                {
+                    Toast.Error("La contraseña es requerida.");
+                    return;
+                }
+
+                var usuario = new Usuario
+                {
+                    NombreCompleto = usuarioDTO.NombreCompleto,
+                    Email = usuarioDTO.Email,
+                    PasswordHash = usuarioDTO.Password,
+                    Activo = usuarioDTO.Activo,
+                    RolId = usuarioDTO.RolId
+                };
+
+                await UsuarioRepository.CrearAsync(usuario);
+                Toast.Exito("Usuario creado correctamente");
+            }
+
+            LimpiarFormulario();
+            await CargarUsuarios();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+    }
+
+    private void EditarUsuario(Usuario usuario)
+    {
+        if (!puedeEditar) return;
+
+        editando = true;
+        usuarioEditandoId = usuario.Id;
+
+        usuarioDTO = new UsuarioDTO
+        {
+            Id = usuario.Id,
+            NombreCompleto = usuario.NombreCompleto,
+            Email = usuario.Email,
+            Activo = usuario.Activo,
+            RolId = usuario.RolId,
+            Password = string.Empty
+        };
+    }
+
+    private async Task ConfirmarEliminar(int id)
+    {
+        if (!puedeEliminar) return;
+
+        bool confirmar = await JS.InvokeAsync<bool>("confirm", "¿Desea eliminar este usuario?");
+        if (!confirmar) return;
+
+        try
+        {
+            bool eliminado = await UsuarioRepository.EliminarAsync(id);
+
+            if (eliminado)
+            {
+                Toast.Exito("Usuario eliminado correctamente");
+                await CargarUsuarios();
+            }
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+    }
+
+    private void CancelarEdicion() => LimpiarFormulario();
+
+    private void LimpiarFormulario()
+    {
+        usuarioDTO = new UsuarioDTO();
+        editando = false;
+        usuarioEditandoId = 0;
+    }
+}

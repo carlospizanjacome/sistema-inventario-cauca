@@ -1,0 +1,84 @@
+﻿@inherits LayoutComponentBase
+@using Almacen.Components.Shared
+@inject IJSRuntime JS
+
+<div class="app-shell @(sidebarCollapsed ? "is-collapsed" : "") @(mobileOpen ? "is-mobile-open" : "")">
+
+    <aside class="app-sidebar">
+        <NavMenu Collapsed="sidebarCollapsed" />
+    </aside>
+
+    <div class="app-main">
+        <header class="app-topbar">
+            <button class="btn-toggle" @onclick="ToggleSidebar" title="Mostrar/ocultar menú">
+                <i class="bi bi-list"></i>
+            </button>
+
+            <div class="topbar-title">
+                <span class="topbar-title-main">Sistema de Inventario y Almacén</span>
+                <span class="topbar-title-sub">Alcaldía de Popayán</span>
+            </div>
+
+            <div class="topbar-actions">
+                <button class="btn-icon" title="Notificaciones">
+                    <i class="bi bi-bell"></i>
+                </button>
+                <button class="btn-icon" title="Ayuda">
+                    <i class="bi bi-question-circle"></i>
+                </button>
+            </div>
+        </header>
+
+        <main class="app-content">
+            @Body
+        </main>
+    </div>
+
+    <div class="app-backdrop" @onclick="CloseMobileSidebar"></div>
+
+    <ToastContainer />
+    <ConfirmDialog />
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    Ocurrió un error inesperado.
+    <a href="" class="reload">Recargar</a>
+    <span class="dismiss">🗙</span>
+</div>
+
+@code {
+    private bool sidebarCollapsed = false;
+    private bool mobileOpen = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try
+        {
+            var saved = await JS.InvokeAsync<string?>("almacenLayout.getStorageItem", "sidebarCollapsed");
+            if (saved == "true") { sidebarCollapsed = true; StateHasChanged(); }
+        }
+        catch { }
+    }
+
+    private async Task ToggleSidebar()
+    {
+        int width;
+        try { width = await JS.InvokeAsync<int>("almacenLayout.getViewportWidth"); }
+        catch { width = 1280; }
+
+        if (width < 768) { mobileOpen = !mobileOpen; }
+        else
+        {
+            sidebarCollapsed = !sidebarCollapsed;
+            try
+            {
+                await JS.InvokeVoidAsync("almacenLayout.setStorageItem",
+                    "sidebarCollapsed", sidebarCollapsed.ToString().ToLower());
+            }
+            catch { }
+        }
+    }
+
+    private void CloseMobileSidebar() => mobileOpen = false;
+}

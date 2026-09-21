@@ -1,0 +1,321 @@
+﻿@page "/cuentandantes"
+@rendermode InteractiveServer
+
+@using Almacen.DTOs
+@using Almacen.Interfaces
+@using Almacen.Models
+@using Almacen.Services
+@using Almacen.Helpers
+@using Almacen.Components.Shared
+@using Microsoft.JSInterop
+
+@inject IFuncionarioRepository FuncRepo
+@inject IBienRepository BienRepo
+@inject IInstitucionRepository InstRepo
+@inject ActaPdfService ActaService
+@inject UsuarioSesionService Sesion
+@inject IJSRuntime JS
+@inject SeguridadService Seguridad
+@inject NavigationManager Navigation
+@inject ToastService Toast
+
+<PageTitle>Cuentandantes · Almacén</PageTitle>
+
+<div class="page-container">
+
+    <div class="page-header">
+        <div>
+            <h1><i class="bi bi-person-check-fill"></i> Cuentandantes</h1>
+            <p class="subtitle">Funcionarios con custodia de bienes — genera Acta de Responsabilidad</p>
+        </div>
+    </div>
+
+    <!-- Barra de búsqueda -->
+    <div class="modern-card">
+        <div class="filtros-tabla">
+            <div class="filtro-busqueda">
+                <i class="bi bi-search"></i>
+                <input type="text"
+                       placeholder="Buscar funcionario con bienes asignados…"
+                       @bind="_filtroTexto"
+                       @bind:event="oninput"
+                       @bind:after="BuscarConDebounce" />
+                @if (!string.IsNullOrEmpty(_filtroTexto))
+                {
+                    <button class="filtro-clear" @onclick="LimpiarFiltro">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                }
+            </div>
+            <div class="filtro-info">
+                <span class="badge-total">
+                    <i class="bi bi-person-check"></i>
+                    <strong>@(_pagina?.TotalRegistros ?? 0)</strong> cuentandantes
+                </span>
+            </div>
+        </div>
+
+        <div class="table-responsive style-scrollbar">
+            <table class="table modern-table align-middle m-0">
+                <thead>
+                    <tr>
+                        <th>Cédula</th>
+                        <th>Funcionario</th>
+                        <th>Cargo</th>
+                        <th>Sede</th>
+                        <th class="text-center">Bienes asignados</th>
+                        <th class="text-end">Valor total</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (_pagina is null)
+                    {
+                        <tr><td colspan="7" class="text-center py-3 text-muted">
+                            <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                            Cargando...
+                        </td></tr>
+                    }
+                    else if (!_pagina.Items.Any())
+                    {
+                        <tr><td colspan="7" class="text-center py-3 text-muted">
+                            No hay funcionarios con bienes asignados.
+                        </td></tr>
+                    }
+                    else
+                    {
+                        @foreach (var f in _pagina.Items)
+                        {
+                            <tr class="table-row-hover">
+                                <td><code>@f.Cedula</code></td>
+                                <td><strong>@f.NombreCompleto</strong></td>
+                                <td>@f.Cargo</td>
+                                <td>@f.SedeNombre</td>
+                                <td class="text-center">
+                                    <span class="badge bg-primary">@f.BienesAsignados</span>
+                                </td>
+                                <td class="text-end">
+                                    @f.ValorTotalBienes.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("es-CO"))
+                                </td>
+                                <td class="text-center">
+                                    <button class="btn-icon me-1"
+                                            @onclick="() => VerBienes(f)"
+                                            title="Ver bienes">
+                                        <i class="bi bi-list-ul"></i>
+                                    </button>
+                                    <button class="btn-icon-acta"
+                                            @onclick="() => GenerarActa(f)"
+                                            title="Generar Acta PDF"
+                                            disabled="@(_generandoActa == f.Id)">
+                                        <i class="bi @(_generandoActa == f.Id ? "bi-hourglass-split" : "bi-file-pdf")"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (_pagina is not null && _pagina.TotalRegistros > 0)
+        {
+            <Paginador T="FuncionarioCuentandanteDTO"
+                       Resultado="_pagina"
+                       OnCambioPagina="CambioPagina"
+                       OnCambioTamano="CambioTamano" />
+        }
+    </div>
+</div>
+
+<!-- Modal: bienes del cuentandante -->
+@if (_funcionarioSeleccionado != null && _bienesDelFuncionario != null)
+{
+    <div class="modal-backdrop-custom" @onclick="CerrarModal">
+        <div class="modal-content-custom" @onclick:stopPropagation="true">
+            <div class="modal-header-custom">
+                <div>
+                    <h4><i class="bi bi-box-seam"></i> Bienes asignados</h4>
+                    <p>@_funcionarioSeleccionado.NombreCompleto — C.C. @_funcionarioSeleccionado.Cedula</p>
+                </div>
+                <button class="modal-close-custom" @onclick="CerrarModal">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="modal-body-custom">
+                @if (!_bienesDelFuncionario.Any())
+                {
+                    <p class="text-center text-muted py-3">Sin bienes asignados.</p>
+                }
+                else
+                {
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Nombre</th>
+                                <th>Marca</th>
+                                <th>Ubicación</th>
+                                <th class="text-end">Valor</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var b in _bienesDelFuncionario)
+                            {
+                                <tr>
+                                    <td><code>@b.Codigo</code></td>
+                                    <td>@b.Nombre</td>
+                                    <td>@b.Marca</td>
+                                    <td>@(b.AulaNombre ?? b.Ubicacion ?? "—")</td>
+                                    <td class="text-end">
+                                        @b.ValorAdquisicion.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("es-CO"))
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private ResultadoPaginado<FuncionarioCuentandanteDTO>? _pagina;
+    private int _paginaActual = 1;
+    private int _tamanoPagina = 25;
+    private string _filtroTexto = string.Empty;
+    private CancellationTokenSource? _debounceCts;
+
+    private FuncionarioCuentandanteDTO? _funcionarioSeleccionado;
+    private List<Bien>? _bienesDelFuncionario;
+    private int _generandoActa = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await Seguridad.TienePermisoAsync("funcionarios.ver"))
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+
+        await Cargar();
+    }
+
+    private async Task Cargar()
+    {
+        _pagina = await FuncRepo.ObtenerCuentandantesPaginadoAsync(
+            _paginaActual,
+            _tamanoPagina,
+            string.IsNullOrWhiteSpace(_filtroTexto) ? null : _filtroTexto);
+    }
+
+    private async Task CambioPagina(int nuevaPagina)
+    {
+        _paginaActual = nuevaPagina;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task CambioTamano(int nuevoTamano)
+    {
+        _tamanoPagina = nuevoTamano;
+        _paginaActual = 1;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task BuscarConDebounce()
+    {
+        _debounceCts?.Cancel();
+        _debounceCts = new CancellationTokenSource();
+        var token = _debounceCts.Token;
+
+        try
+        {
+            await Task.Delay(350, token);
+            if (token.IsCancellationRequested) return;
+
+            _paginaActual = 1;
+            await Cargar();
+            StateHasChanged();
+        }
+        catch (TaskCanceledException) { }
+    }
+
+    private async Task LimpiarFiltro()
+    {
+        _filtroTexto = string.Empty;
+        _paginaActual = 1;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task VerBienes(FuncionarioCuentandanteDTO f)
+    {
+        _funcionarioSeleccionado = f;
+        _bienesDelFuncionario = (await BienRepo.ObtenerPorFuncionarioAsync(f.Id)).ToList();
+        StateHasChanged();
+    }
+
+    private void CerrarModal()
+    {
+        _funcionarioSeleccionado = null;
+        _bienesDelFuncionario = null;
+        StateHasChanged();
+    }
+
+    private async Task GenerarActa(FuncionarioCuentandanteDTO f)
+    {
+        _generandoActa = f.Id;
+        StateHasChanged();
+
+        try
+        {
+            var bienes = (await BienRepo.ObtenerPorFuncionarioAsync(f.Id)).ToList();
+
+            if (!bienes.Any())
+            {
+                Toast.Warning("El funcionario no tiene bienes asignados.");
+                return;
+            }
+
+            var institucion = await InstRepo.ObtenerPorIdAsync(Sesion.InstitucionId);
+
+            var funcionarioDTO = new FuncionarioDTO
+            {
+                Id = f.Id,
+                Cedula = f.Cedula,
+                NombreCompleto = f.NombreCompleto,
+                Cargo = f.Cargo,
+                TipoVinculacion = f.TipoVinculacion,
+                SedeNombre = f.SedeNombre
+            };
+
+            var pdf = ActaService.GenerarActaResponsabilidad(
+                institucion?.Nombre ?? "Institución Educativa",
+                institucion?.Nit ?? "",
+                funcionarioDTO,
+                bienes,
+                institucion?.Rector ?? "Rector(a)",
+                "Popayán");
+
+            var nombreArchivo = $"ActaResponsabilidad_{f.Cedula}_{DateTime.Now:yyyyMMdd}.pdf";
+
+            await JS.InvokeVoidAsync("descargarArchivo",
+                Convert.ToBase64String(pdf),
+                nombreArchivo,
+                "application/pdf");
+
+            Toast.Exito($"Acta generada para {f.NombreCompleto}");
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error al generar acta: {ex.Message}");
+        }
+        finally
+        {
+            _generandoActa = 0;
+            StateHasChanged();
+        }
+    }
+}

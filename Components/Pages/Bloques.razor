@@ -1,0 +1,221 @@
+﻿@page "/bloques"
+@using Almacen.DTOs
+@using Almacen.Interfaces
+@using Almacen.Services
+@inject IBloqueRepository BloqueRepo
+@inject ISedeRepository SedeRepo
+@inject ToastService Toast
+@inject IJSRuntime JS
+
+<PageTitle>Bloques · Almacén</PageTitle>
+
+<div class="page-container">
+
+    <div class="page-header">
+        <div>
+            <h1><i class="bi bi-grid-3x3"></i> Bloques</h1>
+            <p class="subtitle">Bloques o edificaciones dentro de cada sede</p>
+        </div>
+    </div>
+
+    <div class="card-form">
+        <h3>
+            <i class="bi bi-@(_editando ? "pencil-square" : "plus-circle")"></i>
+            @(_editando ? "Editar Bloque" : "Nuevo Bloque")
+        </h3>
+
+        <EditForm Model="_model" OnValidSubmit="Guardar">
+            <DataAnnotationsValidator />
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Sede *</label>
+                    <InputSelect @bind-Value="_model.SedeId" class="form-control">
+                        <option value="0">— Seleccione —</option>
+                        @foreach (var s in _sedes)
+                        {
+                            <option value="@s.Id">@s.InstitucionNombre — @s.Nombre</option>
+                        }
+                    </InputSelect>
+                    <ValidationMessage For="() => _model.SedeId" />
+                </div>
+
+                <div class="form-group">
+                    <label>Nombre *</label>
+                    <InputText @bind-Value="_model.Nombre" class="form-control"
+                               placeholder="Ej: Bloque A" />
+                    <ValidationMessage For="() => _model.Nombre" />
+                </div>
+
+                <div class="form-group">
+                    <label>Descripción</label>
+                    <InputText @bind-Value="_model.Descripcion" class="form-control" />
+                </div>
+
+                <div class="form-group">
+                    <label>Pisos</label>
+                    <InputNumber @bind-Value="_model.Pisos" class="form-control" />
+                    <ValidationMessage For="() => _model.Pisos" />
+                </div>
+
+                <div class="form-group checkbox-group">
+                    <label>
+                        <InputCheckbox @bind-Value="_model.Activo" />
+                        Activo
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn-primary">
+                    <i class="bi bi-check-lg"></i>
+                    @(_editando ? "Actualizar" : "Guardar")
+                </button>
+                @if (_editando)
+                {
+                    <button type="button" class="btn-secondary" @onclick="Cancelar">
+                        <i class="bi bi-x-lg"></i> Cancelar
+                    </button>
+                }
+            </div>
+        </EditForm>
+    </div>
+
+    <div class="card-table">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Institución</th>
+                    <th>Sede</th>
+                    <th>Bloque</th>
+                    <th>Descripción</th>
+                    <th>Pisos</th>
+                    <th>Estado</th>
+                    <th class="text-end">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (_bloques.Count == 0)
+                {
+                    <tr><td colspan="7" class="empty">Sin bloques registrados.</td></tr>
+                }
+                else
+                {
+                    @foreach (var b in _bloques)
+                    {
+                        <tr>
+                            <td>@b.InstitucionNombre</td>
+                            <td>@b.SedeNombre</td>
+                            <td><strong>@b.Nombre</strong></td>
+                            <td>@b.Descripcion</td>
+                            <td>@b.Pisos</td>
+                            <td>
+                                <span class="badge @(b.Activo ? "badge-ok" : "badge-off")">
+                                    @(b.Activo ? "Activo" : "Inactivo")
+                                </span>
+                            </td>
+                            <td class="text-end">
+                                <button class="btn-icon" @onclick="() => Editar(b)" title="Editar">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn-icon danger" @onclick="() => Eliminar(b)" title="Eliminar">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@code {
+    private List<BloqueDTO> _bloques = new();
+    private List<SedeDTO> _sedes = new();
+    private BloqueDTO _model = new();
+    private bool _editando = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _sedes = (await SedeRepo.ObtenerTodasAsync()).ToList();
+        await Cargar();
+    }
+
+    private async Task Cargar()
+        => _bloques = (await BloqueRepo.ObtenerTodosAsync()).ToList();
+
+    private async Task Guardar()
+    {
+        if (_model.SedeId <= 0)
+        {
+            Toast.Error("Debe seleccionar una sede.");
+            return;
+        }
+
+        try
+        {
+            if (_editando)
+            {
+                await BloqueRepo.ActualizarAsync(_model);
+                Toast.Exito("Bloque actualizado correctamente");
+            }
+            else
+            {
+                await BloqueRepo.CrearAsync(_model);
+                Toast.Exito("Bloque creado correctamente");
+            }
+
+            Cancelar();
+            await Cargar();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+    }
+
+    private void Editar(BloqueDTO b)
+    {
+        _model = new BloqueDTO
+        {
+            Id = b.Id,
+            SedeId = b.SedeId,
+            Nombre = b.Nombre,
+            Descripcion = b.Descripcion,
+            Pisos = b.Pisos,
+            Activo = b.Activo
+        };
+        _editando = true;
+    }
+
+    private void Cancelar()
+    {
+        _model = new BloqueDTO();
+        _editando = false;
+    }
+
+    private async Task Eliminar(BloqueDTO b)
+    {
+        var ok = await JS.InvokeAsync<bool>("confirm",
+            $"¿Eliminar el bloque '{b.Nombre}'?");
+        if (!ok) return;
+
+        if (await BloqueRepo.TieneAulasAsync(b.Id))
+        {
+            Toast.Error("No se puede eliminar: el bloque tiene aulas asociadas.");
+            return;
+        }
+
+        try
+        {
+            await BloqueRepo.EliminarAsync(b.Id);
+            Toast.Exito("Bloque eliminado correctamente");
+            await Cargar();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+    }
+}

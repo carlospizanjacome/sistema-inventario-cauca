@@ -1,0 +1,231 @@
+﻿@page "/sedes"
+@using Almacen.DTOs
+@using Almacen.Interfaces
+@using Almacen.Services
+@inject ISedeRepository SedeRepo
+@inject IInstitucionRepository InstRepo
+@inject ToastService Toast
+@inject IJSRuntime JS
+
+<PageTitle>Sedes · Almacén</PageTitle>
+
+<div class="page-container">
+
+    <div class="page-header">
+        <div>
+            <h1><i class="bi bi-buildings"></i> Sedes</h1>
+            <p class="subtitle">Administración de sedes por institución educativa</p>
+        </div>
+    </div>
+
+    <div class="card-form">
+        <h3>
+            <i class="bi bi-@(_editando ? "pencil-square" : "plus-circle")"></i>
+            @(_editando ? "Editar Sede" : "Nueva Sede")
+        </h3>
+
+        <EditForm Model="_model" OnValidSubmit="Guardar">
+            <DataAnnotationsValidator />
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Institución *</label>
+                    <InputSelect @bind-Value="_model.InstitucionId" class="form-control">
+                        <option value="0">— Seleccione —</option>
+                        @foreach (var i in _instituciones)
+                        {
+                            <option value="@i.Id">@i.Nombre</option>
+                        }
+                    </InputSelect>
+                    <ValidationMessage For="() => _model.InstitucionId" />
+                </div>
+
+                <div class="form-group">
+                    <label>Nombre *</label>
+                    <InputText @bind-Value="_model.Nombre" class="form-control"
+                               placeholder="Ej: Sede Principal" />
+                    <ValidationMessage For="() => _model.Nombre" />
+                </div>
+
+                <div class="form-group">
+                    <label>Tipo</label>
+                    <InputSelect @bind-Value="_model.Tipo" class="form-control">
+                        <option value="Principal">Principal</option>
+                        <option value="Anexa">Anexa</option>
+                        <option value="Rural">Rural</option>
+                        <option value="Urbana">Urbana</option>
+                    </InputSelect>
+                </div>
+
+                <div class="form-group">
+                    <label>Dirección</label>
+                    <InputText @bind-Value="_model.Direccion" class="form-control" />
+                </div>
+
+                <div class="form-group">
+                    <label>Teléfono</label>
+                    <InputText @bind-Value="_model.Telefono" class="form-control" />
+                </div>
+
+                <div class="form-group checkbox-group">
+                    <label>
+                        <InputCheckbox @bind-Value="_model.Activo" />
+                        Activa
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn-primary">
+                    <i class="bi bi-check-lg"></i>
+                    @(_editando ? "Actualizar" : "Guardar")
+                </button>
+                @if (_editando)
+                {
+                    <button type="button" class="btn-secondary" @onclick="Cancelar">
+                        <i class="bi bi-x-lg"></i> Cancelar
+                    </button>
+                }
+            </div>
+        </EditForm>
+    </div>
+
+    <div class="card-table">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Institución</th>
+                    <th>Sede</th>
+                    <th>Tipo</th>
+                    <th>Dirección</th>
+                    <th>Teléfono</th>
+                    <th>Estado</th>
+                    <th class="text-end">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (_sedes.Count == 0)
+                {
+                    <tr><td colspan="7" class="empty">Sin sedes registradas.</td></tr>
+                }
+                else
+                {
+                    @foreach (var s in _sedes)
+                    {
+                        <tr>
+                            <td>@s.InstitucionNombre</td>
+                            <td><strong>@s.Nombre</strong></td>
+                            <td>@s.Tipo</td>
+                            <td>@s.Direccion</td>
+                            <td>@s.Telefono</td>
+                            <td>
+                                <span class="badge @(s.Activo ? "badge-ok" : "badge-off")">
+                                    @(s.Activo ? "Activa" : "Inactiva")
+                                </span>
+                            </td>
+                            <td class="text-end">
+                                <button class="btn-icon" @onclick="() => Editar(s)" title="Editar">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn-icon danger" @onclick="() => Eliminar(s)" title="Eliminar">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@code {
+    private List<SedeDTO> _sedes = new();
+    private List<InstitucionDTO> _instituciones = new();
+    private SedeDTO _model = new();
+    private bool _editando = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _instituciones = (await InstRepo.ObtenerTodasAsync()).ToList();
+        await Cargar();
+    }
+
+    private async Task Cargar()
+        => _sedes = (await SedeRepo.ObtenerTodasAsync()).ToList();
+
+    private async Task Guardar()
+    {
+        if (_model.InstitucionId <= 0)
+        {
+            Toast.Error("Debe seleccionar una institución.");
+            return;
+        }
+
+        try
+        {
+            if (_editando)
+            {
+                await SedeRepo.ActualizarAsync(_model);
+                Toast.Exito("Sede actualizada correctamente");
+            }
+            else
+            {
+                await SedeRepo.CrearAsync(_model);
+                Toast.Exito("Sede creada correctamente");
+            }
+
+            Cancelar();
+            await Cargar();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+    }
+
+    private void Editar(SedeDTO s)
+    {
+        _model = new SedeDTO
+        {
+            Id = s.Id,
+            InstitucionId = s.InstitucionId,
+            Nombre = s.Nombre,
+            Direccion = s.Direccion,
+            Telefono = s.Telefono,
+            Tipo = s.Tipo,
+            Activo = s.Activo
+        };
+        _editando = true;
+    }
+
+    private void Cancelar()
+    {
+        _model = new SedeDTO();
+        _editando = false;
+    }
+
+    private async Task Eliminar(SedeDTO s)
+    {
+        var ok = await JS.InvokeAsync<bool>("confirm",
+            $"¿Eliminar la sede '{s.Nombre}'?");
+        if (!ok) return;
+
+        if (await SedeRepo.TieneBloquesAsync(s.Id))
+        {
+            Toast.Error("No se puede eliminar: la sede tiene bloques asociados.");
+            return;
+        }
+
+        try
+        {
+            await SedeRepo.EliminarAsync(s.Id);
+            Toast.Exito("Sede eliminada correctamente");
+            await Cargar();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+    }
+}

@@ -1,0 +1,72 @@
+﻿@using Almacen.Services
+@implements IDisposable
+@inject ConfirmService Confirm
+
+@if (_visible)
+{
+    <div class="confirm-backdrop" @onclick="Cancelar">
+        <div class="confirm-modal" @onclick:stopPropagation="true">
+
+            <div class="confirm-header" style="background: @(_opciones.ColorBoton);">
+                <i class="bi @_opciones.Icono"></i>
+                <h3>@_opciones.Titulo</h3>
+            </div>
+
+            <div class="confirm-body">
+                <p>@_opciones.Mensaje</p>
+            </div>
+
+            <div class="confirm-footer">
+                <button type="button" class="btn-confirm-cancel" @onclick="Cancelar">
+                    @_opciones.TextoCancelar
+                </button>
+                <button type="button"
+                        class="btn-confirm-ok @(_opciones.EsPeligroso ? "peligro" : "")"
+                        style="background: @_opciones.ColorBoton;"
+                        @onclick="Aceptar">
+                    <i class="bi bi-check-lg me-1"></i> @_opciones.TextoConfirmar
+                </button>
+            </div>
+
+        </div>
+    </div>
+}
+
+@code {
+    private bool _visible = false;
+    private ConfirmOpciones _opciones = new();
+    private TaskCompletionSource<bool>? _tcs;
+
+    protected override void OnInitialized()
+    {
+        Confirm.OnAsk += Preguntar;
+    }
+
+    private async Task<bool> Preguntar(ConfirmOpciones opciones)
+    {
+        _opciones = opciones;
+        _visible = true;
+        _tcs = new TaskCompletionSource<bool>();
+        await InvokeAsync(StateHasChanged);
+        return await _tcs.Task;
+    }
+
+    private void Aceptar()
+    {
+        _visible = false;
+        _tcs?.TrySetResult(true);
+        StateHasChanged();
+    }
+
+    private void Cancelar()
+    {
+        _visible = false;
+        _tcs?.TrySetResult(false);
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        Confirm.OnAsk -= Preguntar;
+    }
+}

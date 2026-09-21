@@ -1,0 +1,476 @@
+﻿@page "/depreciacion"
+@rendermode InteractiveServer
+
+@using Almacen.DTOs
+@using Almacen.Interfaces
+@using Almacen.Services
+@using Microsoft.JSInterop
+
+@inject IDepreciacionRepository DepRepo
+@inject DepreciacionService DepService
+@inject IJSRuntime JS
+@inject SeguridadService Seguridad
+@inject NavigationManager Navigation
+@inject ToastService Toast
+
+@inject ConfirmService Confirm
+
+@inject ExcelExportService ExcelService
+@inject UsuarioSesionService Sesion
+@inject IInstitucionRepository InstRepo
+
+<PageTitle>Depreciación · Almacén</PageTitle>
+
+<div class="page-container">
+
+    <!-- ═══════════ HEADER ═══════════ -->
+    <div class="page-header">
+        <div>
+            <h1><i class="bi bi-graph-down-arrow"></i> Depreciación NICSP</h1>
+            <p class="subtitle">Cálculo de depreciación lineal según Resolución 533/2015 (Contaduría General)</p>
+        </div>
+        <div class="header-actions">
+
+            <button class="btn-export-cgn" @onclick="ExportarExcel" disabled="@_exportando">
+                <i class="bi @(_exportando ? "bi-hourglass-split" : "bi-file-earmark-excel")"></i>
+                @(_exportando ? "Generando..." : "Exportar CGN")
+            </button>
+
+            @if (puedeCalcular)
+            {
+                <button class="btn-calculate" @onclick="EjecutarCalculo" disabled="@_calculando">
+                    <i class="bi @(_calculando ? "bi-hourglass-split" : "bi-calculator-fill")"></i>
+                    @(_calculando ? "Calculando..." : "Ejecutar Cálculo")
+                </button>
+            }
+        </div>
+    </div>
+
+    <!-- ═══════════ KPIs ═══════════ -->
+    @if (_cargando)
+    {
+        <div class="loading">
+            <div class="spinner"></div>
+            <p>Cargando depreciaciones...</p>
+        </div>
+    }
+    else if (bienes != null)
+    {
+        <section class="kpi-grid">
+            <div class="kpi-card kpi-indigo">
+                <div class="kpi-icon"><i class="bi bi-box-seam"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Bienes depreciables</span>
+                    <span class="kpi-value">@bienes.Count</span>
+                </div>
+            </div>
+
+            <div class="kpi-card kpi-blue">
+                <div class="kpi-icon"><i class="bi bi-currency-dollar"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Valor histórico total</span>
+                    <span class="kpi-value">@TotalValorInicial.ToString("C0", CulturaCOP)</span>
+                </div>
+            </div>
+
+            <div class="kpi-card kpi-orange">
+                <div class="kpi-icon"><i class="bi bi-graph-down-arrow"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Depreciación acumulada</span>
+                    <span class="kpi-value">@TotalDepreciacion.ToString("C0", CulturaCOP)</span>
+                </div>
+            </div>
+
+            <div class="kpi-card kpi-green">
+                <div class="kpi-icon"><i class="bi bi-piggy-bank"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Valor neto en libros</span>
+                    <span class="kpi-value">@TotalValorNeto.ToString("C0", CulturaCOP)</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════ FILTROS ═══════════ -->
+        <div class="filters-bar">
+            <div class="filter-group">
+                <i class="bi bi-search"></i>
+                <input type="text"
+                       placeholder="Buscar por código o nombre..."
+                       @bind="_filtroTexto"
+                       @bind:event="oninput" />
+            </div>
+
+            <div class="filter-select">
+                <i class="bi bi-funnel"></i>
+                <select @bind="_filtroEstado">
+                    <option value="">Todos los estados</option>
+                    <option value="activos">Sin depreciar</option>
+                    <option value="parcial">Parcialmente depreciados</option>
+                    <option value="completos">Completamente depreciados</option>
+                </select>
+            </div>
+
+            <div class="filter-count">
+                Mostrando <strong>@BienesFiltrados.Count()</strong> de @bienes.Count
+            </div>
+        </div>
+
+        <!-- ═══════════ TABLA ═══════════ -->
+        <div class="modern-card">
+            <div class="table-responsive">
+                <table class="table modern-table align-middle m-0">
+                    <thead>
+                        <tr>
+                            <th>Código</th>
+                            <th>Bien</th>
+                            <th>Categoría</th>
+                            <th>Vida Útil</th>
+                            <th class="text-end">Valor Histórico</th>
+                            <th class="text-end">Deprec. Mes</th>
+                            <th class="text-end">Deprec. Acum.</th>
+                            <th class="text-end">Valor Neto</th>
+                            <th class="text-center">%</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (!BienesFiltrados.Any())
+                        {
+                            <tr><td colspan="10" class="text-center py-4 text-muted">Sin bienes para mostrar.</td></tr>
+                        }
+                        else
+                        {
+                            @foreach (var b in BienesFiltrados)
+                            {
+                                <tr class="table-row-hover">
+                                    <td><code>@b.Codigo</code></td>
+                                    <td>
+                                        <div class="bien-cell">
+                                            <strong>@b.Nombre</strong>
+                                            @if (b.FechaAdquisicion.HasValue)
+                                            {
+                                                <small>Adquirido: @b.FechaAdquisicion.Value.ToString("dd/MM/yyyy")</small>
+                                            }
+                                        </div>
+                                    </td>
+                                    <td>@b.CategoriaNombre</td>
+                                    <td>
+                                        @if (b.VidaUtilMeses.HasValue)
+                                        {
+                                            <span>@b.VidaUtilMeses.Value meses</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-danger">Sin asignar</span>
+                                        }
+                                    </td>
+                                    <td class="text-end">@b.ValorInicial.ToString("C0", CulturaCOP)</td>
+                                    <td class="text-end text-warning">@b.DepreciacionMensual.ToString("C0", CulturaCOP)</td>
+                                    <td class="text-end text-orange">@b.DepreciacionAcumulada.ToString("C0", CulturaCOP)</td>
+                                    <td class="text-end text-success"><strong>@b.ValorNeto.ToString("C0", CulturaCOP)</strong></td>
+                                    <td class="text-center">
+                                        <span class="porcentaje-badge @GetClasePorcentaje(b)">
+                                            @b.PorcentajeDepreciado.ToString("N1")%
+                                        </span>
+                                    </td>
+                                    <td class="text-center">
+                                        <button class="btn-icon" @onclick="() => VerHistorico(b)" title="Ver histórico">
+                                            <i class="bi bi-clock-history"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+    <!-- ═══════════ MODAL HISTÓRICO ═══════════ -->
+    @if (_modalAbierto)
+    {
+        <div class="modal-backdrop" @onclick="CerrarModal">
+            <div class="modal-content" @onclick:stopPropagation="true">
+                <div class="modal-header">
+                    <div>
+                        <h4><i class="bi bi-clock-history"></i> Histórico de Depreciación</h4>
+                        @if (_bienSeleccionado != null)
+                        {
+                            <p class="modal-subtitle">
+                                <code>@_bienSeleccionado.Codigo</code> — @_bienSeleccionado.Nombre
+                            </p>
+                        }
+                    </div>
+                    <button class="modal-close" @onclick="CerrarModal">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+
+                <div class="modal-body">
+                    @if (_cargandoHistorico)
+                    {
+                        <div class="loading-small">
+                            <div class="spinner-small"></div>
+                            <p>Cargando histórico...</p>
+                        </div>
+                    }
+                    else if (!_historico.Any())
+                    {
+                        <div class="empty-historico">
+                            <i class="bi bi-inbox"></i>
+                            <p>Sin histórico de depreciación.</p>
+                            <small>Ejecuta el cálculo para generar los registros.</small>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="historico-scroll">
+                            <table class="table modal-table">
+                                <thead>
+                                    <tr>
+                                        <th>Periodo</th>
+                                        <th class="text-end">Deprec. Mes</th>
+                                        <th class="text-end">Deprec. Acum.</th>
+                                        <th class="text-end">Valor Neto</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var h in _historico)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <strong>@h.PeriodoMes.ToString("00")/@h.PeriodoAnio</strong>
+                                            </td>
+                                            <td class="text-end text-warning">@h.DepreciacionMes.ToString("C0", CulturaCOP)</td>
+                                            <td class="text-end">@h.DepreciacionAcumulada.ToString("C0", CulturaCOP)</td>
+                                            <td class="text-end text-success">@h.ValorNeto.ToString("C0", CulturaCOP)</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<BienDepreciacionDTO>? bienes;
+    private bool _cargando = true;
+    private bool _calculando = false;
+
+    private string _filtroTexto = string.Empty;
+    private string _filtroEstado = string.Empty;
+
+    // Modal
+    private bool _modalAbierto = false;
+    private bool _cargandoHistorico = false;
+    private BienDepreciacionDTO? _bienSeleccionado;
+    private List<DepreciacionDTO> _historico = new();
+
+    private bool puedeCalcular;
+
+    private static readonly System.Globalization.CultureInfo CulturaCOP =
+        System.Globalization.CultureInfo.GetCultureInfo("es-CO");
+
+    private decimal TotalValorInicial => bienes?.Sum(b => b.ValorInicial) ?? 0;
+    private decimal TotalDepreciacion => bienes?.Sum(b => b.DepreciacionAcumulada) ?? 0;
+    private decimal TotalValorNeto => bienes?.Sum(b => b.ValorNeto) ?? 0;
+
+    private IEnumerable<BienDepreciacionDTO> BienesFiltrados
+    {
+        get
+        {
+            if (bienes is null) return Enumerable.Empty<BienDepreciacionDTO>();
+
+            var q = bienes.AsEnumerable();
+
+            if (!string.IsNullOrWhiteSpace(_filtroTexto))
+            {
+                var t = _filtroTexto.Trim().ToLower();
+                q = q.Where(b =>
+                    b.Codigo.ToLower().Contains(t) ||
+                    b.Nombre.ToLower().Contains(t));
+            }
+
+            q = _filtroEstado switch
+            {
+                "activos"   => q.Where(b => b.DepreciacionAcumulada == 0),
+                "parcial"   => q.Where(b => !b.CompletamenteDepreciado && b.DepreciacionAcumulada > 0),
+                "completos" => q.Where(b => b.CompletamenteDepreciado),
+                _ => q
+            };
+
+            return q;
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await Seguridad.TienePermisoAsync("depreciacion.ver"))
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+
+        puedeCalcular = await Seguridad.TienePermisoAsync("depreciacion.calcular");
+
+        await Cargar();
+    }
+
+    private async Task Cargar()
+    {
+        _cargando = true;
+        bienes = (await DepRepo.ObtenerResumenBienesAsync()).ToList();
+        _cargando = false;
+    }
+
+    private async Task EjecutarCalculo()
+    {
+        var ok = await Confirm.Preguntar(new ConfirmOpciones
+        {
+            Titulo = "Ejecutar Depreciación",
+            Mensaje = "Se generarán los registros mensuales de depreciación desde el último cálculo hasta la fecha actual. ¿Desea continuar?",
+            Icono = "bi-calculator-fill",
+            ColorBoton = "#4f46e5",
+            TextoConfirmar = "Sí, ejecutar",
+            TextoCancelar = "Cancelar"
+        });
+        if (!ok) return;
+
+        _calculando = true;
+        StateHasChanged();
+
+        try
+        {
+            var resultado = await DepService.CalcularDepreciacionAsync();
+
+            if (resultado.BienesCalculados > 0)
+            {
+                Toast.Exito($"Depreciación calculada: {resultado.BienesCalculados} bienes procesados. " +
+                            $"Total: {resultado.DepreciacionTotalMes.ToString("C0", CulturaCOP)}");
+            }
+            else
+            {
+                Toast.Info("No había bienes pendientes de cálculo.");
+            }
+
+            if (resultado.Advertencias.Any())
+            {
+                Console.WriteLine("═══ ADVERTENCIAS DEPRECIACIÓN ═══");
+                foreach (var a in resultado.Advertencias.Take(10))
+                    Console.WriteLine($"  · {a}");
+            }
+
+            await Cargar();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+        finally
+        {
+            _calculando = false;
+        }
+    }
+
+    private async Task VerHistorico(BienDepreciacionDTO b)
+    {
+        _bienSeleccionado = b;
+        _modalAbierto = true;
+        _cargandoHistorico = true;
+        _historico.Clear();
+        StateHasChanged();
+
+        try
+        {
+            _historico = (await DepRepo.ObtenerHistoricoAsync(b.BienId)).ToList();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error al cargar histórico: {ex.Message}");
+        }
+        finally
+        {
+            _cargandoHistorico = false;
+            StateHasChanged();
+        }
+    }
+
+    private void CerrarModal()
+    {
+        _modalAbierto = false;
+        _bienSeleccionado = null;
+        _historico.Clear();
+    }
+
+    private static string GetClasePorcentaje(BienDepreciacionDTO b)
+    {
+        if (b.CompletamenteDepreciado) return "pct-completo";
+        if (b.DepreciacionAcumulada > 0) return "pct-parcial";
+        return "pct-nuevo";
+    }
+
+    private bool _exportando = false;
+
+private async Task ExportarExcel()
+{
+    _exportando = true;
+    StateHasChanged();
+
+    try
+    {
+        var todos = (await DepRepo.ObtenerResumenBienesAsync()).ToList();
+        if (!todos.Any())
+        {
+            Toast.Warning("No hay bienes depreciables para exportar.");
+            return;
+        }
+
+        var institucion = await InstRepo.ObtenerPorIdAsync(Sesion.InstitucionId);
+        var nombreInst = institucion?.Nombre ?? "Institución no identificada";
+
+        // Mapear a Bien para reutilizar el servicio
+        var bienes = todos.Select(b => new Almacen.Models.Bien
+        {
+            Id = b.BienId,
+            Codigo = b.Codigo,
+            Nombre = b.Nombre,
+            CategoriaNombre = b.CategoriaNombre,
+            ValorAdquisicion = b.ValorInicial,
+            FechaAdquisicion = b.FechaAdquisicion,
+            ValorResidual = b.ValorResidual,
+            DepreciacionAcumulada = b.DepreciacionAcumulada,
+            ValorNeto = b.ValorNeto,
+            Cantidad = 1,
+            Activo = true
+        }).ToList();
+
+        var bytes = ExcelService.ExportarInventarioCGN(
+            nombreInst,
+            Sesion.UsuarioActual?.NombreCompleto ?? "N/A",
+            bienes);
+
+        var nombreArchivo = $"DepreciacionCGN_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+
+        await JS.InvokeVoidAsync("descargarArchivo",
+            Convert.ToBase64String(bytes),
+            nombreArchivo,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+
+        Toast.Exito($"Excel generado con {bienes.Count} bienes depreciables");
+    }
+    catch (Exception ex)
+    {
+        Toast.Error($"Error al exportar: {ex.Message}");
+    }
+    finally
+    {
+        _exportando = false;
+        StateHasChanged();
+    }
+}
+}

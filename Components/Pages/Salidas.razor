@@ -1,0 +1,486 @@
+﻿@page "/salidas"
+@rendermode InteractiveServer
+
+@using Almacen.DTOs
+@using Almacen.Interfaces
+@using Almacen.Models
+@using Almacen.Services
+@using Almacen.Helpers
+@using Almacen.Components.Shared
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
+
+@inject ISalidaRepository SalidaRepo
+@inject IBienRepository BienRepo
+@inject IFuncionarioRepository FuncRepo
+@inject IJSRuntime JS
+@inject SeguridadService Seguridad
+@inject NavigationManager Navigation
+@inject ToastService Toast
+@inject ConfirmService Confirm
+
+<PageTitle>Salidas · Almacén</PageTitle>
+
+<div class="usuarios-page usuarios-fullscreen">
+
+    <div class="modern-card panel-formulario">
+
+        <div class="card-top-compact d-flex align-items-center gap-2 mb-2 pb-2 border-bottom">
+            <div class="card-icon-small-inline">
+                <i class="bi @(editando ? "bi-pencil-square" : "bi-box-arrow-up")" style="color: #dc2626; font-size: 1.1rem;"></i>
+            </div>
+            <div class="d-flex align-items-baseline gap-2">
+                <h5 class="m-0 fw-bold text-dark" style="font-size: 1rem;">@(editando ? "Editar Salida" : "Nueva Salida / Baja")</h5>
+                <span class="text-muted d-none d-sm-inline" style="font-size: 0.75rem;">| Retiro definitivo de bienes del inventario</span>
+            </div>
+        </div>
+
+        <EditForm @key="salidaEditandoId" Model="salidaDTO" OnValidSubmit="Guardar">
+            <DataAnnotationsValidator />
+
+            <div class="container-fluid p-0">
+
+                <!-- FILA 1 -->
+                <div class="row g-2 mb-2">
+                    <div class="col-md-5">
+                        <div class="modern-group">
+                            <label>Bien *</label>
+                            <div class="input-modern">
+                                <i class="bi bi-box-seam"></i>
+                                <InputSelect class="form-select" @bind-Value="salidaDTO.BienId">
+                                    <option value="0">— Seleccione bien —</option>
+                                    @foreach (var b in bienes)
+                                    {
+                                        <option value="@b.Id">@b.Codigo — @b.Nombre</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                            <ValidationMessage For="() => salidaDTO.BienId" />
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="modern-group">
+                            <label>Tipo de Baja *</label>
+                            <div class="input-modern">
+                                <i class="bi bi-x-circle"></i>
+                                <InputSelect class="form-select" @bind-Value="salidaDTO.TipoBaja">
+                                    <option value="Obsolescencia">Obsolescencia</option>
+                                    <option value="Daño">Daño irreparable</option>
+                                    <option value="Hurto">Hurto</option>
+                                    <option value="Donacion">Donación</option>
+                                    <option value="Transferencia">Transferencia</option>
+                                    <option value="Otro">Otro</option>
+                                </InputSelect>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="modern-group">
+                            <label>Fecha Salida *</label>
+                            <div class="input-modern">
+                                <i class="bi bi-calendar-x"></i>
+                                <InputDate class="form-control" @bind-Value="salidaDTO.FechaSalida" />
+                            </div>
+                            <ValidationMessage For="() => salidaDTO.FechaSalida" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FILA 2 -->
+                <div class="row g-2 mb-2">
+                    <div class="col-md-4">
+                        <div class="modern-group">
+                            <label>N° Acta Comité</label>
+                            <div class="input-modern">
+                                <i class="bi bi-file-earmark-text"></i>
+                                <InputText class="form-control" @bind-Value="salidaDTO.NumeroActaComite" placeholder="Acta 001-2026" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="modern-group">
+                            <label>N° Radicado Denuncia</label>
+                            <div class="input-modern">
+                                <i class="bi bi-shield-exclamation"></i>
+                                <InputText class="form-control" @bind-Value="salidaDTO.NumeroDenuncia" placeholder="Solo si es hurto" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="modern-group">
+                            <label>Valor de Salida</label>
+                            <div class="input-modern">
+                                <i class="bi bi-currency-dollar"></i>
+                                <InputNumber class="form-control" @bind-Value="salidaDTO.ValorSalida" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FILA 3 -->
+                <div class="row g-2 mb-2">
+                    <div class="col-md-4">
+                        <div class="modern-group">
+                            <label>Aprueba (Funcionario)</label>
+                            <div class="input-modern">
+                                <i class="bi bi-person-check"></i>
+                                <InputSelect class="form-select" @bind-Value="salidaDTO.FuncionarioApruebaId">
+                                    <option value="">— Sin asignar —</option>
+                                    @foreach (var f in funcionarios)
+                                    {
+                                        <option value="@f.Id">@f.NombreCompleto</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-8">
+                        <div class="modern-group">
+                            <label>Motivo *</label>
+                            <div class="input-modern">
+                                <i class="bi bi-chat-left-text"></i>
+                                <InputText class="form-control" @bind-Value="salidaDTO.Motivo" placeholder="Descripción del motivo de la baja" />
+                            </div>
+                            <ValidationMessage For="() => salidaDTO.Motivo" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FILA 4 -->
+                <div class="row g-2 mb-2">
+                    <div class="col-md-12">
+                        <div class="modern-group">
+                            <label>Observaciones</label>
+                            <InputTextArea class="form-control" rows="2" @bind-Value="salidaDTO.Observaciones" />
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="d-flex gap-2 mt-3 justify-content-end">
+                @if (editando)
+                {
+                    <button type="button" class="btn btn-cancel px-4" @onclick="Cancelar">
+                        <i class="bi bi-x-circle me-2"></i> Cancelar
+                    </button>
+                }
+                <button type="submit" class="btn btn-save px-4" style="background:#dc2626;">
+                    <i class="bi @(editando ? "bi-check-circle-fill" : "bi-box-arrow-up") me-2"></i>
+                    @(editando ? "Actualizar Salida" : "Registrar Salida")
+                </button>
+            </div>
+        </EditForm>
+
+        @if (editando && salidaEditandoId > 0)
+        {
+            <div class="mt-3">
+                <AdjuntosUploader EntidadTipo="salida" EntidadId="salidaEditandoId" />
+            </div>
+        }
+    </div>
+
+    <!-- ═══════════ TABLA CON PAGINACIÓN ═══════════ -->
+    <div class="modern-card panel-tabla-elastic position-relative">
+
+        <div class="filtros-tabla">
+            <div class="filtro-busqueda">
+                <i class="bi bi-search"></i>
+                <input type="text"
+                       placeholder="Buscar por bien, motivo o acta…"
+                       @bind="_filtroTexto"
+                       @bind:event="oninput"
+                       @bind:after="BuscarConDebounce" />
+                @if (!string.IsNullOrEmpty(_filtroTexto))
+                {
+                    <button class="filtro-clear" @onclick="LimpiarFiltro" title="Limpiar">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                }
+            </div>
+            <div class="filtro-info">
+                <span class="badge-total">
+                    <i class="bi bi-arrow-up-circle"></i>
+                    <strong>@(_pagina?.TotalRegistros ?? 0)</strong> salidas
+                </span>
+            </div>
+        </div>
+
+        <div class="table-responsive style-scrollbar">
+            <table class="table modern-table align-middle m-0">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Bien</th>
+                        <th>Tipo Baja</th>
+                        <th>Motivo</th>
+                        <th>Acta</th>
+                        <th>Denuncia</th>
+                        <th class="text-end">Valor</th>
+                        <th>Aprueba</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (_pagina is null)
+                    {
+                        <tr><td colspan="9" class="text-center py-3 text-muted">
+                            <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                            Cargando...
+                        </td></tr>
+                    }
+                    else if (!_pagina.Items.Any())
+                    {
+                        <tr><td colspan="9" class="text-center py-3 text-muted">Sin salidas registradas.</td></tr>
+                    }
+                    else
+                    {
+                        @foreach (var s in _pagina.Items)
+                        {
+                            <tr class="table-row-hover">
+                                <td>@s.FechaSalida?.ToString("dd/MM/yyyy")</td>
+                                <td><code>@s.BienCodigo</code> @s.BienNombre</td>
+                                <td>
+                                    <span class="badge bg-danger">@s.TipoBaja</span>
+                                </td>
+                                <td>@s.Motivo</td>
+                                <td>@s.NumeroActaComite</td>
+                                <td>@s.NumeroDenuncia</td>
+                                <td class="text-end">@s.ValorSalida.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("es-CO"))</td>
+                                <td>@(s.FuncionarioNombre ?? "—")</td>
+                                <td class="text-center">
+                                    @if (puedeEditar)
+                                    {
+                                        <button class="btn-icon me-1" @onclick="() => Editar(s)">
+                                            <i class="bi bi-pencil-fill"></i>
+                                        </button>
+                                    }
+                                    @if (puedeEliminar)
+                                    {
+                                        <button class="btn-icon danger" @onclick="() => Eliminar(s)">
+                                            <i class="bi bi-trash-fill"></i>
+                                        </button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (_pagina is not null && _pagina.TotalRegistros > 0)
+        {
+            <Paginador T="SalidaDTO"
+                       Resultado="_pagina"
+                       OnCambioPagina="CambioPagina"
+                       OnCambioTamano="CambioTamano" />
+        }
+    </div>
+</div>
+
+@code {
+    private ResultadoPaginado<SalidaDTO>? _pagina;
+
+    private IEnumerable<Bien> bienes = [];
+    private IEnumerable<FuncionarioDTO> funcionarios = [];
+
+    private SalidaDTO salidaDTO = new();
+    private bool editando = false;
+    private int salidaEditandoId;
+
+    private int _paginaActual = 1;
+    private int _tamanoPagina = 25;
+    private string _filtroTexto = string.Empty;
+    private CancellationTokenSource? _debounceCts;
+
+    private bool puedeCrear;
+    private bool puedeEditar;
+    private bool puedeEliminar;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await Seguridad.TienePermisoAsync("salidas.ver"))
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+
+        puedeCrear = await Seguridad.TienePermisoAsync("salidas.crear");
+        puedeEditar = await Seguridad.TienePermisoAsync("salidas.editar");
+        puedeEliminar = await Seguridad.TienePermisoAsync("salidas.eliminar");
+
+        bienes = await BienRepo.ObtenerTodosAsync();
+        funcionarios = await FuncRepo.ObtenerTodosAsync();
+
+        await Cargar();
+    }
+
+    private async Task Cargar()
+    {
+        _pagina = await SalidaRepo.ObtenerPaginadoAsync(
+            _paginaActual,
+            _tamanoPagina,
+            string.IsNullOrWhiteSpace(_filtroTexto) ? null : _filtroTexto);
+    }
+
+    private async Task CambioPagina(int nuevaPagina)
+    {
+        _paginaActual = nuevaPagina;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task CambioTamano(int nuevoTamano)
+    {
+        _tamanoPagina = nuevoTamano;
+        _paginaActual = 1;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task BuscarConDebounce()
+    {
+        _debounceCts?.Cancel();
+        _debounceCts = new CancellationTokenSource();
+        var token = _debounceCts.Token;
+
+        try
+        {
+            await Task.Delay(350, token);
+            if (token.IsCancellationRequested) return;
+
+            _paginaActual = 1;
+            await Cargar();
+            StateHasChanged();
+        }
+        catch (TaskCanceledException) { }
+    }
+
+    private async Task LimpiarFiltro()
+    {
+        _filtroTexto = string.Empty;
+        _paginaActual = 1;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task Guardar()
+    {
+        if (!editando && !puedeCrear)
+        {
+            Toast.Error("No tiene permiso para registrar salidas.");
+            return;
+        }
+
+        if (editando && !puedeEditar)
+        {
+            Toast.Error("No tiene permiso para editar salidas.");
+            return;
+        }
+
+        if (salidaDTO.BienId <= 0)
+        {
+            Toast.Error("Debe seleccionar un bien.");
+            return;
+        }
+
+        if (salidaDTO.TipoBaja == "Hurto" && string.IsNullOrWhiteSpace(salidaDTO.NumeroDenuncia))
+        {
+            Toast.Error("Para tipo de baja 'Hurto' debe registrar el N° de denuncia penal.");
+            return;
+        }
+
+        try
+        {
+            if (editando)
+            {
+                await SalidaRepo.ActualizarAsync(salidaDTO);
+                Toast.Exito("Salida actualizada correctamente");
+            }
+            else
+            {
+                if (await SalidaRepo.BienTieneSalidaAsync(salidaDTO.BienId))
+                {
+                    Toast.Error("Este bien ya tiene una salida registrada.");
+                    return;
+                }
+
+                await SalidaRepo.CrearAsync(salidaDTO);
+                await SalidaRepo.DesactivarBienAsync(salidaDTO.BienId);
+
+                Toast.Exito("Salida registrada. El bien fue dado de baja.");
+            }
+
+            Cancelar();
+            await Cargar();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+    }
+
+    private void Editar(SalidaDTO s)
+    {
+        if (!puedeEditar) return;
+
+        editando = true;
+        salidaEditandoId = s.Id;
+
+        salidaDTO.Id = s.Id;
+        salidaDTO.BienId = s.BienId;
+        salidaDTO.TipoBaja = s.TipoBaja;
+        salidaDTO.Motivo = s.Motivo;
+        salidaDTO.FechaSalida = s.FechaSalida;
+        salidaDTO.NumeroActaComite = s.NumeroActaComite;
+        salidaDTO.NumeroDenuncia = s.NumeroDenuncia;
+        salidaDTO.ValorSalida = s.ValorSalida;
+        salidaDTO.FuncionarioApruebaId = s.FuncionarioApruebaId;
+        salidaDTO.Observaciones = s.Observaciones;
+
+        StateHasChanged();
+    }
+
+    private async Task Eliminar(SalidaDTO s)
+    {
+        if (!puedeEliminar)
+        {
+            Toast.Error("No tiene permiso para eliminar salidas.");
+            return;
+        }
+
+        var ok = await Confirm.Peligroso(
+            $"¿Eliminar la salida del bien '{s.BienNombre}'? El bien volverá a estado Activo.");
+        if (!ok) return;
+
+        try
+        {
+            await SalidaRepo.EliminarAsync(s.Id);
+            await SalidaRepo.ReactivarBienAsync(s.BienId);
+            Toast.Exito("Salida eliminada. El bien fue reactivado.");
+            await Cargar();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+    }
+
+    private void Cancelar()
+    {
+        salidaDTO = new SalidaDTO
+        {
+            FechaSalida = DateTime.Today,
+            TipoBaja = "Obsolescencia"
+        };
+        editando = false;
+        salidaEditandoId = 0;
+        StateHasChanged();
+    }
+}

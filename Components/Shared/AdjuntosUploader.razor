@@ -1,0 +1,159 @@
+﻿@using Almacen.Services
+@inject ArchivoService ArchivoService
+@inject IJSRuntime JS
+@inject ToastService Toast
+@inject ConfirmService Confirm
+
+<div class="adjuntos-wrapper">
+    <div class="adjuntos-header">
+        <label>
+            <i class="bi bi-paperclip"></i>
+            Archivos adjuntos
+            <span class="contador">@(_adjuntos.Count)</span>
+        </label>
+    </div>
+
+    @if (EntidadId > 0)
+    {
+        <div class="upload-area">
+            <InputFile OnChange="SubirArchivo"
+                       accept=".pdf,.jpg,.jpeg,.png"
+                       multiple />
+        </div>
+    }
+    else
+    {
+        <div class="upload-pending">
+            <i class="bi bi-info-circle"></i>
+            <span>Guarda primero para poder adjuntar archivos</span>
+        </div>
+    }
+
+    @if (_adjuntos.Any())
+    {
+        <div class="adjuntos-lista">
+            @foreach (var a in _adjuntos)
+            {
+                <div class="adjunto-item">
+                    <i class="@GetIcono(a.MimeType) adjunto-icon"></i>
+                    <div class="adjunto-info">
+                        <span class="adjunto-nombre">@a.NombreOriginal</span>
+                        <span class="adjunto-meta">
+                            @a.TamanoFormateado · @a.CreatedAt.ToString("dd/MM/yy HH:mm")
+                        </span>
+                    </div>
+                    <div class="adjunto-actions">
+                        <button type="button" @onclick="() => Descargar(a)" title="Descargar">
+                            <i class="bi bi-download"></i>
+                        </button>
+                        <button type="button" @onclick="() => Eliminar(a)" title="Eliminar">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else if (EntidadId > 0)
+    {
+        <p class="adjuntos-vacio">Sin archivos adjuntos.</p>
+    }
+</div>
+
+@code {
+    [Parameter] public string EntidadTipo { get; set; } = "";
+    [Parameter] public int EntidadId { get; set; }
+    [Parameter] public EventCallback OnCambio { get; set; }
+
+    private List<ArchivoAdjuntoDTO> _adjuntos = new();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (EntidadId > 0)
+        {
+            _adjuntos = (await ArchivoService.ObtenerAsync(EntidadTipo, EntidadId)).ToList();
+        }
+    }
+
+    private async Task SubirArchivo(InputFileChangeEventArgs e)
+    {
+        var archivos = e.GetMultipleFiles(5);
+
+        foreach (var archivo in archivos)
+        {
+            var (ok, mensaje) = ArchivoService.Validar(
+                archivo.Name, archivo.Size, archivo.ContentType);
+
+            if (!ok)
+            {
+                Toast.Error(mensaje);
+                continue;
+            }
+
+            try
+            {
+                using var stream = archivo.OpenReadStream(ArchivoService.TamanoMaximoBytes);
+                await ArchivoService.GuardarAsync(
+                    stream,
+                    archivo.Name,
+                    archivo.ContentType,
+                    EntidadTipo,
+                    EntidadId);
+
+                Toast.Exito($"'{archivo.Name}' subido correctamente");
+            }
+            catch (Exception ex)
+            {
+                Toast.Error($"Error al subir '{archivo.Name}': {ex.Message}");
+            }
+        }
+
+        _adjuntos = (await ArchivoService.ObtenerAsync(EntidadTipo, EntidadId)).ToList();
+        StateHasChanged();
+
+        if (OnCambio.HasDelegate)
+            await OnCambio.InvokeAsync();
+    }
+
+    private async Task Descargar(ArchivoAdjuntoDTO a)
+    {
+        var resultado = await ArchivoService.LeerAsync(a.Id);
+        if (resultado is null)
+        {
+            Toast.Error("No se pudo leer el archivo.");
+            return;
+        }
+
+        var (bytes, nombre, mime) = resultado.Value;
+        await JS.InvokeVoidAsync("descargarArchivo",
+            Convert.ToBase64String(bytes), nombre, mime);
+    }
+
+    private async Task Eliminar(ArchivoAdjuntoDTO a)
+    {
+        var ok = await Confirm.Peligroso($"¿Eliminar el archivo '{a.NombreOriginal}'?");
+        if (!ok) return;
+
+        try
+        {
+            await ArchivoService.EliminarAsync(a.Id);
+            Toast.Exito("Archivo eliminado");
+            _adjuntos = (await ArchivoService.ObtenerAsync(EntidadTipo, EntidadId)).ToList();
+            StateHasChanged();
+
+            if (OnCambio.HasDelegate)
+                await OnCambio.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+    }
+
+    private static string GetIcono(string? mime) => mime switch
+    {
+        "application/pdf" => "bi-file-earmark-pdf-fill",
+        "image/jpeg" or "image/jpg" or "image/png" => "bi-file-earmark-image-fill",
+        _ => "bi-file-earmark"
+    };
+}

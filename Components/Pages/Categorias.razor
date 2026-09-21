@@ -1,0 +1,274 @@
+﻿@page "/categorias"
+@rendermode InteractiveServer
+
+@using Almacen.Interfaces
+@using Almacen.Models
+@using Almacen.DTOs
+@using Almacen.Services
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
+
+@inject ICategoriaRepository CategoriaRepository
+@inject SeguridadService Seguridad
+@inject NavigationManager Navigation
+@inject ToastService Toast
+@inject IJSRuntime JS
+
+<PageTitle>Categorías</PageTitle>
+
+<div class="usuarios-page usuarios-fullscreen">
+
+    <div class="modern-card mb-4">
+        <div class="card-top">
+            <div class="card-icon">
+                <i class="bi @(editando ? "bi-pencil-square" : "bi-tags-fill")"></i>
+            </div>
+            <div>
+                <h4 class="card-title">@(editando ? "Editar Categoría" : "Nueva Categoría")</h4>
+                <div class="card-subtitle">Administración de categorías de inventario</div>
+            </div>
+        </div>
+
+        <EditForm @key="categoriaEditandoId" Model="categoriaDTO" OnValidSubmit="GuardarCategoria">
+            <DataAnnotationsValidator />
+
+            <div class="row g-2">
+                <div class="col-md-6">
+                    <div class="modern-group">
+                        <label>Nombre</label>
+                        <div class="input-modern">
+                            <i class="bi bi-tag-fill"></i>
+                            <InputText class="form-control" @bind-Value="categoriaDTO.Nombre" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="modern-group">
+                        <label>Estado</label>
+                        <div class="input-modern">
+                            <InputSelect class="form-select" @bind-Value="estadoString">
+                                <option value="true">Activa</option>
+                                <option value="false">Inactiva</option>
+                            </InputSelect>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-12">
+                    <div class="modern-group">
+                        <label>Descripción</label>
+                        <InputTextArea class="form-control" rows="4"
+                                       placeholder="Ingrese una descripción..."
+                                       @bind-Value="categoriaDTO.Descripcion" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4">
+                @if ((!editando && puedeCrear) || (editando && puedeEditar))
+                {
+                    <button class="btn btn-save">
+                        <i class="bi bi-save-fill me-2"></i>
+                        @(editando ? "Actualizar" : "Guardar")
+                    </button>
+                }
+
+                @if (editando && puedeEditar)
+                {
+                    <button type="button" class="btn btn-cancel ms-2" @onclick="CancelarEdicion">
+                        Cancelar
+                    </button>
+                }
+            </div>
+        </EditForm>
+    </div>
+
+    <div class="modern-card">
+        <table class="table modern-table">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Descripción</th>
+                    <th>Estado</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (categorias != null)
+                {
+                    @foreach (var categoria in categorias)
+                    {
+                        <tr>
+                            <td>@categoria.Nombre</td>
+                            <td>@categoria.Descripcion</td>
+                            <td>
+                                @if (categoria.Estado)
+                                {
+                                    <span class="status-active">Activa</span>
+                                }
+                                else
+                                {
+                                    <span class="status-inactive">Inactiva</span>
+                                }
+                            </td>
+                            <td class="text-center">
+                                @if (puedeEditar)
+                                {
+                                    <button class="btn-action-edit" @onclick="() => Editar(categoria)">
+                                        <i class="bi bi-pencil-fill"></i>
+                                    </button>
+                                }
+                                @if (puedeEliminar)
+                                {
+                                    <button class="btn-action-delete" @onclick="() => Eliminar(categoria.Id)">
+                                        <i class="bi bi-trash-fill"></i>
+                                    </button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+
+</div>
+
+@code {
+    private IEnumerable<Categoria>? categorias;
+    private CategoriaDTO categoriaDTO = new();
+    private bool editando;
+    private int categoriaEditandoId;
+
+    private bool puedeCrear;
+    private bool puedeEditar;
+    private bool puedeEliminar;
+
+    private string estadoString
+    {
+        get => categoriaDTO.Estado.ToString().ToLower();
+        set => categoriaDTO.Estado = bool.Parse(value);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await Seguridad.TienePermisoAsync("categorias.ver"))
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+
+        puedeCrear = await Seguridad.TienePermisoAsync("categorias.crear");
+        puedeEditar = await Seguridad.TienePermisoAsync("categorias.editar");
+        puedeEliminar = await Seguridad.TienePermisoAsync("categorias.eliminar");
+
+        await Cargar();
+    }
+
+    private async Task Cargar()
+    {
+        categorias = await CategoriaRepository.ObtenerTodosAsync();
+    }
+
+    private async Task GuardarCategoria()
+    {
+        if (!editando && !puedeCrear)
+        {
+            Toast.Error("No tiene permiso para crear categorías.");
+            return;
+        }
+
+        if (editando && !puedeEditar)
+        {
+            Toast.Error("No tiene permiso para editar categorías.");
+            return;
+        }
+
+        try
+        {
+            if (editando)
+            {
+                await CategoriaRepository.ActualizarAsync(new Categoria
+                {
+                    Id = categoriaEditandoId,
+                    Nombre = categoriaDTO.Nombre,
+                    Descripcion = categoriaDTO.Descripcion,
+                    Estado = categoriaDTO.Estado
+                });
+                Toast.Exito("Categoría actualizada correctamente");
+            }
+            else
+            {
+                await CategoriaRepository.CrearAsync(new Categoria
+                {
+                    Nombre = categoriaDTO.Nombre,
+                    Descripcion = categoriaDTO.Descripcion,
+                    Estado = categoriaDTO.Estado
+                });
+                Toast.Exito("Categoría creada correctamente");
+            }
+
+            Limpiar();
+            await Cargar();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+    }
+
+    private void Editar(Categoria categoria)
+    {
+        if (!puedeEditar) return;
+
+        editando = true;
+        categoriaEditandoId = categoria.Id;
+
+        // Mutar propiedades (NO reemplazar el objeto)
+        categoriaDTO.Id = categoria.Id;
+        categoriaDTO.Nombre = categoria.Nombre;
+        categoriaDTO.Descripcion = categoria.Descripcion;
+        categoriaDTO.Estado = categoria.Estado;
+
+        StateHasChanged();
+    }
+
+    private async Task Eliminar(int id)
+    {
+        if (!puedeEliminar)
+        {
+            Toast.Error("No tiene permiso para eliminar categorías.");
+            return;
+        }
+
+        bool ok = await JS.InvokeAsync<bool>("confirm", "¿Eliminar categoría?");
+        if (!ok) return;
+
+        try
+        {
+            await CategoriaRepository.EliminarAsync(id);
+            Toast.Exito("Categoría eliminada correctamente");
+            await Cargar();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+    }
+
+    private void CancelarEdicion() => Limpiar();
+
+    private void Limpiar()
+    {
+        categoriaDTO.Id = 0;
+        categoriaDTO.Nombre = string.Empty;
+        categoriaDTO.Descripcion = string.Empty;
+        categoriaDTO.Estado = true;
+
+        editando = false;
+        categoriaEditandoId = 0;
+
+        StateHasChanged();
+    }
+}

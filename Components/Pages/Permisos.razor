@@ -1,0 +1,377 @@
+﻿@page "/permisos"
+@rendermode InteractiveServer
+
+@using Almacen.Interfaces
+@using Almacen.Models
+@using Almacen.DTOs
+@using Almacen.Services
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
+
+@inject IPermisoRepository PermisoRepository
+@inject IJSRuntime JS
+@inject UsuarioSesionService Sesion
+@inject SeguridadService Seguridad
+@inject NavigationManager Navigation
+@inject ToastService Toast
+
+<PageTitle>Permisos</PageTitle>
+
+<div class="usuarios-page usuarios-fullscreen">
+
+    <div class="modern-card mb-4">
+        <div class="card-top">
+            <div class="card-icon">
+                <i class="bi @(editando ? "bi-pencil-square" : "bi-shield-lock-fill")"></i>
+            </div>
+            <div>
+                <h4 class="card-title">@(editando ? "Editar Permiso" : "Nuevo Permiso")</h4>
+                <div class="card-subtitle">
+                    @(editando ? "Actualización de información" : "Registro de permisos del sistema")
+                </div>
+            </div>
+        </div>
+
+        <EditForm @key="permisoEditandoId" Model="permisoDTO" OnValidSubmit="GuardarPermiso">
+            <DataAnnotationsValidator />
+            <div class="container-fluid p-0">
+
+                <div class="row g-2 mb-3">
+                    <div class="col-12 col-md-6">
+                        <div class="modern-group">
+                            <label>Código</label>
+                            <div class="input-modern">
+                                <i class="bi bi-key-fill"></i>
+                                <InputText class="form-control" @bind-Value="permisoDTO.Codigo" placeholder="Ej: bienes.ver" />
+                            </div>
+                            <ValidationMessage For="@(() => permisoDTO.Codigo)" class="validation-message" />
+                        </div>
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                        <div class="modern-group">
+                            <label>Módulo</label>
+                            <div class="input-modern">
+                                <i class="bi bi-grid-fill"></i>
+                                @if (nuevoModulo)
+                                {
+                                    <InputText class="form-control" @bind-Value="permisoDTO.Modulo" placeholder="Ej: Reportes" />
+                                }
+                                else
+                                {
+                                    <select class="form-select" value="@permisoDTO.Modulo" @onchange="CambioModulo">
+                                        <option value="">— Seleccione módulo —</option>
+                                        @foreach (var m in modulosDisponibles)
+                                        {
+                                            <option value="@m">@m</option>
+                                        }
+                                        <option value="__NUEVO__">➕ Crear nuevo módulo…</option>
+                                    </select>
+                                }
+                            </div>
+                            <ValidationMessage For="@(() => permisoDTO.Modulo)" class="validation-message" />
+
+                            @if (!nuevoModulo)
+                            {
+                                <small class="text-muted" style="font-size:0.75rem; margin-top:4px;">
+                                    ¿Falta un módulo? Selecciona "Crear nuevo módulo…"
+                                </small>
+                            }
+                            else
+                            {
+                                <small class="text-primary" style="font-size:0.75rem; margin-top:4px; cursor:pointer;"
+                                       @onclick="VolverAlListado">
+                                    ← Volver al listado
+                                </small>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-2 mb-3">
+                    <div class="col-12 col-md-8">
+                        <div class="modern-group">
+                            <label>Descripción</label>
+                            <InputTextArea class="form-control" rows="3" @bind-Value="permisoDTO.Descripcion" />
+                        </div>
+                    </div>
+
+                    <div class="col-12 col-md-4">
+                        <div class="modern-group">
+                            <label>Estado</label>
+                            <div class="input-modern">
+                                <i class="bi bi-check-circle-fill"></i>
+                                <InputSelect class="form-select" @bind-Value="estadoString">
+                                    <option value="true">Activo</option>
+                                    <option value="false">Inactivo</option>
+                                </InputSelect>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="d-flex gap-3 mt-4">
+                @if ((!editando && puedeCrear) || (editando && puedeEditar))
+                {
+                    <button type="submit" class="btn btn-save px-4">
+                        <i class="bi @(editando ? "bi-check-circle-fill" : "bi-save-fill") me-2"></i>
+                        @(editando ? "Actualizar Permiso" : "Guardar Permiso")
+                    </button>
+                }
+
+                @if (editando && puedeEditar)
+                {
+                    <button type="button" class="btn btn-cancel px-4" @onclick="CancelarEdicion">
+                        <i class="bi bi-x-circle me-2"></i> Cancelar
+                    </button>
+                }
+            </div>
+        </EditForm>
+    </div>
+
+    <div class="modern-card">
+        <div class="table-responsive">
+            <table class="table modern-table align-middle">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Módulo</th>
+                        <th>Descripción</th>
+                        <th>Estado</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (permisos == null)
+                    {
+                        <tr><td colspan="5" class="text-center py-5">Cargando permisos...</td></tr>
+                    }
+                    else if (!permisos.Any())
+                    {
+                        <tr><td colspan="5" class="text-center py-5">No existen permisos registrados</td></tr>
+                    }
+                    else
+                    {
+                        @foreach (var permiso in permisos)
+                        {
+                            <tr>
+                                <td><strong>@permiso.Codigo</strong></td>
+                                <td>@permiso.Modulo</td>
+                                <td>@permiso.Descripcion</td>
+                                <td>
+                                    @if (permiso.Activo)
+                                    {
+                                        <span class="status-active">
+                                            <i class="bi bi-check-circle-fill me-1"></i> Activo
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="status-inactive">
+                                            <i class="bi bi-x-circle-fill me-1"></i> Inactivo
+                                        </span>
+                                    }
+                                </td>
+                                <td class="text-center">
+                                    @if (puedeEditar)
+                                    {
+                                        <button type="button" class="btn-action-edit me-2" @onclick="() => EditarPermiso(permiso)">
+                                            <i class="bi bi-pencil-fill"></i>
+                                        </button>
+                                    }
+                                    @if (puedeEliminar)
+                                    {
+                                        <button type="button" class="btn-action-delete" @onclick="() => ConfirmarEliminar(permiso.Id)">
+                                            <i class="bi bi-trash-fill"></i>
+                                        </button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@code {
+    private IEnumerable<Permiso>? permisos;
+    private PermisoDTO permisoDTO = new();
+    private bool editando = false;
+    private int permisoEditandoId;
+
+    private bool puedeCrear;
+    private bool puedeEditar;
+    private bool puedeEliminar;
+
+    private List<string> modulosDisponibles = new();
+    private bool nuevoModulo = false;
+
+    private string estadoString
+    {
+        get => permisoDTO.Activo.ToString().ToLower();
+        set => permisoDTO.Activo = bool.Parse(value);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await Seguridad.TienePermisoAsync("permisos.ver"))
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+
+        puedeCrear = await Seguridad.TienePermisoAsync("permisos.crear");
+        puedeEditar = await Seguridad.TienePermisoAsync("permisos.editar");
+        puedeEliminar = await Seguridad.TienePermisoAsync("permisos.eliminar");
+
+        await CargarPermisos();
+    }
+
+    private async Task CargarPermisos()
+    {
+        permisos = await PermisoRepository.ObtenerTodosAsync();
+
+        modulosDisponibles = permisos
+            .Select(p => p.Modulo ?? string.Empty)
+            .Where(m => !string.IsNullOrWhiteSpace(m))
+            .Distinct()
+            .OrderBy(m => m)
+            .ToList();
+    }
+
+    private void CambioModulo(ChangeEventArgs e)
+    {
+        var valor = e.Value?.ToString() ?? string.Empty;
+
+        if (valor == "__NUEVO__")
+        {
+            nuevoModulo = true;
+            permisoDTO.Modulo = string.Empty;
+        }
+        else
+        {
+            nuevoModulo = false;
+            permisoDTO.Modulo = valor;
+        }
+    }
+
+    private void VolverAlListado()
+    {
+        nuevoModulo = false;
+        permisoDTO.Modulo = string.Empty;
+    }
+
+    private async Task GuardarPermiso()
+    {
+        if (!editando && !puedeCrear)
+        {
+            Toast.Error("No tiene permiso para crear permisos.");
+            return;
+        }
+
+        if (editando && !puedeEditar)
+        {
+            Toast.Error("No tiene permiso para editar permisos.");
+            return;
+        }
+
+        try
+        {
+            if (editando)
+            {
+                await PermisoRepository.ActualizarAsync(new Permiso
+                {
+                    Id = permisoEditandoId,
+                    Codigo = permisoDTO.Codigo,
+                    Descripcion = permisoDTO.Descripcion,
+                    Modulo = permisoDTO.Modulo,
+                    Activo = permisoDTO.Activo
+                });
+                Toast.Exito("Permiso actualizado correctamente");
+            }
+            else
+            {
+                await PermisoRepository.CrearAsync(new Permiso
+                {
+                    Codigo = permisoDTO.Codigo,
+                    Descripcion = permisoDTO.Descripcion,
+                    Modulo = permisoDTO.Modulo,
+                    Activo = permisoDTO.Activo
+                });
+                Toast.Exito("Permiso creado correctamente");
+            }
+
+            LimpiarFormulario();
+            await CargarPermisos();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+    }
+
+    private void EditarPermiso(Permiso permiso)
+    {
+        if (!puedeEditar) return;
+
+        editando = true;
+        permisoEditandoId = permiso.Id;
+
+        permisoDTO.Id = permiso.Id;
+        permisoDTO.Codigo = permiso.Codigo;
+        permisoDTO.Descripcion = permiso.Descripcion;
+        permisoDTO.Modulo = permiso.Modulo ?? string.Empty;
+        permisoDTO.Activo = permiso.Activo;
+
+        nuevoModulo = false;
+
+        StateHasChanged();
+    }
+
+    private async Task ConfirmarEliminar(int id)
+    {
+        if (!puedeEliminar)
+        {
+            Toast.Error("No tiene permiso para eliminar permisos.");
+            return;
+        }
+
+        bool confirmar = await JS.InvokeAsync<bool>("confirm", "¿Desea eliminar este permiso?");
+        if (!confirmar) return;
+
+        try
+        {
+            bool eliminado = await PermisoRepository.EliminarAsync(id);
+            if (eliminado)
+            {
+                Toast.Exito("Permiso eliminado correctamente");
+                await CargarPermisos();
+            }
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+    }
+
+    private void CancelarEdicion() => LimpiarFormulario();
+
+    private void LimpiarFormulario()
+    {
+        permisoDTO.Id = 0;
+        permisoDTO.Codigo = string.Empty;
+        permisoDTO.Descripcion = string.Empty;
+        permisoDTO.Modulo = string.Empty;
+        permisoDTO.Activo = true;
+
+        editando = false;
+        permisoEditandoId = 0;
+        nuevoModulo = false;
+
+        StateHasChanged();
+    }
+}

@@ -1,0 +1,193 @@
+﻿@page "/"
+@using Almacen.DTOs
+@using Almacen.Interfaces
+@using Almacen.Services
+@inject IDashboardRepository DashboardRepo
+@inject UsuarioSesionService Sesion
+@inject IJSRuntime JS
+
+<PageTitle>Inicio · Almacén</PageTitle>
+
+<div class="dashboard">
+
+    <header class="dashboard-header">
+        <div>
+            <h1><i class="bi bi-speedometer2"></i> Panel de control</h1>
+            <p class="subtitle">Resumen general del inventario municipal</p>
+        </div>
+    </header>
+
+    @if (_cargando)
+    {
+        <div class="loading">
+            <div class="spinner"></div>
+            <p>Cargando indicadores…</p>
+        </div>
+    }
+    else if (_kpis is not null)
+    {
+        <section class="kpi-grid">
+            <div class="kpi-card kpi-indigo">
+                <div class="kpi-icon"><i class="bi bi-box-seam"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Bienes activos</span>
+                    <span class="kpi-value">@_kpis.TotalBienes.ToString("N0")</span>
+                </div>
+            </div>
+
+            <div class="kpi-card kpi-blue">
+                <div class="kpi-icon"><i class="bi bi-tags"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Categorías</span>
+                    <span class="kpi-value">@_kpis.TotalCategorias.ToString("N0")</span>
+                </div>
+            </div>
+
+            <div class="kpi-card kpi-green">
+                <div class="kpi-icon"><i class="bi bi-people"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Usuarios activos</span>
+                    <span class="kpi-value">@_kpis.UsuariosActivos.ToString("N0")</span>
+                </div>
+            </div>
+
+            <div class="kpi-card kpi-red">
+                <div class="kpi-icon"><i class="bi bi-cash-stack"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Valor inventario</span>
+                    <span class="kpi-value">@_kpis.ValorInventario.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("es-CO"))</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="dashboard-grid">
+
+            <div class="panel">
+                <header class="panel-header">
+                    <h2><i class="bi bi-bar-chart-line"></i> Bienes por categoría</h2>
+                </header>
+                <div class="panel-body">
+                    @if (_porCategoria.Count == 0)
+                    {
+                        <p class="empty">Sin datos para mostrar.</p>
+                    }
+                    else
+                    {
+                        var max = _porCategoria.Max(x => x.Cantidad);
+                        <ul class="categoria-list">
+                            @foreach (var c in _porCategoria)
+                            {
+                                var pct = max == 0 ? 0 : (int)Math.Round((double)c.Cantidad / max * 100);
+                                <li>
+                                    <div class="cat-row">
+                                        <span class="cat-name">@c.CategoriaNombre</span>
+                                        <span class="cat-count">@c.Cantidad bienes</span>
+                                    </div>
+                                    <div class="cat-bar">
+                                        <div class="cat-bar-fill" style="width:@pct%"></div>
+                                    </div>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </div>
+            </div>
+
+            <div class="panel">
+                <header class="panel-header">
+                    <h2><i class="bi bi-clock-history"></i> Últimos bienes registrados</h2>
+                </header>
+                <div class="panel-body">
+                    @if (_ultimos.Count == 0)
+                    {
+                        <p class="empty">Aún no hay bienes registrados.</p>
+                    }
+                    else
+                    {
+                        <table class="tabla-mini">
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Bien</th>
+                                    <th>Categoría</th>
+                                    <th class="text-end">Valor</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var b in _ultimos)
+                                {
+                                    <tr>
+                                        <td><code>@b.Codigo</code></td>
+                                        <td>@b.Nombre</td>
+                                        <td>@b.CategoriaNombre</td>
+                                        <td class="text-end">
+                                            @b.Valor.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("es-CO"))
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+            </div>
+
+        </section>
+    }
+    else
+    {
+        <div class="error-box">
+            <i class="bi bi-exclamation-triangle"></i>
+            <p>No se pudieron cargar los indicadores. Revisa la conexión a la base de datos.</p>
+        </div>
+    }
+</div>
+
+@code {
+    private bool _cargando = true;
+    private bool _redirigiendo = false;
+    private DashboardKpisDto? _kpis;
+    private List<BienesPorCategoriaDto> _porCategoria = new();
+    private List<UltimoBienDto> _ultimos = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Si no hay sesión, marca redirección y no carga nada.
+        // La redirección real ocurre en OnAfterRenderAsync (donde JS sí funciona).
+        if (!Sesion.EstaAutenticado)
+        {
+            _redirigiendo = true;
+            _cargando = false;
+            return;
+        }
+
+        try
+        {
+            var kpisTask = DashboardRepo.ObtenerKpisAsync();
+            var categoriaTask = DashboardRepo.ObtenerBienesPorCategoriaAsync(5);
+            var ultimosTask = DashboardRepo.ObtenerUltimosBienesAsync(5);
+
+            await Task.WhenAll(kpisTask, categoriaTask, ultimosTask);
+
+            _kpis = await kpisTask;
+            _porCategoria = (await categoriaTask).ToList();
+            _ultimos = (await ultimosTask).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Dashboard] Error: {ex.Message}");
+            _kpis = null;
+        }
+        finally
+        {
+            _cargando = false;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && _redirigiendo)
+        {
+            await JS.InvokeVoidAsync("eval", "window.location.replace('/login')");
+        }
+    }
+}
