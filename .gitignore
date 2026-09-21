@@ -1,0 +1,25 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+
+# Visual Studio
+.vs/
+.vscode/
+
+# Configuración con secretos
+appsettings.Development.json
+appsettings.*.local.json
+appsettings.Production.json
+
+# Uploads de usuarios
+wwwroot/uploads/
+uploads/
+
+# Logs
+*.log
+
+# Sistema
+.DS_Store
+Thumbs.db
