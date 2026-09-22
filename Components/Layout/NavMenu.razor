@@ -52,11 +52,13 @@
         })
 
         <!-- INVENTARIO -->
-        @RenderSeccion("inventario", "Inventario", "bi-boxes", new[]
+      @RenderSeccion("inventario", "Inventario", "bi-boxes", new[]
         {
             new ItemMenu("categorias",        "Categorías",         "bi-tags-fill",              "categorias.ver"),
             new ItemMenu("bienes",            "Bienes",             "bi-box-fill",               "bienes.ver"),
             new ItemMenu("proveedores",       "Proveedores",        "bi-shop",                   "proveedores.ver"),
+            new ItemMenu("consumo",           "Consumo",            "bi-boxes",                  "consumo.ver"),
+            new ItemMenu("kardex",            "Kárdex",             "bi-journal-text",           "kardex.ver"),
             new ItemMenu("inventario-fisico", "Inventario Físico",  "bi-clipboard-check-fill",   "bienes.ver"),
         })
 
@@ -94,6 +96,12 @@
         @RenderSeccion("configuracion", "Configuración", "bi-gear", new[]
         {
             new ItemMenu("vidas-utiles", "Vidas Útiles", "bi-clock-history", "vidas_utiles.ver"),
+        })
+
+          <!-- REPORTES -->
+        @RenderSeccion("reportes", "Reportes", "bi-file-earmark-bar-graph", new[]
+        {
+            new ItemMenu("reportes", "Reportes Consolidados", "bi-graph-up-arrow", "reportes.ver"),
         })
 
     </nav>
@@ -139,8 +147,10 @@
         {
             "instituciones.ver", "sedes.ver", "bloques.ver", "aulas.ver",
             "categorias.ver", "bienes.ver", "proveedores.ver", "funcionarios.ver",
+            "consumo.ver", "kardex.ver",
             "entradas.ver", "salidas.ver", "traslados.ver",
             "depreciacion.ver",
+            "reportes.ver",                          // ⬅️ NUEVA
             "usuarios.ver", "roles.ver", "permisos.ver", "roles.permisos",
             "vidas_utiles.ver"
         };
@@ -167,16 +177,16 @@
 
     private void AutoAbrirSeccionActual()
     {
-        var todas = new Dictionary<string, string[]>
+      var todas = new Dictionary<string, string[]>
         {
             ["estructura"]    = new[] { "instituciones", "sedes", "bloques", "aulas" },
-            ["inventario"]    = new[] { "categorias", "bienes", "proveedores", "inventario-fisico" },
+            ["inventario"]    = new[] { "categorias", "bienes", "proveedores", "consumo", "kardex", "inventario-fisico" },
             ["movimientos"]   = new[] { "entradas", "salidas", "traslados" },
             ["personal"]      = new[] { "funcionarios" },
             ["contabilidad"]  = new[] { "depreciacion" },
             ["seguridad"]     = new[] { "usuarios", "roles", "permisos", "rol-permisos" },
             ["configuracion"] = new[] { "vidas-utiles" },
-            ["personal"] = new[] { "funcionarios", "cuentandantes" }
+            ["reportes"] = new[] { "reportes" },
         };
 
         foreach (var (key, rutas) in todas)

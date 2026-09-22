@@ -1,0 +1,291 @@
+﻿@page "/kardex"
+@rendermode InteractiveServer
+
+@using Almacen.DTOs
+@using Almacen.Interfaces
+@using Almacen.Services
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
+
+@inject IKardexRepository KardexRepo
+@inject IProveedorRepository ProveedorRepo
+@inject IFuncionarioRepository FuncRepo
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@inject SeguridadService Seguridad
+@inject ToastService Toast
+
+<PageTitle>Kárdex · Almacén</PageTitle>
+
+<div class="usuarios-page usuarios-fullscreen">
+
+    <div class="page-header-custom">
+        <div>
+            <h1><i class="bi bi-journal-text"></i> Kárdex de Consumo</h1>
+            <p>Control de entradas, salidas y saldos por bien</p>
+        </div>
+        <div class="header-actions-custom">
+            <select class="select-bien" value="@_bienIdSeleccionado" @onchange="CambioBienSeleccionado">
+                <option value="0">— Seleccione un bien —</option>
+                @foreach (var b in _bienes)
+                {
+                    <option value="@b.Id">
+                        @b.Codigo — @b.Nombre (Stock: @b.StockActual.ToString("N2"))
+                    </option>
+                }
+            </select>
+        </div>
+    </div>
+
+    @if (_bienIdSeleccionado > 0 && _bienSeleccionado != null)
+    {
+        <!-- ═══ RESUMEN DEL BIEN ═══ -->
+        <section class="resumen-bien">
+            <div class="resumen-card">
+                <span class="resumen-label">Stock actual</span>
+                <span class="resumen-valor @(_bienSeleccionado.BajoStockMinimo ? "valor-warn" : "")">
+                    @_bienSeleccionado.StockActual.ToString("N2")
+                    <small>@_bienSeleccionado.UnidadMedida</small>
+                </span>
+            </div>
+            <div class="resumen-card">
+                <span class="resumen-label">Stock mínimo</span>
+                <span class="resumen-valor">@_bienSeleccionado.StockMinimo.ToString("N2")</span>
+            </div>
+            <div class="resumen-card">
+                <span class="resumen-label">CPP</span>
+                <span class="resumen-valor">
+                    @_bienSeleccionado.CppActual.ToString("C2", System.Globalization.CultureInfo.GetCultureInfo("es-CO"))
+                </span>
+            </div>
+            <div class="resumen-card">
+                <span class="resumen-label">Valor total</span>
+                <span class="resumen-valor">
+                    @_bienSeleccionado.ValorStock.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("es-CO"))
+                </span>
+            </div>
+        </section>
+
+        <!-- ═══ FORMULARIO DE MOVIMIENTO ═══ -->
+        <div class="modern-card">
+            <div class="card-top-compact">
+                <h5><i class="bi bi-arrow-left-right"></i> Registrar movimiento</h5>
+            </div>
+
+            <EditForm Model="_movDTO" OnValidSubmit="RegistrarMovimiento">
+                <DataAnnotationsValidator />
+
+                <div class="row g-2 mb-2">
+                    <div class="col-md-2">
+                        <label class="mini-label">Tipo *</label>
+                        <InputSelect class="form-select" @bind-Value="_movDTO.TipoMovimiento">
+                            <option value="ENTRADA">ENTRADA (+)</option>
+                            <option value="SALIDA">SALIDA (−)</option>
+                            <option value="AJUSTE_POS">AJUSTE (+)</option>
+                            <option value="AJUSTE_NEG">AJUSTE (−)</option>
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="mini-label">Fecha *</label>
+                        <InputDate class="form-control" @bind-Value="_movDTO.FechaMovimiento" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="mini-label">Cantidad *</label>
+                        <InputNumber class="form-control" @bind-Value="_movDTO.Cantidad" step="0.01" />
+                        <ValidationMessage For="() => _movDTO.Cantidad" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="mini-label">Costo unitario</label>
+                        <InputNumber class="form-control" @bind-Value="_movDTO.CostoUnitario" step="0.01"
+                                     disabled="@(EsSalida)" />
+                        @if (EsSalida)
+                        {
+                            <small class="text-muted" style="font-size:0.68rem;">Usa CPP actual</small>
+                        }
+                    </div>
+                    <div class="col-md-2">
+                        <label class="mini-label">N° documento</label>
+                        <InputText class="form-control" @bind-Value="_movDTO.DocumentoReferencia" placeholder="Factura / Acta" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="mini-label">Proveedor</label>
+                        <InputSelect class="form-select" @bind-Value="_movDTO.ProveedorId" disabled="@(EsSalida)">
+                            <option value="">— Sin proveedor —</option>
+                            @foreach (var p in _proveedores)
+                            {
+                                <option value="@p.Id">@p.Nombre</option>
+                            }
+                        </InputSelect>
+                    </div>
+                </div>
+
+                <div class="row g-2 mb-2">
+                    <div class="col-md-3">
+                        <label class="mini-label">Recibe (funcionario)</label>
+                        <InputSelect class="form-select" @bind-Value="_movDTO.FuncionarioRecibeId">
+                            <option value="">— Sin asignar —</option>
+                            @foreach (var f in _funcionarios)
+                            {
+                                <option value="@f.Id">@f.NombreCompleto</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-9">
+                        <label class="mini-label">Observaciones</label>
+                        <InputText class="form-control" @bind-Value="_movDTO.Observaciones" />
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2 mt-2 justify-content-end">
+                    <button type="submit" class="btn btn-save px-4">
+                        <i class="bi bi-check-circle me-1"></i> Registrar Movimiento
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+
+        <!-- ═══ TABLA KÁRDEX ═══ -->
+        <div class="modern-card">
+            <div class="card-top-compact">
+                <h5><i class="bi bi-clock-history"></i> Histórico de movimientos</h5>
+            </div>
+            <div class="table-responsive">
+                <table class="table modern-table align-middle m-0">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Tipo</th>
+                            <th class="text-end">Cant.</th>
+                            <th class="text-end">Costo unit.</th>
+                            <th class="text-end">Valor mov.</th>
+                            <th class="text-end">Saldo cant.</th>
+                            <th class="text-end">Saldo valor</th>
+                            <th class="text-end">CPP</th>
+                            <th>Documento</th>
+                            <th>Observaciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (_movimientos is null || !_movimientos.Any())
+                        {
+                            <tr><td colspan="10" class="text-center py-3 text-muted">
+                                Sin movimientos registrados.
+                            </td></tr>
+                        }
+                        else
+                        {
+                            @foreach (var m in _movimientos)
+                            {
+                                <tr>
+                                    <td>@m.FechaMovimiento?.ToString("dd/MM/yyyy")</td>
+                                    <td>
+                                        <span class="tipo-badge tipo-@m.TipoMovimiento.ToLower()">
+                                            @m.TipoMovimiento
+                                        </span>
+                                    </td>
+                                    <td class="text-end">@m.Cantidad.ToString("N2")</td>
+                                    <td class="text-end">@m.CostoUnitario.ToString("C2", System.Globalization.CultureInfo.GetCultureInfo("es-CO"))</td>
+                                    <td class="text-end">@m.ValorMovimiento.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("es-CO"))</td>
+                                    <td class="text-end"><strong>@m.SaldoCantidad.ToString("N2")</strong></td>
+                                    <td class="text-end">@m.SaldoValor.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("es-CO"))</td>
+                                    <td class="text-end">@m.Cpp.ToString("C2", System.Globalization.CultureInfo.GetCultureInfo("es-CO"))</td>
+                                    <td>@m.DocumentoReferencia</td>
+                                    <td>@m.Observaciones</td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="empty-state">
+            <i class="bi bi-journal-text"></i>
+            <p>Seleccione un bien para ver su kárdex</p>
+        </div>
+    }
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "bienId")]
+    public int? BienIdQuery { get; set; }
+
+    private List<BienConsumoDTO> _bienes = new();
+    private List<MovimientoConsumoDTO>? _movimientos;
+    private List<ProveedorDTO> _proveedores = new();
+    private List<FuncionarioDTO> _funcionarios = new();
+
+    private int _bienIdSeleccionado = 0;
+    private BienConsumoDTO? _bienSeleccionado;
+
+    private MovimientoConsumoDTO _movDTO = new();
+
+    private bool EsSalida => _movDTO.TipoMovimiento == "SALIDA" || _movDTO.TipoMovimiento == "AJUSTE_NEG";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await Seguridad.TienePermisoAsync("kardex.ver"))
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+
+        _bienes = (await KardexRepo.ObtenerBienesConsumoAsync()).ToList();
+        _proveedores = (await ProveedorRepo.ObtenerTodosAsync()).ToList();
+        _funcionarios = (await FuncRepo.ObtenerTodosAsync()).ToList();
+
+        if (BienIdQuery.HasValue && BienIdQuery.Value > 0)
+        {
+            _bienIdSeleccionado = BienIdQuery.Value;
+            await CargarBienSeleccionado();
+        }
+    }
+
+    private async Task CambioBienSeleccionado(ChangeEventArgs e)
+    {
+        _bienIdSeleccionado = Convert.ToInt32(e.Value);
+        await CargarBienSeleccionado();
+    }
+
+    private async Task CargarBienSeleccionado()
+    {
+        _bienSeleccionado = await KardexRepo.ObtenerBienConsumoPorIdAsync(_bienIdSeleccionado);
+        _movimientos = (await KardexRepo.ObtenerKardexAsync(_bienIdSeleccionado)).ToList();
+
+        _movDTO = new MovimientoConsumoDTO
+        {
+            BienId = _bienIdSeleccionado,
+            FechaMovimiento = DateTime.Today,
+            TipoMovimiento = "ENTRADA"
+        };
+
+        StateHasChanged();
+    }
+
+    private async Task RegistrarMovimiento()
+    {
+        if (!await Seguridad.TienePermisoAsync("kardex.movimiento"))
+        {
+            Toast.Error("No tiene permiso para registrar movimientos.");
+            return;
+        }
+
+        try
+        {
+            _movDTO.BienId = _bienIdSeleccionado;
+            await KardexRepo.RegistrarMovimientoAsync(_movDTO);
+
+            Toast.Exito($"Movimiento registrado correctamente");
+
+            // Recargar bien + kárdex + lista
+            _bienes = (await KardexRepo.ObtenerBienesConsumoAsync()).ToList();
+            await CargarBienSeleccionado();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+    }
+}

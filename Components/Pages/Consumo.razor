@@ -1,0 +1,404 @@
+﻿@page "/consumo"
+@rendermode InteractiveServer
+
+@using Almacen.DTOs
+@using Almacen.Interfaces
+@using Almacen.Models
+@using Almacen.Services
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
+
+@inject IKardexRepository KardexRepo
+@inject ICategoriaRepository CategoriaRepo
+@inject IJSRuntime JS
+@inject SeguridadService Seguridad
+@inject NavigationManager Navigation
+@inject ToastService Toast
+@inject ConfirmService Confirm
+
+<PageTitle>Consumo · Almacén</PageTitle>
+
+<div class="usuarios-page usuarios-fullscreen">
+
+    <div class="modern-card panel-formulario">
+
+        <div class="card-top-compact d-flex align-items-center gap-2 mb-2 pb-2 border-bottom">
+            <div class="card-icon-small-inline">
+                <i class="bi @(editando ? "bi-pencil-square" : "bi-boxes")" style="color: #0891b2; font-size: 1.1rem;"></i>
+            </div>
+            <div class="d-flex align-items-baseline gap-2">
+                <h5 class="m-0 fw-bold text-dark" style="font-size: 1rem;">@(editando ? "Editar Bien de Consumo" : "Nuevo Bien de Consumo")</h5>
+                <span class="text-muted d-none d-sm-inline" style="font-size: 0.75rem;">| Papelería, tintas, aseo y demás consumibles</span>
+            </div>
+        </div>
+
+        <EditForm @key="bienEditandoId" Model="bienDTO" OnValidSubmit="Guardar">
+            <DataAnnotationsValidator />
+
+            <div class="container-fluid p-0">
+
+                <div class="row g-2 mb-2">
+                    <div class="col-md-3">
+                        <div class="modern-group">
+                            <label>Código *</label>
+                            <div class="input-modern">
+                                <i class="bi bi-upc"></i>
+                                <InputText class="form-control" @bind-Value="bienDTO.Codigo" placeholder="Ej: CONS-001" />
+                            </div>
+                            <ValidationMessage For="() => bienDTO.Codigo" />
+                        </div>
+                    </div>
+
+                    <div class="col-md-5">
+                        <div class="modern-group">
+                            <label>Nombre *</label>
+                            <div class="input-modern">
+                                <i class="bi bi-tag"></i>
+                                <InputText class="form-control" @bind-Value="bienDTO.Nombre" placeholder="Papel bond carta" />
+                            </div>
+                            <ValidationMessage For="() => bienDTO.Nombre" />
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="modern-group">
+                            <label>Categoría</label>
+                            <div class="input-modern">
+                                <i class="bi bi-tags"></i>
+                                <InputSelect class="form-select" @bind-Value="bienDTO.CategoriaId">
+                                    <option value="">— Sin categoría —</option>
+                                    @foreach (var c in categorias)
+                                    {
+                                        <option value="@c.Id">@c.Nombre</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-2 mb-2">
+                    <div class="col-md-3">
+                        <div class="modern-group">
+                            <label>Unidad de medida *</label>
+                            <div class="input-modern">
+                                <i class="bi bi-rulers"></i>
+                                <InputSelect class="form-select" @bind-Value="bienDTO.UnidadMedida">
+                                    <option value="Unidad">Unidad</option>
+                                    <option value="Caja">Caja</option>
+                                    <option value="Paquete">Paquete</option>
+                                    <option value="Resma">Resma</option>
+                                    <option value="Litro">Litro</option>
+                                    <option value="Kilo">Kilo</option>
+                                    <option value="Metro">Metro</option>
+                                </InputSelect>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="modern-group">
+                            <label>Stock mínimo</label>
+                            <div class="input-modern">
+                                <i class="bi bi-exclamation-triangle"></i>
+                                <InputNumber class="form-control" @bind-Value="bienDTO.StockMinimo" min="0" />
+                            </div>
+                            <small class="text-muted" style="font-size:0.7rem;">Alerta cuando baje de este valor</small>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="modern-group">
+                            <label>Descripción</label>
+                            <div class="input-modern">
+                                <i class="bi bi-card-text"></i>
+                                <InputText class="form-control" @bind-Value="bienDTO.Descripcion" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-2 d-flex align-items-end pb-2">
+                        <div class="form-check">
+                            <InputCheckbox class="form-check-input" @bind-Value="bienDTO.Activo" id="chkActivoConsumo" />
+                            <label class="form-check-label" for="chkActivoConsumo">Activo</label>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="d-flex gap-2 mt-3 justify-content-end">
+                @if (editando)
+                {
+                    <button type="button" class="btn btn-cancel px-4" @onclick="Cancelar">
+                        <i class="bi bi-x-circle me-2"></i> Cancelar
+                    </button>
+                }
+                <button type="submit" class="btn btn-save px-4">
+                    <i class="bi @(editando ? "bi-check-circle-fill" : "bi-save-fill") me-2"></i>
+                    @(editando ? "Actualizar" : "Guardar")
+                </button>
+            </div>
+        </EditForm>
+    </div>
+
+    <!-- ═══ ALERTAS DE STOCK BAJO ═══ -->
+    @if (_bajoStock.Any())
+    {
+        <div class="alert-stock">
+            <i class="bi bi-exclamation-triangle-fill"></i>
+            <div>
+                <strong>@_bajoStock.Count bienes bajo stock mínimo</strong>
+                <span>Requieren reposición inmediata</span>
+            </div>
+        </div>
+    }
+
+    <!-- ═══ TABLA ═══ -->
+    <div class="modern-card panel-tabla-elastic position-relative">
+
+        <div class="filtros-tabla">
+            <div class="filtro-busqueda">
+                <i class="bi bi-search"></i>
+                <input type="text"
+                       placeholder="Buscar por código o nombre…"
+                       @bind="_filtroTexto"
+                       @bind:event="oninput" />
+                @if (!string.IsNullOrEmpty(_filtroTexto))
+                {
+                    <button class="filtro-clear" @onclick="() => _filtroTexto = string.Empty">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                }
+            </div>
+            <div class="filtro-info">
+                <span class="badge-total">
+                    <i class="bi bi-boxes"></i>
+                    <strong>@BienesFiltrados.Count()</strong> bienes
+                </span>
+            </div>
+        </div>
+
+        <div class="table-responsive style-scrollbar">
+            <table class="table modern-table align-middle m-0">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Nombre</th>
+                        <th>Unidad</th>
+                        <th class="text-end">Stock actual</th>
+                        <th class="text-end">Stock mínimo</th>
+                        <th class="text-end">CPP</th>
+                        <th class="text-end">Valor total</th>
+                        <th class="text-center">Estado</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (bienes is null)
+                    {
+                        <tr><td colspan="9" class="text-center py-3 text-muted">Cargando...</td></tr>
+                    }
+                    else if (!BienesFiltrados.Any())
+                    {
+                        <tr><td colspan="9" class="text-center py-3 text-muted">Sin bienes de consumo registrados.</td></tr>
+                    }
+                    else
+                    {
+                        @foreach (var b in BienesFiltrados)
+                        {
+                            <tr class="table-row-hover @(b.BajoStockMinimo ? "row-warning" : "")">
+                                <td><code>@b.Codigo</code></td>
+                                <td><strong>@b.Nombre</strong></td>
+                                <td>@b.UnidadMedida</td>
+                                <td class="text-end"><strong>@b.StockActual.ToString("N2")</strong></td>
+                                <td class="text-end text-muted">@b.StockMinimo.ToString("N2")</td>
+                                <td class="text-end">@b.CppActual.ToString("C2", System.Globalization.CultureInfo.GetCultureInfo("es-CO"))</td>
+                                <td class="text-end">@b.ValorStock.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("es-CO"))</td>
+                                <td class="text-center">
+                                    @if (b.BajoStockMinimo)
+                                    {
+                                        <span class="badge badge-warn">
+                                            <i class="bi bi-exclamation-triangle-fill"></i> Stock bajo
+                                        </span>
+                                    }
+                                    else if (b.Activo)
+                                    {
+                                        <span class="badge badge-ok">Activo</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-off">Inactivo</span>
+                                    }
+                                </td>
+                                <td class="text-center">
+                                    <button class="btn-icon me-1" @onclick="() => VerKardex(b)" title="Ver kárdex">
+                                        <i class="bi bi-clock-history"></i>
+                                    </button>
+                                    <button class="btn-icon me-1" @onclick="() => Editar(b)" title="Editar">
+                                        <i class="bi bi-pencil-fill"></i>
+                                    </button>
+                                    <button class="btn-icon danger" @onclick="() => Eliminar(b)" title="Eliminar">
+                                        <i class="bi bi-trash-fill"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@code {
+    private IEnumerable<BienConsumoDTO>? bienes;
+    private IEnumerable<Categoria> categorias = [];
+    private List<BienConsumoDTO> _bajoStock = new();
+
+    private BienConsumoDTO bienDTO = new();
+    private bool editando = false;
+    private int bienEditandoId;
+    private string _filtroTexto = string.Empty;
+
+    private bool puedeCrear;
+    private bool puedeEditar;
+    private bool puedeEliminar;
+
+    private IEnumerable<BienConsumoDTO> BienesFiltrados
+    {
+        get
+        {
+            if (bienes is null) return Enumerable.Empty<BienConsumoDTO>();
+            if (string.IsNullOrWhiteSpace(_filtroTexto)) return bienes;
+
+            var t = _filtroTexto.Trim().ToLower();
+            return bienes.Where(b =>
+                b.Codigo.ToLower().Contains(t) ||
+                b.Nombre.ToLower().Contains(t));
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await Seguridad.TienePermisoAsync("consumo.ver"))
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+
+        puedeCrear = await Seguridad.TienePermisoAsync("consumo.crear");
+        puedeEditar = await Seguridad.TienePermisoAsync("consumo.editar");
+        puedeEliminar = await Seguridad.TienePermisoAsync("consumo.eliminar");
+
+        categorias = await CategoriaRepo.ObtenerTodosAsync();
+        await Cargar();
+    }
+
+    private async Task Cargar()
+    {
+        bienes = await KardexRepo.ObtenerBienesConsumoAsync();
+        _bajoStock = (await KardexRepo.ObtenerBajoStockMinimoAsync()).ToList();
+    }
+
+    private async Task Guardar()
+    {
+        if (!editando && !puedeCrear)
+        {
+            Toast.Error("No tiene permiso para crear bienes de consumo.");
+            return;
+        }
+        if (editando && !puedeEditar)
+        {
+            Toast.Error("No tiene permiso para editar.");
+            return;
+        }
+
+        if (await KardexRepo.ExisteCodigoConsumoAsync(bienDTO.Codigo, editando ? bienEditandoId : null))
+        {
+            Toast.Error($"El código '{bienDTO.Codigo}' ya existe.");
+            return;
+        }
+
+        try
+        {
+            if (editando)
+            {
+                await KardexRepo.ActualizarBienConsumoAsync(bienDTO);
+                Toast.Exito("Bien de consumo actualizado");
+            }
+            else
+            {
+                await KardexRepo.CrearBienConsumoAsync(bienDTO);
+                Toast.Exito("Bien de consumo creado");
+            }
+            Cancelar();
+            await Cargar();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+    }
+
+    private void Editar(BienConsumoDTO b)
+    {
+        if (!puedeEditar) return;
+
+        editando = true;
+        bienEditandoId = b.Id;
+
+        bienDTO.Id = b.Id;
+        bienDTO.Codigo = b.Codigo;
+        bienDTO.Nombre = b.Nombre;
+        bienDTO.Descripcion = b.Descripcion;
+        bienDTO.CategoriaId = b.CategoriaId;
+        bienDTO.UnidadMedida = b.UnidadMedida;
+        bienDTO.StockMinimo = b.StockMinimo;
+        bienDTO.Activo = b.Activo;
+
+        StateHasChanged();
+    }
+
+    private async Task Eliminar(BienConsumoDTO b)
+    {
+        if (!puedeEliminar)
+        {
+            Toast.Error("No tiene permiso para eliminar.");
+            return;
+        }
+
+        if (b.StockActual > 0)
+        {
+            Toast.Error("No se puede eliminar: aún tiene stock. Registre salidas primero.");
+            return;
+        }
+
+        var ok = await Confirm.Peligroso($"¿Eliminar '{b.Nombre}'?");
+        if (!ok) return;
+
+        try
+        {
+            await KardexRepo.EliminarBienConsumoAsync(b.Id);
+            Toast.Exito("Bien eliminado");
+            await Cargar();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+    }
+
+    private void VerKardex(BienConsumoDTO b)
+    {
+        Navigation.NavigateTo($"/kardex?bienId={b.Id}");
+    }
+
+    private void Cancelar()
+    {
+        bienDTO = new BienConsumoDTO();
+        editando = false;
+        bienEditandoId = 0;
+        StateHasChanged();
+    }
+}

@@ -50,6 +50,10 @@ builder.Services.AddScoped<DepreciacionService>();
 
 builder.Services.AddScoped<IVidaUtilRepository, VidaUtilRepository>();
 
+builder.Services.AddScoped<IKardexRepository, KardexRepository>();
+
+builder.Services.AddScoped<IReporteRepository, ReporteRepository>();
+
 builder.Services.AddScoped<ArchivoService>();
 builder.Services.AddScoped<NpgsqlConnectionFactory>();
 

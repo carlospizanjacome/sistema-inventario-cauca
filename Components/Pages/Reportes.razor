@@ -1,0 +1,235 @@
+﻿@page "/reportes"
+@rendermode InteractiveServer
+
+@using Almacen.DTOs
+@using Almacen.Interfaces
+@using Almacen.Services
+@using Microsoft.JSInterop
+
+@inject IReporteRepository ReporteRepo
+@inject UsuarioSesionService Sesion
+@inject IJSRuntime JS
+@inject SeguridadService Seguridad
+@inject NavigationManager Navigation
+@inject ToastService Toast
+
+<PageTitle>Reportes · Almacén</PageTitle>
+
+<div class="page-container">
+
+    <div class="page-header">
+        <div>
+            <h1><i class="bi bi-file-earmark-bar-graph"></i> Reportes Consolidados</h1>
+            <p class="subtitle">Resumen general del sistema para informes institucionales</p>
+        </div>
+    </div>
+
+    @if (_cargando)
+    {
+        <div class="loading">
+            <div class="spinner"></div>
+            <p>Cargando reportes...</p>
+        </div>
+    }
+    else if (_global is not null)
+    {
+        <section class="kpi-grid">
+            <div class="kpi-card kpi-indigo">
+                <div class="kpi-icon"><i class="bi bi-building"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Instituciones</span>
+                    <span class="kpi-value">@_global.TotalInstituciones</span>
+                </div>
+            </div>
+
+            <div class="kpi-card kpi-blue">
+                <div class="kpi-icon"><i class="bi bi-box-seam"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Bienes totales</span>
+                    <span class="kpi-value">@_global.TotalBienes.ToString("N0")</span>
+                </div>
+            </div>
+
+            <div class="kpi-card kpi-cyan">
+                <div class="kpi-icon"><i class="bi bi-boxes"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">De consumo</span>
+                    <span class="kpi-value">@_global.TotalConsumo.ToString("N0")</span>
+                </div>
+            </div>
+
+            <div class="kpi-card kpi-green">
+                <div class="kpi-icon"><i class="bi bi-cash-stack"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Valor histórico</span>
+                    <span class="kpi-value">@_global.ValorAdquisicion.ToString("C0", CulturaCOP)</span>
+                </div>
+            </div>
+
+            <div class="kpi-card kpi-orange">
+                <div class="kpi-icon"><i class="bi bi-graph-down-arrow"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Depreciación acum.</span>
+                    <span class="kpi-value">@_global.DepreciacionAcumulada.ToString("C0", CulturaCOP)</span>
+                </div>
+            </div>
+
+            <div class="kpi-card kpi-red">
+                <div class="kpi-icon"><i class="bi bi-exclamation-triangle"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Bajo stock mínimo</span>
+                    <span class="kpi-value">@_global.BienesBajoStock.ToString("N0")</span>
+                </div>
+            </div>
+        </section>
+
+        @if (_instituciones is not null && _instituciones.Any())
+        {
+            <div class="modern-card">
+                <div class="panel-header">
+                    <h2><i class="bi bi-building"></i> Consolidado por institución</h2>
+                    <button class="btn-export" @onclick="ExportarConsolidado" disabled="@_exportando">
+                        <i class="bi @(_exportando ? "bi-hourglass-split" : "bi-file-earmark-excel")"></i>
+                        @(_exportando ? "Generando..." : "Exportar a Excel")
+                    </button>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table modern-table m-0">
+                        <thead>
+                            <tr>
+                                <th>Institución</th>
+                                <th>NIT</th>
+                                <th class="text-end">Bienes</th>
+                                <th class="text-end">Consumo</th>
+                                <th class="text-end">Funcionarios</th>
+                                <th class="text-end">Valor hist.</th>
+                                <th class="text-end">Deprec. acum.</th>
+                                <th class="text-end">Valor neto</th>
+                                <th class="text-center">Stock bajo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var i in _instituciones)
+                            {
+                                <tr>
+                                    <td><strong>@i.InstitucionNombre</strong></td>
+                                    <td>@i.InstitucionNit</td>
+                                    <td class="text-end">@i.TotalBienes</td>
+                                    <td class="text-end">@i.TotalConsumo</td>
+                                    <td class="text-end">@i.TotalFuncionarios</td>
+                                    <td class="text-end">@i.ValorAdquisicion.ToString("C0", CulturaCOP)</td>
+                                    <td class="text-end text-warning">@i.DepreciacionAcumulada.ToString("C0", CulturaCOP)</td>
+                                    <td class="text-end text-success"><strong>@i.ValorNeto.ToString("C0", CulturaCOP)</strong></td>
+                                    <td class="text-center">
+                                        @if (i.BienesBajoStock > 0)
+                                        {
+                                            <span class="badge-warn">@i.BienesBajoStock</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge-ok">✓</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+    }
+    else
+    {
+        <div class="empty">No se pudieron cargar los reportes.</div>
+    }
+</div>
+
+@code {
+    private ConsolidadoGlobalDTO? _global;
+    private List<ConsolidadoInstitucionDTO> _instituciones = new();
+    private bool _cargando = true;
+    private bool _exportando = false;
+
+    private static readonly System.Globalization.CultureInfo CulturaCOP =
+        System.Globalization.CultureInfo.GetCultureInfo("es-CO");
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await Seguridad.TienePermisoAsync("reportes.ver"))
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+
+        try
+        {
+            _global = await ReporteRepo.ObtenerConsolidadoGlobalAsync();
+            _instituciones = (await ReporteRepo.ObtenerConsolidadoInstitucionesAsync()).ToList();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error al cargar reportes: {ex.Message}");
+        }
+        finally
+        {
+            _cargando = false;
+        }
+    }
+
+    private async Task ExportarConsolidado()
+    {
+        if (_instituciones is null || !_instituciones.Any())
+        {
+            Toast.Warning("No hay datos para exportar.");
+            return;
+        }
+
+        _exportando = true;
+        StateHasChanged();
+
+        try
+        {
+            var csv = new System.Text.StringBuilder();
+            csv.AppendLine("Institución;NIT;Código DANE;Bienes;Devolutivos;Consumo;Funcionarios;Usuarios;Sedes;Valor Adquisición;Depreciación;Valor Neto;Bajo Stock");
+
+            foreach (var i in _instituciones)
+            {
+                csv.AppendLine(string.Join(";",
+                    $"\"{i.InstitucionNombre}\"",
+                    i.InstitucionNit ?? "",
+                    i.CodigoDane ?? "",
+                    i.TotalBienes,
+                    i.TotalDevolutivos,
+                    i.TotalConsumo,
+                    i.TotalFuncionarios,
+                    i.TotalUsuarios,
+                    i.TotalSedes,
+                    i.ValorAdquisicion.ToString("F2", CulturaCOP),
+                    i.DepreciacionAcumulada.ToString("F2", CulturaCOP),
+                    i.ValorNeto.ToString("F2", CulturaCOP),
+                    i.BienesBajoStock
+                ));
+            }
+
+            var bytes = System.Text.Encoding.UTF8.GetBytes(csv.ToString());
+            var nombre = $"ConsolidadoInstituciones_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
+
+            await JS.InvokeVoidAsync("descargarArchivo",
+                Convert.ToBase64String(bytes),
+                nombre,
+                "text/csv");
+
+            Toast.Exito("Reporte exportado correctamente");
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error al exportar: {ex.Message}");
+        }
+        finally
+        {
+            _exportando = false;
+            StateHasChanged();
+        }
+    }
+}
