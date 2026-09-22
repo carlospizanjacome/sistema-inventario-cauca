@@ -54,6 +54,9 @@ builder.Services.AddScoped<IKardexRepository, KardexRepository>();
 
 builder.Services.AddScoped<IReporteRepository, ReporteRepository>();
 
+builder.Services.AddScoped<ITomaFisicaRepository, TomaFisicaRepository>();
+
+
 builder.Services.AddScoped<ArchivoService>();
 builder.Services.AddScoped<NpgsqlConnectionFactory>();
 

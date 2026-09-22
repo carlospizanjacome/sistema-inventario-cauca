@@ -1,0 +1,511 @@
+﻿@page "/toma-fisica/barrido/{TomaId:int}"
+@rendermode InteractiveServer
+
+@using Almacen.DTOs
+@using Almacen.Interfaces
+@using Almacen.Services
+@using Microsoft.JSInterop
+
+@inject ITomaFisicaRepository TomaRepo
+@inject IFuncionarioRepository FuncRepo
+@inject UsuarioSesionService Sesion
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+@inject ToastService Toast
+@inject ConfirmService Confirm
+
+<PageTitle>Barrido · Toma Física</PageTitle>
+
+<div class="barrido-container">
+
+    @if (_toma is null)
+    {
+        <div class="loading-page">
+            <div class="spinner"></div>
+            <p>Cargando toma física...</p>
+        </div>
+    }
+    else
+    {
+        <!-- ═══ HEADER CON PROGRESO ═══ -->
+        <header class="barrido-header">
+            <div class="header-info">
+                <button class="btn-back" @onclick="Volver">
+                    <i class="bi bi-arrow-left"></i>
+                </button>
+                <div>
+                    <h1>@_toma.Nombre</h1>
+                    <p>@_toma.InstitucionNombre — @_toma.Codigo</p>
+                </div>
+            </div>
+
+            <div class="progreso-container">
+                <div class="progreso-nums">
+                    <div class="progreso-item">
+                        <span class="progreso-label">Escaneados</span>
+                        <span class="progreso-valor">@_escaneadosCount / @_toma.TotalBienesSnapshot</span>
+                    </div>
+                    <div class="progreso-item">
+                        <span class="progreso-label">Conciliados</span>
+                        <span class="progreso-valor text-success">@_conciliadosCount</span>
+                    </div>
+                    <div class="progreso-item">
+                        <span class="progreso-label">Sobrantes</span>
+                        <span class="progreso-valor text-warning">@_sobrantesCount</span>
+                    </div>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: @PorcentajeAvance%"></div>
+                </div>
+                <span class="porcentaje">@PorcentajeAvance.ToString("N1")% completado</span>
+            </div>
+        </header>
+
+        <!-- ═══ PANEL DE ESCANEO ═══ -->
+        <section class="escaner-section">
+            <div class="escaner-tabs">
+               <button class="tab @(_modoEscaner == "camara" ? "active" : "")"
+                      @onclick='() => _modoEscaner = "camara"'>
+                    <i class="bi bi-camera-fill"></i> Cámara
+                </button>
+                <button class="tab @(_modoEscaner == "manual" ? "active" : "")"
+                        @onclick='() => _modoEscaner = "manual"'>
+                    <i class="bi bi-keyboard-fill"></i> Manual
+                </button>
+                <button class="tab @(_modoEscaner == "lector" ? "active" : "")"
+                  @onclick='() => _modoEscaner = "lector"'>
+                    <i class="bi bi-upc-scan"></i> Lector USB
+                </button>
+            </div>
+
+            <!-- Modo CÁMARA -->
+            @if (_modoEscaner == "camara")
+            {
+                <div class="camara-wrapper">
+                    <div id="qr-reader" class="qr-reader-box"></div>
+
+                    @if (!_camaraActiva)
+                    {
+                        <button class="btn-activar-camara" @onclick="ActivarCamara">
+                            <i class="bi bi-camera-video-fill"></i>
+                            Activar Cámara
+                        </button>
+                    }
+                    else
+                    {
+                        <button class="btn-detener-camara" @onclick="DetenerCamara">
+                            <i class="bi bi-stop-circle-fill"></i>
+                            Detener Cámara
+                        </button>
+                    }
+                </div>
+            }
+
+            <!-- Modo MANUAL -->
+            @if (_modoEscaner == "manual")
+            {
+                <div class="manual-wrapper">
+                    <div class="input-group-custom">
+                        <i class="bi bi-upc"></i>
+                        <input type="text"
+                               placeholder="Escriba el código del bien..."
+                               @bind="_codigoManual"
+                               @bind:event="oninput"
+                               @onkeydown="OnKeyDownManual"
+                               autofocus />
+                        <button class="btn-escanear" @onclick="EscanearManual" disabled="@string.IsNullOrWhiteSpace(_codigoManual)">
+                            <i class="bi bi-search"></i> Buscar
+                        </button>
+                    </div>
+                    <small class="hint">Presione Enter para buscar</small>
+                </div>
+            }
+
+            <!-- Modo LECTOR USB -->
+            @if (_modoEscaner == "lector")
+            {
+                <div class="manual-wrapper">
+                    <div class="input-group-custom">
+                        <i class="bi bi-upc-scan"></i>
+                        <input type="text"
+                               placeholder="Escanee con el lector (autofocus)..."
+                               @bind="_codigoManual"
+                               @bind:event="oninput"
+                               @onkeydown="OnKeyDownManual"
+                               autofocus />
+                    </div>
+                    <small class="hint">
+                        <i class="bi bi-info-circle"></i>
+                        El lector USB envía Enter al final, la búsqueda es automática
+                    </small>
+                </div>
+            }
+
+            <!-- OPCIONES DE ESTADO (para el próximo escaneo) -->
+            <div class="opciones-estado">
+                <label>
+                    <span>Funcionario real (opcional):</span>
+                    <select @bind="_funcionarioRealId">
+                        <option value="">— Sin especificar —</option>
+                        @foreach (var f in _funcionarios)
+                        {
+                            <option value="@f.Id">@f.NombreCompleto</option>
+                        }
+                    </select>
+                </label>
+                <label>
+                    <span>Ubicación real (opcional):</span>
+                    <input type="text"
+                           placeholder="Ej: Aula 101"
+                           @bind="_ubicacionReal" />
+                </label>
+                <label>
+                    <span>Estado físico:</span>
+                    <select @bind="_estadoFisicoReal">
+                        <option value="">— Sin cambiar —</option>
+                        <option value="bueno">Bueno</option>
+                        <option value="regular">Regular</option>
+                        <option value="malo">Malo</option>
+                    </select>
+                </label>
+            </div>
+        </section>
+
+        <!-- ═══ ÚLTIMO ESCANEO (destacado) ═══ -->
+        @if (_ultimoEscaneo is not null)
+        {
+            <section class="ultimo-escaneo @GetClaseUltimoEscaneo()">
+                <div class="ue-icono">
+                    <i class="bi @GetIconoUltimoEscaneo()"></i>
+                </div>
+                <div class="ue-info">
+                    <div class="ue-titulo">@GetTituloUltimoEscaneo()</div>
+                    <div class="ue-detalle">
+                        <code>@_ultimoEscaneo.CodigoSnapshot</code> — @_ultimoEscaneo.NombreSnapshot
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(_ultimoEscaneo.UbicacionSnapshot))
+                    {
+                        <div class="ue-meta">
+                            <i class="bi bi-geo-alt"></i> @_ultimoEscaneo.UbicacionSnapshot
+                            @if (!string.IsNullOrWhiteSpace(_ultimoEscaneo.FuncionarioSnapshot))
+                            {
+                                <span> · <i class="bi bi-person"></i> @_ultimoEscaneo.FuncionarioSnapshot</span>
+                            }
+                        </div>
+                    }
+                </div>
+            </section>
+        }
+
+        <!-- ═══ TABLA DE ESCANEOS RECIENTES ═══ -->
+        <section class="escaneos-recientes">
+            <h3><i class="bi bi-clock-history"></i> Últimos escaneos</h3>
+
+            @if (!_escaneosRecientes.Any())
+            {
+                <div class="empty-escaneos">
+                    <i class="bi bi-upc-scan"></i>
+                    <p>Comienza a escanear para ver resultados</p>
+                </div>
+            }
+            else
+            {
+                <div class="lista-escaneos">
+                    @foreach (var e in _escaneosRecientes)
+                    {
+                        <div class="escaneo-item escaneo-@e.Tipo.ToLower()">
+                            <div class="escaneo-icono">
+                                <i class="bi @(e.Tipo switch {
+                                    "CONCILIADO" => "bi-check-circle-fill",
+                                    "SOBRANTE" => "bi-exclamation-circle-fill",
+                                    _ => "bi-circle"
+                                })"></i>
+                            </div>
+                            <div class="escaneo-info">
+                                <code>@e.CodigoSnapshot</code>
+                                <span>@e.NombreSnapshot</span>
+                            </div>
+                            <div class="escaneo-tipo">
+                                <span class="tipo-badge tipo-@e.Tipo.ToLower()">@e.Tipo</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </section>
+
+        <!-- ═══ BOTÓN CERRAR TOMA ═══ -->
+        @if (_toma.Estado == "EN_CURSO")
+        {
+            <button class="btn-cerrar-toma" @onclick="CerrarToma">
+                <i class="bi bi-lock-fill"></i>
+                Cerrar Toma Física
+            </button>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public int TomaId { get; set; }
+
+    private TomaFisicaDTO? _toma;
+    private List<TomaFisicaDetalleDTO> _detalles = new();
+    private List<TomaFisicaDetalleDTO> _escaneosRecientes = new();
+    private List<FuncionarioDTO> _funcionarios = new();
+    private TomaFisicaDetalleDTO? _ultimoEscaneo;
+
+    private string _modoEscaner = "camara";
+    private string _codigoManual = string.Empty;
+    private bool _camaraActiva = false;
+    private bool _procesando = false;
+
+    private int? _funcionarioRealId;
+    private string? _ubicacionReal;
+    private string? _estadoFisicoReal;
+
+    private DotNetObjectReference<Barrido>? _dotNetRef;
+
+    private int _escaneadosCount => _detalles.Count(d => d.Tipo != "PENDIENTE");
+    private int _conciliadosCount => _detalles.Count(d => d.Tipo == "CONCILIADO");
+    private int _sobrantesCount => _detalles.Count(d => d.Tipo == "SOBRANTE");
+
+    private decimal PorcentajeAvance => _toma?.TotalBienesSnapshot > 0
+        ? Math.Round((decimal)_escaneadosCount / _toma.TotalBienesSnapshot * 100, 2)
+        : 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _toma = await TomaRepo.ObtenerPorIdAsync(TomaId);
+        if (_toma is null)
+        {
+            Navigation.NavigateTo("/toma-fisica");
+            return;
+        }
+
+        _funcionarios = (await FuncRepo.ObtenerTodosAsync()).ToList();
+        await RecargarDetalle();
+    }
+
+    private async Task RecargarDetalle()
+    {
+        _detalles = (await TomaRepo.ObtenerDetalleAsync(TomaId)).ToList();
+        _escaneosRecientes = _detalles
+            .Where(d => d.Tipo != "PENDIENTE")
+            .OrderByDescending(d => d.FechaEscaneo)
+            .Take(15)
+            .ToList();
+    }
+
+    // ═══════════ CÁMARA ═══════════
+
+    private async Task ActivarCamara()
+    {
+        _dotNetRef = DotNetObjectReference.Create(this);
+        var ok = await JS.InvokeAsync<bool>("almacenQrReader.start", "qr-reader", _dotNetRef);
+        if (ok)
+        {
+            _camaraActiva = true;
+            Toast.Info("Cámara activada. Apunte al código QR del bien.");
+        }
+        else
+        {
+            Toast.Error("No se pudo activar la cámara. Verifique permisos.");
+        }
+    }
+
+    private async Task DetenerCamara()
+    {
+        await JS.InvokeVoidAsync("almacenQrReader.stop");
+        _camaraActiva = false;
+    }
+
+    /// <summary>
+    /// Callback invocado desde JavaScript cuando se detecta un QR.
+    /// </summary>
+    [JSInvokable]
+    public async Task OnQrEscaneado(string codigo)
+    {
+        if (_procesando) return;
+        _procesando = true;
+
+        try
+        {
+            await ProcesarEscaneo(codigo);
+        }
+        finally
+        {
+            _procesando = false;
+        }
+    }
+
+    // ═══════════ MANUAL / LECTOR USB ═══════════
+
+    private async Task EscanearManual()
+    {
+        if (string.IsNullOrWhiteSpace(_codigoManual)) return;
+        await ProcesarEscaneo(_codigoManual);
+        _codigoManual = string.Empty;
+        StateHasChanged();
+    }
+
+    private async Task OnKeyDownManual(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await EscanearManual();
+        }
+    }
+
+    // ═══════════ PROCESO DE ESCANEO ═══════════
+
+   private async Task ProcesarEscaneo(string codigo)
+{
+    try
+    {
+        var codigoLimpio = codigo.Trim();
+
+        // ⚠️ PASO 1: Verificar si el código es desconocido ANTES de escanear
+       // ⚠️ PASO 1: ¿Este código NO está en el snapshot?
+            var requiereConfirmacion = await TomaRepo.RequiereConfirmacionSobranteAsync(TomaId, codigoLimpio);
+
+            if (requiereConfirmacion)     // ← ¡AQUÍ el fix!
+            {
+                var confirmado = await Confirm.Preguntar(new ConfirmOpciones
+                {
+                    Titulo = "⚠ Confirmar Sobrante",
+                    Mensaje = $"El código '{codigoLimpio}' NO está en el inventario congelado de esta toma.\n\n" +
+                              "Si continúas, se registrará como SOBRANTE (bien físico que no estaba " +
+                              "en el inventario oficial al momento del congelamiento).\n\n" +
+                              "Esto también puede ocurrir si digitaste mal el código.\n\n" +
+                              "¿Estás seguro que deseas registrarlo como sobrante?",
+                    Icono = "bi-exclamation-triangle-fill",
+                    ColorBoton = "#ea580c",
+                    EsPeligroso = true,
+                    TextoConfirmar = "Sí, es sobrante",
+                    TextoCancelar = "No, verificar código"
+                });
+
+                if (!confirmado)
+                {
+                    Toast.Info("Escaneo cancelado. Verifica el código y vuelve a intentar.");
+                    _codigoManual = string.Empty;
+                    StateHasChanged();
+                    return;
+                }
+            }
+
+        // ✅ PASO 2: Proceder con el escaneo normal
+        var dto = new EscaneoDTO
+        {
+            CodigoQr = codigoLimpio,
+            FuncionarioRealId = _funcionarioRealId,
+            UbicacionReal = _ubicacionReal,
+            EstadoFisicoReal = _estadoFisicoReal
+        };
+
+        var usuarioId = Sesion.UsuarioActual?.Id ?? 0;
+        var (ok, mensaje, tipo) = await TomaRepo.EscanearAsync(TomaId, dto, usuarioId);
+
+        if (!ok)
+        {
+            Toast.Error(mensaje);
+            return;
+        }
+
+        // Recargar detalles
+        await RecargarDetalle();
+        _ultimoEscaneo = _detalles
+            .Where(d => d.CodigoSnapshot == codigoLimpio || d.CodigoSnapshot == codigoLimpio.Replace("INV-", ""))
+            .OrderByDescending(d => d.FechaEscaneo)
+            .FirstOrDefault();
+
+        // Toast según tipo
+        switch (tipo)
+        {
+            case "CONCILIADO":
+                Toast.Exito(mensaje);
+                break;
+            case "SOBRANTE":
+                Toast.Warning(mensaje);
+                break;
+            default:
+                Toast.Info(mensaje);
+                break;
+        }
+
+        // Vibración en móvil
+        try { await JS.InvokeVoidAsync("navigator.vibrate", 100); }
+        catch { }
+
+        StateHasChanged();
+    }
+    catch (Exception ex)
+    {
+        Toast.Error($"Error al procesar escaneo: {ex.Message}");
+    }
+}
+
+    // ═══════════ CERRAR TOMA ═══════════
+
+    private async Task CerrarToma()
+    {
+        await DetenerCamara();
+
+        var ok = await Confirm.Preguntar(new ConfirmOpciones
+        {
+            Titulo = "Cerrar Toma Física",
+            Mensaje = $"Se cerrará la toma. Los {_toma!.TotalBienesSnapshot - _escaneadosCount} bienes pendientes se marcarán como FALTANTES. ¿Continuar?",
+            Icono = "bi-exclamation-triangle-fill",
+            ColorBoton = "#dc2626",
+            EsPeligroso = true,
+            TextoConfirmar = "Sí, cerrar toma"
+        });
+
+        if (!ok) return;
+
+        try
+        {
+            await TomaRepo.CerrarAsync(TomaId);
+            Toast.Exito("Toma cerrada correctamente");
+            Navigation.NavigateTo($"/toma-fisica/reporte/{TomaId}");
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error al cerrar: {ex.Message}");
+        }
+    }
+
+    // ═══════════ UTILIDADES ═══════════
+
+    private async Task Volver()
+    {
+        await DetenerCamara();
+        Navigation.NavigateTo("/toma-fisica");
+    }
+
+    private string GetClaseUltimoEscaneo() => _ultimoEscaneo?.Tipo switch
+    {
+        "CONCILIADO" => "ue-conciliado",
+        "SOBRANTE" => "ue-sobrante",
+        _ => ""
+    };
+
+    private string GetIconoUltimoEscaneo() => _ultimoEscaneo?.Tipo switch
+    {
+        "CONCILIADO" => "bi-check-circle-fill",
+        "SOBRANTE" => "bi-exclamation-circle-fill",
+        _ => "bi-circle"
+    };
+
+    private string GetTituloUltimoEscaneo() => _ultimoEscaneo?.Tipo switch
+    {
+        "CONCILIADO" => "✓ Bien Conciliado",
+        "SOBRANTE" => "⚠ Bien Sobrante Detectado",
+        _ => "Escaneo"
+    };
+
+    public void Dispose()
+    {
+        _dotNetRef?.Dispose();
+    }
+}

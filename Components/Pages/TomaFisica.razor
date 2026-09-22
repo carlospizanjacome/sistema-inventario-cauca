@@ -1,0 +1,341 @@
+﻿@page "/toma-fisica"
+@rendermode InteractiveServer
+
+@using Almacen.DTOs
+@using Almacen.Interfaces
+@using Almacen.Models
+@using Almacen.Services
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
+
+@inject ITomaFisicaRepository TomaRepo
+@inject IFuncionarioRepository FuncRepo
+@inject IJSRuntime JS
+@inject SeguridadService Seguridad
+@inject NavigationManager Navigation
+@inject ToastService Toast
+@inject ConfirmService Confirm
+
+<PageTitle>Toma Física · Almacén</PageTitle>
+
+<div class="page-container">
+
+    <div class="page-header">
+        <div>
+            <h1><i class="bi bi-clipboard-check"></i> Tomas Físicas</h1>
+            <p class="subtitle">Auditorías de inventario con congelación y barrido QR</p>
+        </div>
+        @if (puedeCrear)
+        {
+            <button class="btn-nueva" @onclick="() => _mostrarFormulario = !_mostrarFormulario">
+                <i class="bi bi-@(_mostrarFormulario ? "x-lg" : "plus-lg")"></i>
+                @(_mostrarFormulario ? "Cancelar" : "Nueva Toma")
+            </button>
+        }
+    </div>
+
+    @if (_mostrarFormulario)
+    {
+        <div class="modern-card form-card">
+            <div class="card-top">
+                <h5>
+                    <i class="bi bi-@(editando ? "pencil-square" : "plus-circle")"></i>
+                    @(editando ? "Editar Toma" : "Nueva Toma Física")
+                </h5>
+            </div>
+
+            <EditForm @key="editandoId" Model="_model" OnValidSubmit="Guardar">
+                <DataAnnotationsValidator />
+                <div class="row g-2">
+                    <div class="col-md-3">
+                        <label class="mini-label">Código *</label>
+                        <InputText class="form-control" @bind-Value="_model.Codigo" placeholder="TF-2026-001" disabled="@editando" />
+                        <ValidationMessage For="() => _model.Codigo" />
+                    </div>
+                    <div class="col-md-5">
+                        <label class="mini-label">Nombre *</label>
+                        <InputText class="form-control" @bind-Value="_model.Nombre" placeholder="Toma física anual 2026" />
+                        <ValidationMessage For="() => _model.Nombre" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="mini-label">Fecha Inicio *</label>
+                        <InputDate class="form-control" @bind-Value="_model.FechaInicio" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="mini-label">Responsable</label>
+                        <InputSelect class="form-select" @bind-Value="_model.ResponsableId">
+                            <option value="">— Sin asignar —</option>
+                            @foreach (var f in _funcionarios)
+                            {
+                                <option value="@f.Id">@f.NombreCompleto</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-12">
+                        <label class="mini-label">Observaciones</label>
+                        <InputTextArea class="form-control" rows="2" @bind-Value="_model.Observaciones" />
+                    </div>
+                </div>
+                <div class="d-flex gap-2 justify-content-end mt-3">
+                    @if (editando)
+                    {
+                        <button type="button" class="btn-secondary-custom" @onclick="Cancelar">Cancelar</button>
+                    }
+                    <button type="submit" class="btn-primary-custom">
+                        <i class="bi bi-check-circle me-1"></i> @(editando ? "Actualizar" : "Crear Toma")
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    }
+
+    <div class="modern-card">
+        <div class="table-responsive">
+            <table class="table modern-table m-0">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Nombre</th>
+                        <th>Institución</th>
+                        <th>Inicio</th>
+                        <th>Estado</th>
+                        <th class="text-end">Bienes</th>
+                        <th class="text-end">Conciliados</th>
+                        <th class="text-end">Faltantes</th>
+                        <th class="text-end">Sobrantes</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (_tomas is null)
+                    {
+                        <tr><td colspan="10" class="text-center py-3 text-muted">Cargando...</td></tr>
+                    }
+                    else if (!_tomas.Any())
+                    {
+                        <tr><td colspan="10" class="text-center py-3 text-muted">No hay tomas físicas registradas.</td></tr>
+                    }
+                    else
+                    {
+                        @foreach (var t in _tomas)
+                        {
+                            <tr>
+                                <td><code>@t.Codigo</code></td>
+                                <td><strong>@t.Nombre</strong></td>
+                                <td>@t.InstitucionNombre</td>
+                                <td>@t.FechaInicio?.ToString("dd/MM/yyyy")</td>
+                                <td>
+                                    <span class="estado-badge estado-@t.Estado.ToLower()">
+                                        @GetEstadoTexto(t.Estado)
+                                    </span>
+                                </td>
+                                <td class="text-end">@t.TotalBienesSnapshot</td>
+                                <td class="text-end text-success">@t.TotalEncontrados</td>
+                                <td class="text-end text-danger">@t.TotalFaltantes</td>
+                                <td class="text-end text-warning">@t.TotalSobrantes</td>
+                                <td class="text-center">
+                                    @if (t.Estado == "BORRADOR" && puedeAbrir)
+                                    {
+                                        <button class="btn-icon-act" title="Abrir (congelar)" @onclick="() => Abrir(t)">
+                                            <i class="bi bi-lock-fill"></i>
+                                        </button>
+                                        <button class="btn-icon" title="Editar" @onclick="() => Editar(t)">
+                                            <i class="bi bi-pencil-fill"></i>
+                                        </button>
+                                        <button class="btn-icon danger" title="Eliminar" @onclick="() => Eliminar(t)">
+                                            <i class="bi bi-trash-fill"></i>
+                                        </button>
+                                    }
+                                    @if (t.Estado == "EN_CURSO")
+                                    {
+                                        <button class="btn-icon-act" title="Escanear" @onclick="() => IrAlBarrido(t.Id)">
+                                            <i class="bi bi-qr-code-scan"></i>
+                                        </button>
+                                        <button class="btn-icon-cerrar" title="Cerrar toma" @onclick="() => Cerrar(t)">
+                                            <i class="bi bi-lock-fill"></i> Cerrar
+                                        </button>
+                                    }
+                                    @if (t.Estado == "CERRADA")
+                                    {
+                                        <button class="btn-icon-ver" title="Ver reporte" @onclick="() => IrAlReporte(t.Id)">
+                                            <i class="bi bi-file-earmark-bar-graph"></i> Reporte
+                                        </button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@code {
+    private IEnumerable<TomaFisicaDTO>? _tomas;
+    private IEnumerable<FuncionarioDTO> _funcionarios = [];
+    private TomaFisicaDTO _model = new();
+    private bool _mostrarFormulario = false;
+    private bool editando = false;
+    private int editandoId = 0;
+
+    private bool puedeCrear;
+    private bool puedeAbrir;
+    private bool puedeCerrar;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await Seguridad.TienePermisoAsync("toma_fisica.ver"))
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+
+        puedeCrear = await Seguridad.TienePermisoAsync("toma_fisica.crear");
+        puedeAbrir = await Seguridad.TienePermisoAsync("toma_fisica.abrir");
+        puedeCerrar = await Seguridad.TienePermisoAsync("toma_fisica.cerrar");
+
+        _funcionarios = await FuncRepo.ObtenerTodosAsync();
+        await Cargar();
+    }
+
+    private async Task Cargar()
+        => _tomas = await TomaRepo.ObtenerTodasAsync();
+
+    private async Task Guardar()
+    {
+        if (await TomaRepo.ExisteCodigoAsync(_model.Codigo, editando ? _model.Id : null))
+        {
+            Toast.Error($"El código '{_model.Codigo}' ya existe.");
+            return;
+        }
+
+        try
+        {
+            if (editando)
+            {
+                await TomaRepo.ActualizarAsync(_model);
+                Toast.Exito("Toma actualizada");
+            }
+            else
+            {
+                await TomaRepo.CrearAsync(_model);
+                Toast.Exito("Toma creada en estado Borrador");
+            }
+            Cancelar();
+            await Cargar();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+    }
+
+    private async Task Abrir(TomaFisicaDTO t)
+    {
+        if (!puedeAbrir) return;
+
+        var ok = await Confirm.Preguntar(new ConfirmOpciones
+        {
+            Titulo = "Abrir Toma Física",
+            Mensaje = $"Se congelará el inventario actual de la institución. Se crearán {t.TotalBienesSnapshot} registros pendientes. ¿Continuar?",
+            Icono = "bi-lock-fill",
+            ColorBoton = "#0891b2",
+            TextoConfirmar = "Sí, abrir toma"
+        });
+        if (!ok) return;
+
+        try
+        {
+            var count = await TomaRepo.AbrirAsync(t.Id);
+            Toast.Exito($"Toma abierta. {count} bienes congelados listos para barrido.");
+            await Cargar();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+    }
+
+    private async Task Cerrar(TomaFisicaDTO t)
+    {
+        if (!puedeCerrar) return;
+
+        var ok = await Confirm.Preguntar(new ConfirmOpciones
+        {
+            Titulo = "Cerrar Toma Física",
+            Mensaje = "Los bienes NO escaneados se marcarán como FALTANTES. Esta acción NO se puede deshacer.",
+            Icono = "bi-exclamation-triangle-fill",
+            ColorBoton = "#dc2626",
+            EsPeligroso = true,
+            TextoConfirmar = "Sí, cerrar toma"
+        });
+        if (!ok) return;
+
+        try
+        {
+            await TomaRepo.CerrarAsync(t.Id);
+            Toast.Exito("Toma cerrada correctamente");
+            await Cargar();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+    }
+
+    private void Editar(TomaFisicaDTO t)
+    {
+        editando = true;
+        editandoId = t.Id;
+        _model = new TomaFisicaDTO
+        {
+            Id = t.Id,
+            Codigo = t.Codigo,
+            Nombre = t.Nombre,
+            FechaInicio = t.FechaInicio,
+            ResponsableId = t.ResponsableId,
+            Observaciones = t.Observaciones,
+            InstitucionId = t.InstitucionId
+        };
+        _mostrarFormulario = true;
+    }
+
+    private async Task Eliminar(TomaFisicaDTO t)
+    {
+        var ok = await Confirm.Peligroso($"¿Eliminar la toma '{t.Nombre}'?");
+        if (!ok) return;
+
+        try
+        {
+            await TomaRepo.EliminarAsync(t.Id);
+            Toast.Exito("Toma eliminada");
+            await Cargar();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+    }
+
+    private void IrAlBarrido(int id) => Navigation.NavigateTo($"/toma-fisica/barrido/{id}");
+    private void IrAlReporte(int id) => Navigation.NavigateTo($"/toma-fisica/reporte/{id}");
+
+    private void Cancelar()
+    {
+        _model = new TomaFisicaDTO();
+        editando = false;
+        editandoId = 0;
+        _mostrarFormulario = false;
+        StateHasChanged();
+    }
+
+    private static string GetEstadoTexto(string estado) => estado switch
+    {
+        "BORRADOR" => "Borrador",
+        "EN_CURSO" => "En Curso",
+        "CERRADA" => "Cerrada",
+        "ANULADA" => "Anulada",
+        _ => estado
+    };
+}

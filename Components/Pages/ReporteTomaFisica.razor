@@ -1,0 +1,274 @@
+﻿@page "/toma-fisica/reporte/{TomaId:int}"
+@rendermode InteractiveServer
+
+@using Almacen.DTOs
+@using Almacen.Interfaces
+@using Almacen.Services
+@using Microsoft.JSInterop
+
+@inject ITomaFisicaRepository TomaRepo
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+@inject ToastService Toast
+
+<PageTitle>Reporte Toma Física</PageTitle>
+
+<div class="reporte-container">
+
+    @if (_cargando)
+    {
+        <div class="loading">
+            <div class="spinner"></div>
+            <p>Cargando reporte...</p>
+        </div>
+    }
+    else if (_reporte is null)
+    {
+        <div class="empty">No se encontró el reporte.</div>
+    }
+    else
+    {
+        <!-- ═══ HEADER ═══ -->
+        <header class="reporte-header">
+            <div class="header-left">
+                <button class="btn-back" @onclick="Volver">
+                    <i class="bi bi-arrow-left"></i>
+                </button>
+                <div>
+                    <span class="header-tipo">Toma Física · Reporte</span>
+                    <h1>@_reporte.Nombre</h1>
+                    <p>
+                        <code>@_reporte.Codigo</code> ·
+                        @_reporte.InstitucionNombre ·
+                        @(_reporte.FechaInicio?.ToString("dd/MM/yyyy") ?? "—")
+                        @if (_reporte.FechaCierre.HasValue)
+                        {
+                            <span> → @_reporte.FechaCierre.Value.ToString("dd/MM/yyyy")</span>
+                        }
+                    </p>
+                </div>
+            </div>
+            <button class="btn-export-pdf" @onclick="Imprimir" disabled="@_exportando">
+                <i class="bi bi-printer-fill"></i>
+                Imprimir / PDF
+            </button>
+        </header>
+
+        <!-- ═══ KPIs ═══ -->
+        <section class="kpis-reporte">
+            <div class="kpi-rep kpi-blue">
+                <div class="kpi-icon"><i class="bi bi-clipboard-check"></i></div>
+                <div>
+                    <span class="kpi-lbl">Inventario congelado</span>
+                    <span class="kpi-val">@_reporte.TotalBienesSnapshot</span>
+                </div>
+            </div>
+            <div class="kpi-rep kpi-green">
+                <div class="kpi-icon"><i class="bi bi-check-circle-fill"></i></div>
+                <div>
+                    <span class="kpi-lbl">Conciliados</span>
+                    <span class="kpi-val">@_reporte.TotalConciliados</span>
+                </div>
+            </div>
+            <div class="kpi-rep kpi-red">
+                <div class="kpi-icon"><i class="bi bi-x-circle-fill"></i></div>
+                <div>
+                    <span class="kpi-lbl">Faltantes</span>
+                    <span class="kpi-val">@_reporte.TotalFaltantes</span>
+                </div>
+            </div>
+            <div class="kpi-rep kpi-orange">
+                <div class="kpi-icon"><i class="bi bi-exclamation-circle-fill"></i></div>
+                <div>
+                    <span class="kpi-lbl">Sobrantes</span>
+                    <span class="kpi-val">@_reporte.TotalSobrantes</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══ BARRA DE CONCILIACIÓN ═══ -->
+        <section class="conciliacion-banner">
+            <div class="conc-info">
+                <span class="conc-lbl">Porcentaje de Conciliación</span>
+                <span class="conc-val">@_reporte.PorcentajeConciliacion.ToString("N1")%</span>
+            </div>
+            <div class="conc-bar">
+                <div class="conc-fill" style="width: @_reporte.PorcentajeConciliacion%"></div>
+            </div>
+            @if (_reporte.PorcentajeConciliacion >= 95)
+            {
+                <div class="conc-msg success">
+                    <i class="bi bi-check-circle-fill"></i>
+                    Excelente. La toma está prácticamente conciliada.
+                </div>
+            }
+            else if (_reporte.PorcentajeConciliacion >= 80)
+            {
+                <div class="conc-msg warning">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    Hay diferencias que requieren revisión del Comité.
+                </div>
+            }
+            else
+            {
+                <div class="conc-msg danger">
+                    <i class="bi bi-x-octagon-fill"></i>
+                    Diferencias significativas. Requiere investigación urgente.
+                </div>
+            }
+        </section>
+
+        <!-- ═══ FALTANTES ═══ -->
+        @if (_reporte.DetallesFaltantes.Any())
+        {
+            <section class="seccion-detalle seccion-faltantes">
+                <header class="seccion-header">
+                    <h2><i class="bi bi-x-circle-fill"></i> Bienes Faltantes (@_reporte.DetallesFaltantes.Count)</h2>
+                    <span class="seccion-hint">Estaban en el sistema pero NO se encontraron físicamente</span>
+                </header>
+                <div class="tabla-detalle">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Nombre</th>
+                                <th>Ubicación teórica</th>
+                                <th>Responsable teórico</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var d in _reporte.DetallesFaltantes)
+                            {
+                                <tr>
+                                    <td><code>@d.CodigoSnapshot</code></td>
+                                    <td>@d.NombreSnapshot</td>
+                                    <td>@d.UbicacionSnapshot</td>
+                                    <td>@d.FuncionarioSnapshot</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        }
+
+        <!-- ═══ SOBRANTES ═══ -->
+        @if (_reporte.DetallesSobrantes.Any())
+        {
+            <section class="seccion-detalle seccion-sobrantes">
+                <header class="seccion-header">
+                    <h2><i class="bi bi-exclamation-circle-fill"></i> Bienes Sobrantes (@_reporte.DetallesSobrantes.Count)</h2>
+                    <span class="seccion-hint">Se encontraron físicamente pero NO estaban en el inventario</span>
+                </header>
+                <div class="tabla-detalle">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Nombre</th>
+                                <th>Ubicación real</th>
+                                <th>Escaneado por</th>
+                                <th>Fecha</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var d in _reporte.DetallesSobrantes)
+                            {
+                                <tr>
+                                    <td><code>@d.CodigoSnapshot</code></td>
+                                    <td>@d.NombreSnapshot</td>
+                                    <td>@d.UbicacionReal</td>
+                                    <td>@d.UsuarioEscaneoNombre</td>
+                                    <td>@d.FechaEscaneo?.ToString("dd/MM/yyyy HH:mm")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        }
+
+        <!-- ═══ CONCILIADOS ═══ -->
+        @if (_reporte.DetallesConciliados.Any())
+        {
+            <section class="seccion-detalle seccion-conciliados">
+                <header class="seccion-header">
+                    <h2><i class="bi bi-check-circle-fill"></i> Bienes Conciliados (@_reporte.DetallesConciliados.Count)</h2>
+                    <span class="seccion-hint">Encontrados correctamente según el inventario</span>
+                </header>
+                <div class="tabla-detalle">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Nombre</th>
+                                <th>Ubicación</th>
+                                <th>Escaneado por</th>
+                                <th>Fecha</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var d in _reporte.DetallesConciliados)
+                            {
+                                <tr>
+                                    <td><code>@d.CodigoSnapshot</code></td>
+                                    <td>@d.NombreSnapshot</td>
+                                    <td>@(string.IsNullOrEmpty(d.UbicacionReal) ? d.UbicacionSnapshot : d.UbicacionReal)</td>
+                                    <td>@d.UsuarioEscaneoNombre</td>
+                                    <td>@d.FechaEscaneo?.ToString("dd/MM/yyyy HH:mm")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public int TomaId { get; set; }
+
+    private ReporteTomaFisicaDTO? _reporte;
+    private bool _cargando = true;
+    private bool _exportando = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _reporte = await TomaRepo.ObtenerReporteAsync(TomaId);
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error al cargar reporte: {ex.Message}");
+        }
+        finally
+        {
+            _cargando = false;
+        }
+    }
+
+    private void Volver() => Navigation.NavigateTo("/toma-fisica");
+
+    private async Task Imprimir()
+    {
+        _exportando = true;
+        StateHasChanged();
+
+        try
+        {
+            await JS.InvokeVoidAsync("window.print");
+            Toast.Info("En el diálogo de impresión puedes guardar como PDF.");
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+        finally
+        {
+            _exportando = false;
+            StateHasChanged();
+        }
+    }
+}

@@ -60,6 +60,7 @@
             new ItemMenu("consumo",           "Consumo",            "bi-boxes",                  "consumo.ver"),
             new ItemMenu("kardex",            "Kárdex",             "bi-journal-text",           "kardex.ver"),
             new ItemMenu("inventario-fisico", "Inventario Físico",  "bi-clipboard-check-fill",   "bienes.ver"),
+            new ItemMenu("toma-fisica", "Toma Física", "bi-clipboard-check", "toma_fisica.ver"),
         })
 
         <!-- MOVIMIENTOS -->
@@ -143,14 +144,15 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var codigos = new[]
+       var codigos = new[]
         {
             "instituciones.ver", "sedes.ver", "bloques.ver", "aulas.ver",
             "categorias.ver", "bienes.ver", "proveedores.ver", "funcionarios.ver",
             "consumo.ver", "kardex.ver",
             "entradas.ver", "salidas.ver", "traslados.ver",
             "depreciacion.ver",
-            "reportes.ver",                          // ⬅️ NUEVA
+            "reportes.ver",
+            "toma_fisica.ver",                       // ⬅️ NUEVA
             "usuarios.ver", "roles.ver", "permisos.ver", "roles.permisos",
             "vidas_utiles.ver"
         };
@@ -180,13 +182,13 @@
       var todas = new Dictionary<string, string[]>
         {
             ["estructura"]    = new[] { "instituciones", "sedes", "bloques", "aulas" },
-            ["inventario"]    = new[] { "categorias", "bienes", "proveedores", "consumo", "kardex", "inventario-fisico" },
-            ["movimientos"]   = new[] { "entradas", "salidas", "traslados" },
+            ["inventario"] = new[] { "categorias", "bienes", "proveedores", "consumo", "kardex", "inventario-fisico", "toma-fisica" },            ["movimientos"]   = new[] { "entradas", "salidas", "traslados" },
             ["personal"]      = new[] { "funcionarios" },
             ["contabilidad"]  = new[] { "depreciacion" },
             ["seguridad"]     = new[] { "usuarios", "roles", "permisos", "rol-permisos" },
             ["configuracion"] = new[] { "vidas-utiles" },
             ["reportes"] = new[] { "reportes" },
+           
         };
 
         foreach (var (key, rutas) in todas)
