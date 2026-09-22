@@ -13,8 +13,14 @@ public interface ISalidaRepository
     Task<bool> BienTieneSalidaAsync(int bienId, int? excluirId = null);
     Task ReactivarBienAsync(int bienId);
     Task DesactivarBienAsync(int bienId);
+
     Task<ResultadoPaginado<SalidaDTO>> ObtenerPaginadoAsync(
-    int pagina = 1,
-    int tamano = 25,
-    string? filtroTexto = null);
+        int pagina = 1,
+        int tamano = 25,
+        string? filtroTexto = null);
+
+    Task<ResultadoPaginado<SalidaDTO>> ObtenerPaginadoConFiltrosAsync(
+        FiltroMovimientoDTO filtro,
+        int pagina = 1,
+        int tamano = 25);
 }

@@ -84,6 +84,16 @@ app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
-var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
-app.Urls.Add($"http://0.0.0.0:{port}");
+//var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
+//app.Urls.Add($"http://0.0.0.0:{port}");
+//app.Run();
+
+// En producción (Railway) usar puerto dinámico.
+// En desarrollo, dejar que VS use launchSettings.json (puerto 7012).
+if (!app.Environment.IsDevelopment())
+{
+    var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
+    app.Urls.Add($"http://0.0.0.0:{port}");
+}
+
 app.Run();

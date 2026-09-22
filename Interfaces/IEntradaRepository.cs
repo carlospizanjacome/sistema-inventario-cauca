@@ -15,4 +15,7 @@ public interface IEntradaRepository
     int pagina = 1,
     int tamano = 25,
     string? filtroTexto = null);
+
+    Task<ResultadoPaginado<EntradaDTO>> ObtenerPaginadoConFiltrosAsync(
+    FiltroMovimientoDTO filtro, int pagina = 1, int tamano = 25);
 }

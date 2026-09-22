@@ -1,0 +1,138 @@
+/* CSS for FiltrosMovimiento component */
+/* CSS for FiltrosBien component */
+.filtros-avanzados {
+    background: white;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.filtros-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: .75rem 1.15rem;
+    cursor: pointer;
+    user-select: none;
+    transition: background .15s;
+}
+
+    .filtros-header:hover {
+        background: #f8fafc;
+    }
+
+.filtros-titulo {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    font-size: .85rem;
+    font-weight: 600;
+    color: #334155;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+}
+
+    .filtros-titulo i {
+        color: #4f46e5;
+    }
+
+.filtros-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 .4rem;
+    background: #4f46e5;
+    color: white;
+    border-radius: 999px;
+    font-size: .7rem;
+    font-weight: 700;
+}
+
+.filtros-header > i {
+    color: #94a3b8;
+    font-size: .85rem;
+}
+
+.filtros-body {
+    padding: 1rem 1.15rem 1.15rem;
+    border-top: 1px solid #e2e8f0;
+    animation: slideDown .2s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.filtros-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: .75rem;
+    margin-bottom: 1rem;
+}
+
+.filtro-field {
+    display: flex;
+    flex-direction: column;
+    gap: .3rem;
+}
+
+    .filtro-field label {
+        font-size: .72rem;
+        font-weight: 600;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: .3px;
+    }
+
+    .filtro-field select,
+    .filtro-field input {
+        padding: .5rem .7rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        font-size: .85rem;
+        background: white;
+        color: #334155;
+        transition: all .15s;
+        font-family: inherit;
+    }
+
+        .filtro-field select:focus,
+        .filtro-field input:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, .12);
+        }
+
+.filtros-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.btn-filtros-limpiar {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .5rem 1rem;
+    background: #f1f5f9;
+    color: #475569;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: .82rem;
+    cursor: pointer;
+    transition: all .15s;
+    font-family: inherit;
+}
+
+    .btn-filtros-limpiar:hover {
+        background: #fee2e2;
+        color: #dc2626;
+    }

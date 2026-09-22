@@ -1,0 +1,229 @@
+﻿@using Almacen.DTOs
+@using Almacen.Models
+@inject ISedeRepository SedeRepo
+@inject ICategoriaRepository CategoriaRepo
+@inject IFuncionarioRepository FuncRepo
+@inject IAulaRepository AulaRepo
+
+<div class="filtros-avanzados @(_expandido ? "expandido" : "")">
+    <div class="filtros-header" @onclick="ToggleExpandido">
+        <div class="filtros-titulo">
+            <i class="bi bi-funnel-fill"></i>
+            <span>Filtros avanzados</span>
+            @if (Filtro.CantidadFiltros > 0)
+            {
+                <span class="filtros-badge">@Filtro.CantidadFiltros</span>
+            }
+        </div>
+        <i class="bi bi-chevron-@(_expandido ? "up" : "down")"></i>
+    </div>
+
+    @if (_expandido)
+    {
+        <div class="filtros-body">
+            <div class="filtros-grid">
+                <div class="filtro-field">
+                    <label>Categoría</label>
+                    <select value="@Filtro.CategoriaId" @onchange="CambioCategoria">
+                        <option value="">Todas</option>
+                        @foreach (var c in _categorias)
+                        {
+                            <option value="@c.Id">@c.Nombre</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="filtro-field">
+                    <label>Sede</label>
+                    <select value="@Filtro.SedeId" @onchange="CambioSede">
+                        <option value="">Todas</option>
+                        @foreach (var s in _sedes)
+                        {
+                            <option value="@s.Id">@s.Nombre</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="filtro-field">
+                    <label>Aula</label>
+                    <select value="@Filtro.AulaId" @onchange="CambioAula">
+                        <option value="">Todas</option>
+                        @foreach (var a in _aulas)
+                        {
+                            <option value="@a.Id">@a.Nombre</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="filtro-field">
+                    <label>Cuentandante</label>
+                    <select value="@Filtro.FuncionarioId" @onchange="CambioFuncionario">
+                        <option value="">Todos</option>
+                        @foreach (var f in _funcionarios)
+                        {
+                            <option value="@f.Id">@f.NombreCompleto</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="filtro-field">
+                    <label>Estado Físico</label>
+                    <select value="@Filtro.EstadoFisico" @onchange="CambioEstadoFisico">
+                        <option value="">Todos</option>
+                        <option value="bueno">Bueno</option>
+                        <option value="regular">Regular</option>
+                        <option value="malo">Malo</option>
+                        <option value="baja">Baja</option>
+                    </select>
+                </div>
+
+                <div class="filtro-field">
+                    <label>Tipo</label>
+                    <select value="@Filtro.TipoBien" @onchange="CambioTipo">
+                        <option value="">Todos</option>
+                        <option value="devolutivo">Devolutivo</option>
+                        <option value="consumo">Consumo</option>
+                    </select>
+                </div>
+
+                <div class="filtro-field">
+                    <label>Activo</label>
+                    <select value="@Filtro.Activo?.ToString()" @onchange="CambioActivo">
+                        <option value="">Todos</option>
+                        <option value="True">Sí</option>
+                        <option value="False">No</option>
+                    </select>
+                </div>
+
+                <div class="filtro-field">
+                    <label>Adquisición desde</label>
+                    <input type="date"
+                           value="@(Filtro.FechaDesde?.ToString("yyyy-MM-dd"))"
+                           @onchange="CambioFechaDesde" />
+                </div>
+
+                <div class="filtro-field">
+                    <label>Adquisición hasta</label>
+                    <input type="date"
+                           value="@(Filtro.FechaHasta?.ToString("yyyy-MM-dd"))"
+                           @onchange="CambioFechaHasta" />
+                </div>
+            </div>
+
+            <div class="filtros-actions">
+                <button type="button" class="btn-filtros-limpiar" @onclick="Limpiar">
+                    <i class="bi bi-x-circle"></i> Limpiar filtros
+                </button>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public FiltroBienDTO Filtro { get; set; } = new();
+    [Parameter] public EventCallback OnCambio { get; set; }
+
+    private bool _expandido = false;
+
+    private IEnumerable<Categoria> _categorias = [];
+    private IEnumerable<SedeDTO> _sedes = [];
+    private IEnumerable<AulaDTO> _aulas = [];
+    private IEnumerable<FuncionarioDTO> _funcionarios = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _categorias = await CategoriaRepo.ObtenerTodosAsync();
+        _sedes = await SedeRepo.ObtenerTodasAsync();
+        _aulas = await AulaRepo.ObtenerTodasAsync();
+        _funcionarios = await FuncRepo.ObtenerTodosAsync();
+
+        // Si hay filtros al cargar, mantener expandido
+        if (Filtro.HayFiltros) _expandido = true;
+    }
+
+    private void ToggleExpandido() => _expandido = !_expandido;
+
+    private async Task CambioCategoria(ChangeEventArgs e)
+    {
+        Filtro.CategoriaId = ParsearInt(e.Value);
+        await OnCambio.InvokeAsync();
+    }
+
+    private async Task CambioSede(ChangeEventArgs e)
+    {
+        Filtro.SedeId = ParsearInt(e.Value);
+        await OnCambio.InvokeAsync();
+    }
+
+    private async Task CambioAula(ChangeEventArgs e)
+    {
+        Filtro.AulaId = ParsearInt(e.Value);
+        await OnCambio.InvokeAsync();
+    }
+
+    private async Task CambioFuncionario(ChangeEventArgs e)
+    {
+        Filtro.FuncionarioId = ParsearInt(e.Value);
+        await OnCambio.InvokeAsync();
+    }
+
+    private async Task CambioEstadoFisico(ChangeEventArgs e)
+    {
+        Filtro.EstadoFisico = ParsearString(e.Value);
+        await OnCambio.InvokeAsync();
+    }
+
+    private async Task CambioTipo(ChangeEventArgs e)
+    {
+        Filtro.TipoBien = ParsearString(e.Value);
+        await OnCambio.InvokeAsync();
+    }
+
+    private async Task CambioActivo(ChangeEventArgs e)
+    {
+        var v = ParsearString(e.Value);
+        Filtro.Activo = string.IsNullOrEmpty(v) ? null : bool.Parse(v);
+        await OnCambio.InvokeAsync();
+    }
+
+    private async Task CambioFechaDesde(ChangeEventArgs e)
+    {
+        var v = ParsearString(e.Value);
+        Filtro.FechaDesde = string.IsNullOrEmpty(v) ? null : DateTime.Parse(v);
+        await OnCambio.InvokeAsync();
+    }
+
+    private async Task CambioFechaHasta(ChangeEventArgs e)
+    {
+        var v = ParsearString(e.Value);
+        Filtro.FechaHasta = string.IsNullOrEmpty(v) ? null : DateTime.Parse(v);
+        await OnCambio.InvokeAsync();
+    }
+
+    private async Task Limpiar()
+    {
+        Filtro.Texto = null;
+        Filtro.CategoriaId = null;
+        Filtro.SedeId = null;
+        Filtro.AulaId = null;
+        Filtro.FuncionarioId = null;
+        Filtro.EstadoFisico = null;
+        Filtro.TipoBien = null;
+        Filtro.Activo = null;
+        Filtro.FechaDesde = null;
+        Filtro.FechaHasta = null;
+        await OnCambio.InvokeAsync();
+    }
+
+    private static int? ParsearInt(object? valor)
+    {
+        var s = ParsearString(valor);
+        return string.IsNullOrEmpty(s) ? null : int.Parse(s);
+    }
+
+    private static string? ParsearString(object? valor)
+    {
+        var s = valor?.ToString();
+        return string.IsNullOrWhiteSpace(s) ? null : s;
+    }
+}

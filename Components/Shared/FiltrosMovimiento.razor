@@ -1,0 +1,100 @@
+﻿@using Almacen.DTOs
+
+<div class="filtros-avanzados @(_expandido ? "expandido" : "")">
+    <div class="filtros-header" @onclick="() => _expandido = !_expandido">
+        <div class="filtros-titulo">
+            <i class="bi bi-funnel-fill"></i>
+            <span>Filtros avanzados</span>
+            @if (Filtro.CantidadFiltros > 0)
+            {
+                <span class="filtros-badge">@Filtro.CantidadFiltros</span>
+            }
+        </div>
+        <i class="bi bi-chevron-@(_expandido ? "up" : "down")"></i>
+    </div>
+
+    @if (_expandido)
+    {
+        <div class="filtros-body">
+            <div class="filtros-grid">
+                @if (OpcionesTipo.Any())
+                {
+                    <div class="filtro-field">
+                        <label>@EtiquetaTipo</label>
+                        <select value="@Filtro.Tipo" @onchange="CambioTipo">
+                            <option value="">Todos</option>
+                            @foreach (var o in OpcionesTipo)
+                            {
+                                <option value="@o">@o</option>
+                            }
+                        </select>
+                    </div>
+                }
+
+                <div class="filtro-field">
+                    <label>Fecha desde</label>
+                    <input type="date"
+                           value="@(Filtro.FechaDesde?.ToString("yyyy-MM-dd"))"
+                           @onchange="CambioFechaDesde" />
+                </div>
+
+                <div class="filtro-field">
+                    <label>Fecha hasta</label>
+                    <input type="date"
+                           value="@(Filtro.FechaHasta?.ToString("yyyy-MM-dd"))"
+                           @onchange="CambioFechaHasta" />
+                </div>
+            </div>
+
+            <div class="filtros-actions">
+                <button type="button" class="btn-filtros-limpiar" @onclick="Limpiar">
+                    <i class="bi bi-x-circle"></i> Limpiar filtros
+                </button>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public FiltroMovimientoDTO Filtro { get; set; } = new();
+    [Parameter] public EventCallback OnCambio { get; set; }
+    [Parameter] public string EtiquetaTipo { get; set; } = "Tipo";
+    [Parameter] public IEnumerable<string> OpcionesTipo { get; set; } = [];
+
+    private bool _expandido = false;
+
+    protected override void OnInitialized()
+    {
+        if (Filtro.HayFiltros) _expandido = true;
+    }
+
+    private async Task CambioTipo(ChangeEventArgs e)
+    {
+        var v = e.Value?.ToString();
+        Filtro.Tipo = string.IsNullOrWhiteSpace(v) ? null : v;
+        await OnCambio.InvokeAsync();
+    }
+
+    private async Task CambioFechaDesde(ChangeEventArgs e)
+    {
+        var v = e.Value?.ToString();
+        Filtro.FechaDesde = string.IsNullOrWhiteSpace(v) ? null : DateTime.Parse(v);
+        await OnCambio.InvokeAsync();
+    }
+
+    private async Task CambioFechaHasta(ChangeEventArgs e)
+    {
+        var v = e.Value?.ToString();
+        Filtro.FechaHasta = string.IsNullOrWhiteSpace(v) ? null : DateTime.Parse(v);
+        await OnCambio.InvokeAsync();
+    }
+
+    private async Task Limpiar()
+    {
+        Filtro.Texto = null;
+        Filtro.FechaDesde = null;
+        Filtro.FechaHasta = null;
+        Filtro.Tipo = null;
+        await OnCambio.InvokeAsync();
+    }
+}

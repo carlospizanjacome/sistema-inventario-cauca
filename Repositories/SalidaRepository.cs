@@ -168,8 +168,7 @@ public class SalidaRepository : ISalidaRepository
         }
 
         var sqlCount = $@"
-            SELECT COUNT(*)
-            FROM salidas s
+            SELECT COUNT(*) FROM salidas s
             LEFT JOIN bienes b ON b.id = s.bien_id
             WHERE 1=1 {filtroInst} {filtroBusqueda};";
 
@@ -180,7 +179,6 @@ public class SalidaRepository : ISalidaRepository
             LIMIT @Tamano OFFSET @Offset;";
 
         using var cn = new NpgsqlConnection(_cs);
-
         var parametros = new
         {
             InstitucionId = _sesion.InstitucionId,
@@ -189,6 +187,76 @@ public class SalidaRepository : ISalidaRepository
             Offset = (pagina - 1) * tamano
         };
 
+        var total = await cn.ExecuteScalarAsync<int>(sqlCount, parametros);
+        var items = (await cn.QueryAsync<SalidaDTO>(sqlData, parametros)).ToList();
+
+        return new ResultadoPaginado<SalidaDTO>
+        {
+            Items = items,
+            TotalRegistros = total,
+            PaginaActual = pagina,
+            TamanoPagina = tamano
+        };
+    }
+
+    public async Task<ResultadoPaginado<SalidaDTO>> ObtenerPaginadoConFiltrosAsync(
+        FiltroMovimientoDTO filtro,
+        int pagina = 1,
+        int tamano = 25)
+    {
+        if (pagina < 1) pagina = 1;
+        if (tamano < 1) tamano = 25;
+        if (tamano > 200) tamano = 200;
+
+        var (filtroInst, _) = FiltroInstitucion.Construir(
+            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "s");
+
+        var condiciones = new List<string>();
+        var parametros = new DynamicParameters();
+        parametros.Add("InstitucionId", _sesion.InstitucionId);
+
+        if (!string.IsNullOrWhiteSpace(filtro.Texto))
+        {
+            condiciones.Add(@"(b.codigo ILIKE @Texto OR b.nombre ILIKE @Texto 
+                              OR s.motivo ILIKE @Texto OR s.numero_acta_comite ILIKE @Texto)");
+            parametros.Add("Texto", $"%{filtro.Texto}%");
+        }
+
+        if (filtro.FechaDesde.HasValue)
+        {
+            condiciones.Add("s.fecha_salida >= @FechaDesde");
+            parametros.Add("FechaDesde", filtro.FechaDesde.Value);
+        }
+
+        if (filtro.FechaHasta.HasValue)
+        {
+            condiciones.Add("s.fecha_salida <= @FechaHasta");
+            parametros.Add("FechaHasta", filtro.FechaHasta.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filtro.Tipo))
+        {
+            condiciones.Add("s.tipo_baja = @Tipo");
+            parametros.Add("Tipo", filtro.Tipo);
+        }
+
+        var whereExtra = condiciones.Any() ? " AND " + string.Join(" AND ", condiciones) : "";
+
+        parametros.Add("Tamano", tamano);
+        parametros.Add("Offset", (pagina - 1) * tamano);
+
+        var sqlCount = $@"
+            SELECT COUNT(*) FROM salidas s
+            LEFT JOIN bienes b ON b.id = s.bien_id
+            WHERE 1=1 {filtroInst} {whereExtra};";
+
+        var sqlData = $@"
+            {BaseSelect}
+            WHERE 1=1 {filtroInst} {whereExtra}
+            ORDER BY s.fecha_salida DESC, s.id DESC
+            LIMIT @Tamano OFFSET @Offset;";
+
+        using var cn = new NpgsqlConnection(_cs);
         var total = await cn.ExecuteScalarAsync<int>(sqlCount, parametros);
         var items = (await cn.QueryAsync<SalidaDTO>(sqlData, parametros)).ToList();
 

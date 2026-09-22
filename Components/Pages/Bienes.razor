@@ -277,6 +277,7 @@
         </EditForm>
     </div>
 
+    <FiltrosBien Filtro="_filtroAvanzado" OnCambio="AplicarFiltrosAvanzados" />
     <!-- ═══════════ TABLA CON PAGINACIÓN ═══════════ -->
     <div class="modern-card panel-tabla-elastic position-relative">
 
@@ -462,6 +463,8 @@
     private bool puedeEditar;
     private bool puedeEliminar;
 
+    private FiltroBienDTO _filtroAvanzado = new();
+
     private string estadoString
     {
         get => bienDTO.Activo.ToString().ToLower();
@@ -493,10 +496,19 @@
     // ═══════════ CARGA PAGINADA ═══════════
     private async Task CargarBienes()
     {
-        _pagina = await BienRepository.ObtenerPaginadoAsync(
-            _paginaActual,
-            _tamanoPagina,
-            string.IsNullOrWhiteSpace(_filtroTexto) ? null : _filtroTexto);
+        // Si hay filtros avanzados activos, usar el método con filtros
+        if (_filtroAvanzado.HayFiltros)
+        {
+            _pagina = await BienRepository.ObtenerPaginadoConFiltrosAsync(
+                _filtroAvanzado, _paginaActual, _tamanoPagina);
+        }
+        else
+        {
+            _pagina = await BienRepository.ObtenerPaginadoAsync(
+                _paginaActual,
+                _tamanoPagina,
+                string.IsNullOrWhiteSpace(_filtroTexto) ? null : _filtroTexto);
+        }
     }
 
     private async Task CambioPagina(int nuevaPagina)
@@ -509,6 +521,13 @@
     private async Task CambioTamano(int nuevoTamano)
     {
         _tamanoPagina = nuevoTamano;
+        _paginaActual = 1;
+        await CargarBienes();
+        StateHasChanged();
+    }
+
+    private async Task AplicarFiltrosAvanzados()
+    {
         _paginaActual = 1;
         await CargarBienes();
         StateHasChanged();

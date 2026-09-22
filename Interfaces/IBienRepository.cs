@@ -1,5 +1,7 @@
-﻿using Almacen.Helpers;
+﻿using Almacen.DTOs;
+using Almacen.Helpers;
 using Almacen.Models;
+using Almacen.Helpers;
 
 namespace Almacen.Interfaces
 {
@@ -21,6 +23,14 @@ namespace Almacen.Interfaces
         string? filtroTexto = null);
 
         Task<IEnumerable<Bien>> ObtenerPorFuncionarioAsync(int funcionarioId);
-    }
+
+      
+
+// ... método nuevo:
+        Task<ResultadoPaginado<Bien>> ObtenerPaginadoConFiltrosAsync(
+            FiltroBienDTO filtro,
+            int pagina = 1,
+            int tamano = 25);
+}
 
 }

@@ -180,6 +180,11 @@
     <!-- ═══════════ TABLA CON PAGINACIÓN ═══════════ -->
     <div class="modern-card panel-tabla-elastic position-relative">
 
+        <FiltrosMovimiento Filtro="_filtroAvanzado"
+                   OnCambio="AplicarFiltrosAvanzados"
+                   EtiquetaTipo="Fuente"
+                   OpcionesTipo="@(new[] { "FSE", "Donacion", "Transferencia", "Otro" })" />
+
         <!-- Barra de búsqueda -->
         <div class="filtros-tabla">
             <div class="filtro-busqueda">
@@ -313,6 +318,8 @@
     private bool puedeEditar;
     private bool puedeEliminar;
 
+    private FiltroMovimientoDTO _filtroAvanzado = new();
+
     protected override async Task OnInitializedAsync()
     {
         if (!await Seguridad.TienePermisoAsync("entradas.ver"))
@@ -332,13 +339,27 @@
         await Cargar();
     }
 
-    private async Task Cargar()
+  private async Task Cargar()
     {
-        _pagina = await EntradaRepo.ObtenerPaginadoAsync(
-            _paginaActual,
-            _tamanoPagina,
-            string.IsNullOrWhiteSpace(_filtroTexto) ? null : _filtroTexto);
-    }
+        if (_filtroAvanzado.HayFiltros)
+        {
+            _pagina = await EntradaRepo.ObtenerPaginadoConFiltrosAsync(
+                _filtroAvanzado, _paginaActual, _tamanoPagina);
+        }
+        else
+        {
+            _pagina = await EntradaRepo.ObtenerPaginadoAsync(
+                _paginaActual, _tamanoPagina,
+                string.IsNullOrWhiteSpace(_filtroTexto) ? null : _filtroTexto);
+        }
+}
+
+private async Task AplicarFiltrosAvanzados()
+{
+    _paginaActual = 1;
+    await Cargar();
+    StateHasChanged();
+}
 
     private async Task CambioPagina(int nuevaPagina)
     {

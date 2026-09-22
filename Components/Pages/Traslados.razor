@@ -168,8 +168,11 @@
         </EditForm>
     </div>
 
-    <!-- ═══════════ TABLA CON PAGINACIÓN ═══════════ -->
+    <!-- ═══════════ TABLA CON FILTROS + PAGINACIÓN ═══════════ -->
     <div class="modern-card panel-tabla-elastic position-relative">
+
+        <FiltrosMovimiento Filtro="_filtroAvanzado"
+                           OnCambio="AplicarFiltrosAvanzados" />
 
         <div class="filtros-tabla">
             <div class="filtro-busqueda">
@@ -279,6 +282,8 @@
     private bool puedeEditar;
     private bool puedeEliminar;
 
+    private FiltroMovimientoDTO _filtroAvanzado = new();
+
     protected override async Task OnInitializedAsync()
     {
         if (!await Seguridad.TienePermisoAsync("traslados.ver"))
@@ -300,10 +305,17 @@
 
     private async Task Cargar()
     {
-        _pagina = await TrasladoRepo.ObtenerPaginadoAsync(
-            _paginaActual,
-            _tamanoPagina,
-            string.IsNullOrWhiteSpace(_filtroTexto) ? null : _filtroTexto);
+        if (_filtroAvanzado.HayFiltros)
+        {
+            _pagina = await TrasladoRepo.ObtenerPaginadoConFiltrosAsync(
+                _filtroAvanzado, _paginaActual, _tamanoPagina);
+        }
+        else
+        {
+            _pagina = await TrasladoRepo.ObtenerPaginadoAsync(
+                _paginaActual, _tamanoPagina,
+                string.IsNullOrWhiteSpace(_filtroTexto) ? null : _filtroTexto);
+        }
     }
 
     private async Task CambioPagina(int nuevaPagina)
@@ -316,6 +328,13 @@
     private async Task CambioTamano(int nuevoTamano)
     {
         _tamanoPagina = nuevoTamano;
+        _paginaActual = 1;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task AplicarFiltrosAvanzados()
+    {
         _paginaActual = 1;
         await Cargar();
         StateHasChanged();

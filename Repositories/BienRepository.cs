@@ -1,4 +1,5 @@
-﻿using Almacen.Helpers;
+﻿using Almacen.DTOs;
+using Almacen.Helpers;
 using Almacen.Interfaces;
 using Almacen.Models;
 using Almacen.Services;
@@ -198,6 +199,117 @@ namespace Almacen.Repositories
                 Tamano = tamano,
                 Offset = (pagina - 1) * tamano
             };
+
+            var total = await connection.ExecuteScalarAsync<int>(sqlCount, parametros);
+            var items = (await connection.QueryAsync<Bien>(sqlData, parametros)).ToList();
+
+            return new ResultadoPaginado<Bien>
+            {
+                Items = items,
+                TotalRegistros = total,
+                PaginaActual = pagina,
+                TamanoPagina = tamano
+            };
+
+        }
+        public async Task<ResultadoPaginado<Bien>> ObtenerPaginadoConFiltrosAsync(
+    FiltroBienDTO filtro,
+    int pagina = 1,
+    int tamano = 25)
+        {
+            if (pagina < 1) pagina = 1;
+            if (tamano < 1) tamano = 25;
+            if (tamano > 200) tamano = 200;
+
+            var (filtroInst, _) = FiltroInstitucion.Construir(
+                _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "b");
+
+            var condiciones = new List<string>();
+            var parametros = new DynamicParameters();
+            parametros.Add("InstitucionId", _sesion.InstitucionId);
+
+            if (!string.IsNullOrWhiteSpace(filtro.Texto))
+            {
+                condiciones.Add("(b.codigo ILIKE @Texto OR b.nombre ILIKE @Texto OR b.serie ILIKE @Texto)");
+                parametros.Add("Texto", $"%{filtro.Texto}%");
+            }
+
+            if (filtro.CategoriaId.HasValue)
+            {
+                condiciones.Add("b.categoria_id = @CategoriaId");
+                parametros.Add("CategoriaId", filtro.CategoriaId.Value);
+            }
+
+            if (filtro.SedeId.HasValue)
+            {
+                condiciones.Add("s.id = @SedeId");
+                parametros.Add("SedeId", filtro.SedeId.Value);
+            }
+
+            if (filtro.AulaId.HasValue)
+            {
+                condiciones.Add("b.aula_id = @AulaId");
+                parametros.Add("AulaId", filtro.AulaId.Value);
+            }
+
+            if (filtro.FuncionarioId.HasValue)
+            {
+                condiciones.Add("b.funcionario_id = @FuncionarioId");
+                parametros.Add("FuncionarioId", filtro.FuncionarioId.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(filtro.EstadoFisico))
+            {
+                condiciones.Add("b.estado_fisico = @EstadoFisico");
+                parametros.Add("EstadoFisico", filtro.EstadoFisico);
+            }
+
+            if (!string.IsNullOrWhiteSpace(filtro.TipoBien))
+            {
+                condiciones.Add("b.tipo_bien = @TipoBien");
+                parametros.Add("TipoBien", filtro.TipoBien);
+            }
+
+            if (filtro.Activo.HasValue)
+            {
+                condiciones.Add("b.activo = @Activo");
+                parametros.Add("Activo", filtro.Activo.Value);
+            }
+
+            if (filtro.FechaDesde.HasValue)
+            {
+                condiciones.Add("b.fecha_adquisicion >= @FechaDesde");
+                parametros.Add("FechaDesde", filtro.FechaDesde.Value);
+            }
+
+            if (filtro.FechaHasta.HasValue)
+            {
+                condiciones.Add("b.fecha_adquisicion <= @FechaHasta");
+                parametros.Add("FechaHasta", filtro.FechaHasta.Value);
+            }
+
+            var whereExtra = condiciones.Any()
+                ? " AND " + string.Join(" AND ", condiciones)
+                : string.Empty;
+
+            parametros.Add("Tamano", tamano);
+            parametros.Add("Offset", (pagina - 1) * tamano);
+
+            var sqlCount = $@"
+        SELECT COUNT(*)
+        FROM bienes b
+        LEFT JOIN aulas a ON a.id = b.aula_id
+        LEFT JOIN bloques bl ON bl.id = a.bloque_id
+        LEFT JOIN sedes s ON s.id = bl.sede_id
+        WHERE 1=1 {filtroInst} {whereExtra};";
+
+            var sqlData = $@"
+        {BaseSelect}
+        WHERE 1=1 {filtroInst} {whereExtra}
+        ORDER BY b.nombre
+        LIMIT @Tamano OFFSET @Offset;";
+
+            using var connection = Connection;
 
             var total = await connection.ExecuteScalarAsync<int>(sqlCount, parametros);
             var items = (await connection.QueryAsync<Bien>(sqlData, parametros)).ToList();
