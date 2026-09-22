@@ -1,0 +1,186 @@
+﻿
+@page "/imprimir-qr"
+@rendermode InteractiveServer
+
+@using Almacen.DTOs
+@using Almacen.Interfaces
+@using Almacen.Services
+@using Microsoft.JSInterop
+
+@inject IBienRepository BienRepo
+@inject ICategoriaRepository CategoriaRepo
+@inject QrService Qr
+@inject IJSRuntime JS
+@inject SeguridadService Seguridad
+@inject NavigationManager Navigation
+@inject ToastService Toast
+
+<PageTitle>Imprimir QRs · Almacén</PageTitle>
+
+<div class="qr-container no-print">
+    <div class="page-header">
+        <div>
+            <h1><i class="bi bi-qr-code"></i> Generación de QRs</h1>
+            <p class="subtitle">Imprime etiquetas QR para pegar en los bienes</p>
+        </div>
+        <button class="btn-imprimir" @onclick="Imprimir" disabled="@_cargando">
+            <i class="bi bi-printer-fill"></i>
+            Imprimir etiquetas
+        </button>
+    </div>
+
+    <!-- Filtros -->
+    <div class="filtros-card">
+        <div class="filtro-field">
+            <label>Categoría</label>
+            <select @bind="_filtroCategoria">
+                <option value="">Todas</option>
+                @foreach (var c in _categorias)
+                {
+                    <option value="@c.Id">@c.Nombre</option>
+                }
+            </select>
+        </div>
+        <div class="filtro-field">
+            <label>Tipo</label>
+            <select @bind="_filtroTipo">
+                <option value="">Todos</option>
+                <option value="devolutivo">Devolutivo</option>
+                <option value="consumo">Consumo</option>
+            </select>
+        </div>
+        <div class="filtro-field">
+            <label>Buscar</label>
+            <input type="text" placeholder="Código o nombre…" @bind="_filtroTexto" @bind:event="oninput" />
+        </div>
+        <div class="filtro-field">
+            <label>Incluir inactivos</label>
+            <input type="checkbox" @bind="_incluirInactivos" />
+        </div>
+        <div class="filtro-info">
+            <strong>@BienesFiltrados.Count()</strong> bienes seleccionados
+        </div>
+    </div>
+</div>
+
+<!-- Área de impresión: etiquetas -->
+<div class="qr-print-area">
+    @if (_cargando)
+    {
+        <div class="loading">
+            <div class="spinner"></div>
+            <p>Cargando bienes…</p>
+        </div>
+    }
+    else if (!BienesFiltrados.Any())
+    {
+        <div class="empty no-print">
+            <i class="bi bi-inbox"></i>
+            <p>No hay bienes para imprimir con los filtros seleccionados.</p>
+        </div>
+    }
+    else
+    {
+        <div class="etiquetas-grid">
+            @foreach (var b in BienesFiltrados)
+            {
+                <div class="etiqueta">
+                    <img src="@Qr.GenerarDataUri(b.Codigo, 180)" alt="QR @b.Codigo" />
+                    <div class="etiqueta-info">
+                        <div class="etiqueta-codigo">@b.Codigo</div>
+                        <div class="etiqueta-nombre">@Recortar(b.Nombre, 24)</div>
+                        @if (!string.IsNullOrEmpty(b.AulaNombre))
+                        {
+                            <div class="etiqueta-ubicacion">
+                                <i class="bi bi-geo-alt-fill"></i> @Recortar(b.AulaNombre, 20)
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<!-- Botón flotante para imprimir (visible solo cuando hay datos) -->
+@if (BienesFiltrados.Any() && !_cargando)
+{
+    <button class="btn-imprimir-flotante no-print" @onclick="Imprimir">
+        <i class="bi bi-printer-fill"></i>
+        Imprimir @BienesFiltrados.Count() etiquetas
+    </button>
+}
+
+@code {
+    private IEnumerable<Bien>? _bienes;
+    private IEnumerable<Categoria> _categorias = [];
+    private bool _cargando = true;
+
+    private int? _filtroCategoria;
+    private string _filtroTipo = string.Empty;
+    private string _filtroTexto = string.Empty;
+    private bool _incluirInactivos = false;
+
+    private IEnumerable<Bien> BienesFiltrados
+    {
+        get
+        {
+            if (_bienes is null) return Enumerable.Empty<Bien>();
+
+            var q = _bienes.AsEnumerable();
+
+            if (!_incluirInactivos)
+                q = q.Where(b => b.Activo);
+
+            if (_filtroCategoria.HasValue)
+                q = q.Where(b => b.CategoriaId == _filtroCategoria);
+
+            if (!string.IsNullOrWhiteSpace(_filtroTipo))
+                q = q.Where(b => b.TipoBien == _filtroTipo);
+
+            if (!string.IsNullOrWhiteSpace(_filtroTexto))
+            {
+                var t = _filtroTexto.Trim().ToLower();
+                q = q.Where(b =>
+                    b.Codigo.ToLower().Contains(t) ||
+                    b.Nombre.ToLower().Contains(t));
+            }
+
+            return q.OrderBy(b => b.Codigo);
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await Seguridad.TienePermisoAsync("bienes.ver"))
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+
+        try
+        {
+            _bienes = await BienRepo.ObtenerTodosAsync();
+            _categorias = await CategoriaRepo.ObtenerTodosAsync();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error al cargar: {ex.Message}");
+        }
+        finally
+        {
+            _cargando = false;
+        }
+    }
+
+    private async Task Imprimir()
+    {
+        await JS.InvokeVoidAsync("window.print");
+    }
+
+    private static string Recortar(string texto, int max)
+    {
+        if (string.IsNullOrEmpty(texto)) return "—";
+        return texto.Length <= max ? texto : texto.Substring(0, max - 1) + "…";
+    }
+}

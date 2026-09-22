@@ -155,3 +155,34 @@
         display: none;
     }
 }
+/* ═══════════════════════════════════════════════════════════
+   IMPRESIÓN — ocultar layout, mostrar solo contenido
+   ═══════════════════════════════════════════════════════════ */
+@media print {
+    /* Ocultar sidebar, topbar y backdrop */
+    .app-sidebar,
+    .app-topbar,
+    .app-backdrop {
+        display: none !important;
+    }
+
+    /* El contenido ocupa toda la página */
+    .app-shell {
+        display: block !important;
+    }
+
+    .app-main {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .app-content {
+        padding: 0 !important;
+        background: white !important;
+    }
+
+    /* Sin sombras ni bordes de la app */
+    body {
+        background: white !important;
+    }
+}

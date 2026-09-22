@@ -52,16 +52,17 @@
         })
 
         <!-- INVENTARIO -->
-      @RenderSeccion("inventario", "Inventario", "bi-boxes", new[]
-        {
-            new ItemMenu("categorias",        "Categorías",         "bi-tags-fill",              "categorias.ver"),
-            new ItemMenu("bienes",            "Bienes",             "bi-box-fill",               "bienes.ver"),
-            new ItemMenu("proveedores",       "Proveedores",        "bi-shop",                   "proveedores.ver"),
-            new ItemMenu("consumo",           "Consumo",            "bi-boxes",                  "consumo.ver"),
-            new ItemMenu("kardex",            "Kárdex",             "bi-journal-text",           "kardex.ver"),
-            new ItemMenu("inventario-fisico", "Inventario Físico",  "bi-clipboard-check-fill",   "bienes.ver"),
-            new ItemMenu("toma-fisica", "Toma Física", "bi-clipboard-check", "toma_fisica.ver"),
-        })
+                 @RenderSeccion("inventario", "Inventario", "bi-boxes", new[]
+            {
+                new ItemMenu("categorias",        "Categorías",         "bi-tags-fill",              "categorias.ver"),
+                new ItemMenu("bienes",            "Bienes",             "bi-box-fill",               "bienes.ver"),
+                new ItemMenu("imprimir-qr",       "Imprimir QRs",       "bi-qr-code",                "bienes.ver"),   // ⬅️ NUEVA
+                new ItemMenu("proveedores",       "Proveedores",        "bi-shop",                   "proveedores.ver"),
+                new ItemMenu("consumo",           "Consumo",            "bi-boxes",                  "consumo.ver"),
+                new ItemMenu("kardex",            "Kárdex",             "bi-journal-text",           "kardex.ver"),
+                new ItemMenu("inventario-fisico", "Inventario Físico",  "bi-clipboard-check-fill",   "bienes.ver"),
+                new ItemMenu("toma-fisica",       "Toma Física",        "bi-clipboard-check",        "toma_fisica.ver"),
+            })
 
         <!-- MOVIMIENTOS -->
         @RenderSeccion("movimientos", "Movimientos", "bi-arrow-left-right", new[]
@@ -182,12 +183,16 @@
       var todas = new Dictionary<string, string[]>
         {
             ["estructura"]    = new[] { "instituciones", "sedes", "bloques", "aulas" },
-            ["inventario"] = new[] { "categorias", "bienes", "proveedores", "consumo", "kardex", "inventario-fisico", "toma-fisica" },            ["movimientos"]   = new[] { "entradas", "salidas", "traslados" },
+
+            ["inventario"] = new[] { "categorias", "bienes", "imprimir-qr", "proveedores", "consumo", "kardex", "inventario-fisico", "toma-fisica" },  
+        
+            ["movimientos"]   = new[] { "entradas", "salidas", "traslados" },
             ["personal"]      = new[] { "funcionarios" },
             ["contabilidad"]  = new[] { "depreciacion" },
             ["seguridad"]     = new[] { "usuarios", "roles", "permisos", "rol-permisos" },
             ["configuracion"] = new[] { "vidas-utiles" },
             ["reportes"] = new[] { "reportes" },
+
            
         };
 

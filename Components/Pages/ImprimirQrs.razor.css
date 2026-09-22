@@ -1,0 +1,292 @@
+/* CSS for ImprimirQrs component */
+/* ═══════════════════════════════════════════════════════════
+   CONTROLES (ocultos al imprimir)
+   ═══════════════════════════════════════════════════════════ */
+.qr-container {
+    padding: 1.5rem;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+}
+
+    .page-header h1 {
+        margin: 0;
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--alc-blue, #1e3a8a);
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+    }
+
+        .page-header h1 i {
+            color: #0891b2;
+        }
+
+.subtitle {
+    margin: .25rem 0 0;
+    color: #64748b;
+    font-size: .9rem;
+}
+
+.btn-imprimir {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .7rem 1.4rem;
+    background: linear-gradient(135deg, #0891b2, #0e7490);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: .9rem;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(8, 145, 178, .25);
+    transition: all .15s;
+}
+
+    .btn-imprimir:hover:not(:disabled) {
+        transform: translateY(-2px);
+    }
+
+    .btn-imprimir:disabled {
+        opacity: .6;
+        cursor: not-allowed;
+    }
+
+.filtros-card {
+    background: white;
+    border-radius: 14px;
+    padding: 1.15rem 1.35rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: .85rem;
+    align-items: end;
+    box-shadow: 0 1px 3px rgba(15,23,42,.06);
+    margin-bottom: 1.5rem;
+}
+
+.filtro-field {
+    display: flex;
+    flex-direction: column;
+    gap: .3rem;
+}
+
+    .filtro-field label {
+        font-size: .72rem;
+        font-weight: 600;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: .3px;
+    }
+
+    .filtro-field select,
+    .filtro-field input[type="text"] {
+        padding: .5rem .7rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        font-size: .85rem;
+        background: white;
+    }
+
+    .filtro-field input[type="checkbox"] {
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+    }
+
+.filtro-info {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    font-size: .85rem;
+    color: #475569;
+}
+
+.btn-imprimir-flotante {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .85rem 1.5rem;
+    background: linear-gradient(135deg, #0891b2, #0e7490);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: .9rem;
+    cursor: pointer;
+    box-shadow: 0 8px 24px rgba(8, 145, 178, .4);
+    z-index: 100;
+    transition: all .15s;
+}
+
+    .btn-imprimir-flotante:hover {
+        transform: translateY(-3px);
+    }
+
+/* ═══════════════════════════════════════════════════════════
+   ETIQUETAS
+   ═══════════════════════════════════════════════════════════ */
+.qr-print-area {
+    background: white;
+    border-radius: 14px;
+    padding: 1.5rem;
+    box-shadow: 0 1px 3px rgba(15,23,42,.06);
+}
+
+.etiquetas-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+}
+
+.etiqueta {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    padding: .55rem .7rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: white;
+    page-break-inside: avoid;
+    break-inside: avoid;
+    min-height: 100px;
+}
+
+    .etiqueta img {
+        width: 80px;
+        height: 80px;
+        flex-shrink: 0;
+    }
+
+.etiqueta-info {
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+    min-width: 0;
+    flex: 1;
+}
+
+.etiqueta-codigo {
+    font-family: 'Courier New', monospace;
+    font-size: .95rem;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: .5px;
+}
+
+.etiqueta-nombre {
+    font-size: .78rem;
+    color: #475569;
+    line-height: 1.15;
+    font-weight: 500;
+}
+
+.etiqueta-ubicacion {
+    font-size: .7rem;
+    color: #94a3b8;
+    display: flex;
+    align-items: center;
+    gap: .25rem;
+    margin-top: .15rem;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   IMPRESIÓN
+   ═══════════════════════════════════════════════════════════ */
+@media print {
+    .no-print {
+        display: none !important;
+    }
+
+    .qr-print-area {
+        padding: 0;
+        box-shadow: none;
+        border-radius: 0;
+    }
+
+    .etiquetas-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 4px;
+    }
+
+    .etiqueta {
+        border: 1px dashed #cbd5e1;
+        padding: 4px 6px;
+        min-height: 90px;
+        border-radius: 4px;
+    }
+
+        .etiqueta img {
+            width: 70px;
+            height: 70px;
+        }
+
+    @page {
+        margin: 1cm;
+        size: letter portrait;
+    }
+
+    body {
+        background: white;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   LOADING / EMPTY
+   ═══════════════════════════════════════════════════════════ */
+.loading {
+    text-align: center;
+    padding: 3rem;
+    color: #64748b;
+}
+
+.spinner {
+    width: 36px;
+    height: 36px;
+    border: 3px solid #e2e8f0;
+    border-top-color: #0891b2;
+    border-radius: 50%;
+    margin: 0 auto .75rem;
+    animation: spin .8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.empty {
+    text-align: center;
+    padding: 3rem;
+    color: #94a3b8;
+}
+
+    .empty i {
+        font-size: 3rem;
+        opacity: .4;
+        display: block;
+        margin-bottom: .75rem;
+    }
+
+@media (max-width: 767.98px) {
+    .qr-container {
+        padding: 1rem;
+    }
+
+    .etiquetas-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
