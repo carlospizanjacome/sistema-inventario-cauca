@@ -14,10 +14,9 @@
 @inject IJSRuntime JS
 @inject IUsuarioRepository UsuarioRepository
 @inject IRolRepository RolRepository
+@inject IInstitucionRepository InstRepo
 @inject UsuarioSesionService Sesion
 @inject ToastService Toast
-
-
 
 <PageTitle>Usuarios</PageTitle>
 
@@ -42,6 +41,7 @@
 
                 <div class="container-fluid p-0">
 
+                    <!-- FILA 1: Nombre, Email, Password -->
                     <div class="row g-2 mb-2">
                         <div class="col-12 col-md-4">
                             <div class="modern-group">
@@ -78,8 +78,9 @@
                         </div>
                     </div>
 
+                    <!-- FILA 2: Estado, Rol, Institución, Botones -->
                     <div class="row g-2 align-items-end">
-                        <div class="col-12 col-md-4">
+                        <div class="col-12 col-md-3">
                             <div class="modern-group">
                                 <label>Estado</label>
                                 <div class="input-modern">
@@ -92,7 +93,7 @@
                             </div>
                         </div>
 
-                        <div class="col-12 col-md-4">
+                        <div class="col-12 col-md-3">
                             <div class="modern-group">
                                 <label>Rol</label>
                                 <div class="input-modern">
@@ -111,7 +112,24 @@
                             </div>
                         </div>
 
-                        <div class="col-12 col-md-4 d-flex justify-content-end">
+                        <div class="col-12 col-md-3">
+                            <div class="modern-group">
+                                <label>Institución</label>
+                                <div class="input-modern">
+                                    <i class="bi bi-building"></i>
+                                    <InputSelect class="form-select" @bind-Value="usuarioDTO.InstitucionId"
+                                                 disabled="@(!Sesion.EsSuperAdmin)">
+                                        <option value="0">— Seleccione —</option>
+                                        @foreach (var inst in _instituciones)
+                                        {
+                                            <option value="@inst.Id">@inst.Nombre</option>
+                                        }
+                                    </InputSelect>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-md-3 d-flex justify-content-end">
                             @if ((editando && puedeEditar) || (!editando && puedeCrear))
                             {
                                 <button type="submit" class="btn btn-save px-4" style="height: 36px !important; width: auto; min-width: 140px;">
@@ -144,17 +162,18 @@
                         <th>Email</th>
                         <th>Estado</th>
                         <th>Rol</th>
+                        <th>Institución</th>
                         <th class="text-center">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
                     @if (usuarios == null)
                     {
-                        <tr><td colspan="5" class="text-center py-5">Cargando usuarios...</td></tr>
+                        <tr><td colspan="6" class="text-center py-5">Cargando usuarios...</td></tr>
                     }
                     else if (!usuarios.Any())
                     {
-                        <tr><td colspan="5" class="text-center py-5">No existen usuarios registrados</td></tr>
+                        <tr><td colspan="6" class="text-center py-5">No existen usuarios registrados</td></tr>
                     }
                     else
                     {
@@ -190,6 +209,18 @@
                                 <td>
                                     @(string.IsNullOrWhiteSpace(usuario.NombreRol) ? "Sin rol" : usuario.NombreRol)
                                 </td>
+                                <td>
+                                    @if (usuario.EsSuperAdmin)
+                                    {
+                                        <span class="badge-super">🔑 Super-Admin</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted" style="font-size: 0.82rem;">
+                                            @(usuario.InstitucionNombre ?? "Sin institución")
+                                        </span>
+                                    }
+                                </td>
                                 <td class="text-center">
                                     @if (puedeEditar)
                                     {
@@ -197,7 +228,7 @@
                                             <i class="bi bi-pencil-fill"></i>
                                         </button>
                                     }
-                                    @if (puedeEliminar)
+                                    @if (puedeEliminar && !usuario.EsSuperAdmin)
                                     {
                                         <button type="button" class="btn-action-delete" @onclick="() => ConfirmarEliminar(usuario.Id)">
                                             <i class="bi bi-trash-fill"></i>
@@ -225,6 +256,7 @@
     private bool puedeEliminar;
 
     private IEnumerable<Rol>? roles;
+    private List<InstitucionDTO> _instituciones = new();
 
     private string estadoString
     {
@@ -247,6 +279,17 @@
         await CargarUsuarios();
 
         roles = await RolRepository.ObtenerTodosAsync();
+
+        // Cargar instituciones
+        if (Sesion.EsSuperAdmin)
+        {
+            _instituciones = (await InstRepo.ObtenerTodasAsync()).ToList();
+        }
+        else
+        {
+            var inst = await InstRepo.ObtenerPorIdAsync(Sesion.InstitucionId);
+            if (inst != null) _instituciones = new List<InstitucionDTO> { inst };
+        }
     }
 
     private async Task CargarUsuarios()
@@ -270,7 +313,9 @@
                     Email = usuarioDTO.Email,
                     PasswordHash = usuarioDTO.Password,
                     Activo = usuarioDTO.Activo,
-                    RolId = usuarioDTO.RolId
+                    RolId = usuarioDTO.RolId,
+                    InstitucionId = usuarioDTO.InstitucionId,
+                    EsSuperAdmin = false
                 };
 
                 await UsuarioRepository.ActualizarAsync(usuarioActualizar);
@@ -290,7 +335,9 @@
                     Email = usuarioDTO.Email,
                     PasswordHash = usuarioDTO.Password,
                     Activo = usuarioDTO.Activo,
-                    RolId = usuarioDTO.RolId
+                    RolId = usuarioDTO.RolId,
+                    InstitucionId = usuarioDTO.InstitucionId,
+                    EsSuperAdmin = false
                 };
 
                 await UsuarioRepository.CrearAsync(usuario);
@@ -320,7 +367,8 @@
             Email = usuario.Email,
             Activo = usuario.Activo,
             RolId = usuario.RolId,
-            Password = string.Empty
+            Password = string.Empty,
+            InstitucionId = usuario.InstitucionId
         };
     }
 
@@ -352,6 +400,7 @@
     private void LimpiarFormulario()
     {
         usuarioDTO = new UsuarioDTO();
+        usuarioDTO.InstitucionId = Sesion.EsSuperAdmin ? 0 : Sesion.InstitucionId;
         editando = false;
         usuarioEditandoId = 0;
     }
