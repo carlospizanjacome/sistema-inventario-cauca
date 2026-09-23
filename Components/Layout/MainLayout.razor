@@ -24,12 +24,40 @@
 
             @if (Sesion.UsuarioActual != null)
             {
-                <div class="topbar-user-mini">
-                    <span class="topbar-user-name">@Sesion.UsuarioActual.NombreCompleto</span>
+                <div class="topbar-context">
+                    @* Badge de contexto: Super-Admin o Institución *@
+                    @if (Sesion.EsSuperAdmin)
+                    {
+                        <div class="context-badge context-super" title="Acceso total al sistema">
+                            <i class="bi bi-shield-fill-check"></i>
+                            <span>Super-Admin · Todas las instituciones</span>
+                        </div>
+                    }
+                    else if (!string.IsNullOrWhiteSpace(Sesion.InstitucionNombre))
+                    {
+                        <div class="context-badge context-inst" title="@Sesion.InstitucionNombre">
+                            <i class="bi bi-building"></i>
+                            <span>@Sesion.InstitucionNombre</span>
+                        </div>
+                    }
 
-                    <button class="topbar-icon-btn" @onclick="CerrarSesion" title="Cerrar sesión">
-                        <i class="bi bi-box-arrow-right"></i>
-                    </button>
+                    @* Usuario + rol + logout *@
+                    <div class="context-user">
+                        <div class="context-avatar" title="@Sesion.UsuarioActual.NombreCompleto">
+                            @ObtenerIniciales(Sesion.UsuarioActual.NombreCompleto)
+                        </div>
+                        <div class="context-user-info">
+                            <span class="context-user-name" title="@Sesion.UsuarioActual.NombreCompleto">
+                                @Sesion.UsuarioActual.NombreCompleto
+                            </span>
+                            <span class="context-user-role">
+                                @(Sesion.UsuarioActual.NombreRol ?? "Usuario")
+                            </span>
+                        </div>
+                        <button class="btn-icon" @onclick="CerrarSesion" title="Cerrar sesión">
+                            <i class="bi bi-box-arrow-right"></i>
+                        </button>
+                    </div>
                 </div>
             }
 
@@ -100,5 +128,21 @@
     {
         Sesion.CerrarSesion();
         Nav.NavigateTo("/login", forceLoad: true);
+    }
+
+    /// <summary>
+    /// Devuelve las iniciales del nombre (máx 2) para el avatar del topbar.
+    /// Ej: "Ana María Rodríguez" → "AM"
+    /// </summary>
+    private string ObtenerIniciales(string? nombreCompleto)
+    {
+        if (string.IsNullOrWhiteSpace(nombreCompleto)) return "?";
+
+        var partes = nombreCompleto.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (partes.Length == 0) return "?";
+        if (partes.Length == 1) return partes[0].Substring(0, 1).ToUpper();
+
+        // Toma primera letra del primer nombre + primera letra del primer apellido
+        return (partes[0].Substring(0, 1) + partes[1].Substring(0, 1)).ToUpper();
     }
 }

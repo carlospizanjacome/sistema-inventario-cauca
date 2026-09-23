@@ -1,0 +1,135 @@
+﻿/* =========================================================
+   DESIGN TOKENS — Sistema de Inventario Educativo
+   Gobernación del Cauca · Secretaría de Educación
+   ========================================================= */
+
+:root {
+    /* ═══ INSTITUCIONALES ═══ */
+    --alc-red: #b91c1c;
+    --alc-red-dark: #991b1b;
+    --alc-red-soft: #fef2f2;
+    --alc-blue: #1e3a8a;
+    --alc-blue-dark: #172554;
+    --alc-blue-soft: #eff6ff;
+    /* ═══ MARCA ═══ */
+    --brand: #4f46e5;
+    --brand-hover: #4338ca;
+    --brand-active: #3730a3;
+    --brand-soft: #eef2ff;
+    --brand-border: #c7d2fe;
+    /* ═══ SUPERFICIES ═══ */
+    --bg-app: #f8fafc;
+    --bg-surface: #ffffff;
+    --bg-subtle: #f1f5f9;
+    --bg-muted: #fafbfc;
+    /* ═══ BORDES ═══ */
+    --border-soft: #e2e8f0;
+    --border-strong: #cbd5e1;
+    --border-focus: var(--brand);
+    /* ═══ TEXTO ═══ */
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #64748b;
+    --text-disabled: #94a3b8;
+    --text-inverse: #ffffff;
+    /* ═══ SEMÁNTICOS ═══ */
+    --success: #16a34a;
+    --success-hover: #15803d;
+    --success-soft: #dcfce7;
+    --success-text: #166534;
+    --warning: #f59e0b;
+    --warning-hover: #d97706;
+    --warning-soft: #fef3c7;
+    --warning-text: #92400e;
+    --danger: #dc2626;
+    --danger-hover: #b91c1c;
+    --danger-soft: #fee2e2;
+    --danger-text: #991b1b;
+    --info: #4f46e5;
+    --info-hover: #4338ca;
+    --info-soft: #eef2ff;
+    --info-text: #3730a3;
+    /* ═══ ESTADOS FÍSICOS DE BIENES ═══ */
+    --estado-bueno: var(--success-text);
+    --estado-bueno-bg: var(--success-soft);
+    --estado-regular: var(--warning-text);
+    --estado-regular-bg: var(--warning-soft);
+    --estado-malo: var(--danger-text);
+    --estado-malo-bg: var(--danger-soft);
+    --estado-baja: #64748b;
+    --estado-baja-bg: #f1f5f9;
+    /* ═══ ESPACIADO (base 4px) ═══ */
+    --space-1: 0.25rem;
+    --space-2: 0.5rem;
+    --space-3: 0.75rem;
+    --space-4: 1rem;
+    --space-5: 1.25rem;
+    --space-6: 1.5rem;
+    --space-8: 2rem;
+    --space-10: 2.5rem;
+    --space-12: 3rem;
+    /* ═══ RADIOS ═══ */
+    --radius-sm: 6px;
+    --radius: 8px;
+    --radius-md: 10px;
+    --radius-lg: 12px;
+    --radius-xl: 14px;
+    --radius-2xl: 16px;
+    --radius-full: 999px;
+    /* ═══ SOMBRAS ═══ */
+    --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+    --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+    --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.06), 0 2px 4px rgba(15, 23, 42, 0.04);
+    --shadow-lg: 0 10px 25px rgba(15, 23, 42, 0.08), 0 4px 10px rgba(15, 23, 42, 0.04);
+    --shadow-xl: 0 20px 40px rgba(15, 23, 42, 0.12), 0 8px 16px rgba(15, 23, 42, 0.06);
+    --shadow-focus: 0 0 0 3px rgba(79, 70, 229, 0.18);
+    --shadow-focus-danger: 0 0 0 3px rgba(220, 38, 38, 0.18);
+    /* ═══ TIPOGRAFÍA — escala legible para oficina ═══ */
+    --font-sans: 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Courier New', monospace;
+    --fs-xs: 0.8rem; /* 12.8px — labels uppercase */
+    --fs-sm: 0.9rem; /* 14.4px — texto secundario */
+    --fs-base: 0.95rem; /* 15.2px — texto base */
+    --fs-md: 1rem; /* 16px   — cuerpo */
+    --fs-lg: 1.15rem; /* 18.4px — subtítulos */
+    --fs-xl: 1.35rem; /* 21.6px — títulos de sección */
+    --fs-2xl: 1.6rem; /* 25.6px — page title */
+    --fs-3xl: 2rem; /* 32px   — hero */
+
+    --fw-regular: 400;
+    --fw-medium: 500;
+    --fw-semibold: 600;
+    --fw-bold: 700;
+    --fw-extrabold: 800;
+    --lh-tight: 1.2;
+    --lh-normal: 1.5;
+    --lh-relaxed: 1.7;
+    /* ═══ TRANSICIONES ═══ */
+    --t-fast: 0.12s ease;
+    --t-base: 0.18s ease;
+    --t-slow: 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    /* ═══ LAYOUT ═══ */
+    --sidebar-width: 260px;
+    --sidebar-collapsed-width: 72px;
+    --topbar-height: 60px;
+    --content-max: 1600px;
+    /* ═══ Z-INDEX ═══ */
+    --z-base: 1;
+    --z-sticky: 10;
+    --z-sidebar: 20;
+    --z-dropdown: 100;
+    --z-modal-backdrop: 9000;
+    --z-modal: 9100;
+    --z-toast: 9500;
+    --z-tooltip: 9800;
+}
+
+/* ═══ ACCESIBILIDAD ═══ */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}

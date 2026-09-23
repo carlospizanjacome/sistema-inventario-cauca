@@ -1,315 +1,204 @@
-/* CSS for TomaFisica component */
-.page-container {
-    padding: 1.5rem;
-    max-width: 1600px;
-    margin: 0 auto;
-}
+/* ═══════════════════════════════════════════════════════════
+   TOMA FÍSICA — estilos específicos
+   (Base global en app.css)
+   ═══════════════════════════════════════════════════════════ */
 
-.page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 1.25rem;
-    flex-wrap: wrap;
-    gap: 1rem;
-}
-
-    .page-header h1 {
-        margin: 0;
-        font-size: 1.5rem;
-        font-weight: 700;
-        color: var(--alc-blue, #1e3a8a);
-        display: flex;
-        align-items: center;
-        gap: .5rem;
-    }
-
-        .page-header h1 i {
-            color: #0891b2;
-        }
-
-.subtitle {
-    margin: .25rem 0 0;
-    color: #64748b;
-    font-size: .9rem;
-}
-
+/* Botón principal "Nueva Toma" */
 .btn-nueva {
     display: inline-flex;
     align-items: center;
-    gap: .5rem;
-    padding: .6rem 1.2rem;
-    background: linear-gradient(135deg, #0891b2, #0e7490);
-    color: white;
+    gap: var(--space-2);
+    padding: 0.7rem 1.3rem;
+    background: var(--brand);
+    color: #fff;
     border: none;
-    border-radius: 10px;
-    font-weight: 600;
-    font-size: .88rem;
+    border-radius: var(--radius-md);
+    font-family: inherit;
+    font-weight: var(--fw-semibold);
+    font-size: var(--fs-base);
     cursor: pointer;
-    box-shadow: 0 4px 12px rgba(8, 145, 178, .25);
-    transition: all .15s;
+    box-shadow: 0 2px 8px rgba(79, 70, 229, 0.25);
+    transition: all var(--t-fast);
 }
 
     .btn-nueva:hover {
+        background: var(--brand-hover);
         transform: translateY(-2px);
-        box-shadow: 0 6px 16px rgba(8, 145, 178, .35);
+        box-shadow: 0 6px 16px rgba(79, 70, 229, 0.35);
     }
 
-.modern-card {
-    background: white;
-    border-radius: 14px;
-    overflow: hidden;
-    box-shadow: 0 1px 3px rgba(15,23,42,.06), 0 4px 12px rgba(15,23,42,.04);
-    margin-bottom: 1.25rem;
-}
-
+/* Card del formulario */
 .form-card {
-    padding: 1.25rem 1.5rem;
+    padding: var(--space-5) var(--space-6);
 }
 
 .card-top {
-    margin-bottom: 1rem;
-    padding-bottom: .75rem;
-    border-bottom: 1px solid #e2e8f0;
+    margin-bottom: var(--space-4);
+    padding-bottom: var(--space-3);
+    border-bottom: 1px solid var(--border-soft);
 }
 
     .card-top h5 {
         margin: 0;
-        font-size: 1rem;
-        font-weight: 600;
-        color: #1e293b;
+        font-size: var(--fs-md);
+        font-weight: var(--fw-semibold);
+        color: var(--text-primary);
         display: flex;
         align-items: center;
-        gap: .5rem;
+        gap: var(--space-2);
     }
 
         .card-top h5 i {
-            color: #0891b2;
+            color: var(--brand);
         }
 
+/* Etiqueta mini (encima de cada input) */
 .mini-label {
-    font-size: .72rem;
-    font-weight: 600;
-    color: #64748b;
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    color: var(--text-muted);
     text-transform: uppercase;
-    letter-spacing: .3px;
-    margin-bottom: .3rem;
+    letter-spacing: 0.3px;
+    margin-bottom: var(--space-1);
     display: block;
 }
 
-.form-control, .form-select {
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: .55rem .75rem;
-    font-size: .88rem;
-    transition: all .15s;
-}
-
-    .form-control:focus, .form-select:focus {
-        outline: none;
-        border-color: #0891b2;
-        box-shadow: 0 0 0 3px rgba(8, 145, 178, .12);
-    }
-
-.btn-primary-custom, .btn-secondary-custom {
+/* Botones personalizados del formulario */
+.btn-primary-custom,
+.btn-secondary-custom {
     display: inline-flex;
     align-items: center;
-    padding: .55rem 1.2rem;
-    border-radius: 8px;
-    font-weight: 600;
-    font-size: .88rem;
-    cursor: pointer;
+    justify-content: center;
+    gap: var(--space-2);
+    padding: 0.6rem 1.25rem;
+    border-radius: var(--radius);
     border: none;
-    transition: all .15s;
+    font-family: inherit;
+    font-weight: var(--fw-semibold);
+    font-size: var(--fs-base);
+    cursor: pointer;
+    transition: all var(--t-fast);
 }
 
 .btn-primary-custom {
-    background: #0891b2;
-    color: white;
+    background: var(--brand);
+    color: #fff;
 }
 
     .btn-primary-custom:hover {
-        background: #0e7490;
-    }
-
-.btn-secondary-custom {
-    background: #e2e8f0;
-    color: #334155;
-}
-
-    .btn-secondary-custom:hover {
-        background: #cbd5e1;
-    }
-
-.table-responsive {
-    overflow-x: auto;
-}
-
-.modern-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: .85rem;
-}
-
-    .modern-table th {
-        text-align: left;
-        padding: .75rem .9rem;
-        background: #f8fafc;
-        color: #475569;
-        font-weight: 600;
-        font-size: .72rem;
-        text-transform: uppercase;
-        letter-spacing: .4px;
-        border-bottom: 1px solid #e2e8f0;
-        white-space: nowrap;
-    }
-
-    .modern-table td {
-        padding: .7rem .9rem;
-        border-bottom: 1px solid #f1f5f9;
-        color: #334155;
-        vertical-align: middle;
-    }
-
-    .modern-table tr:last-child td {
-        border-bottom: none;
-    }
-
-    .modern-table tr:hover td {
-        background: #f8fafc;
-    }
-
-    .modern-table code {
-        background: #e0f2fe;
-        padding: 2px 6px;
-        border-radius: 4px;
-        font-size: .75rem;
-        color: #0e7490;
-        font-weight: 600;
-    }
-
-.estado-badge {
-    display: inline-block;
-    padding: .25rem .7rem;
-    border-radius: 999px;
-    font-size: .72rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .3px;
-}
-
-.estado-borrador {
-    background: #f1f5f9;
-    color: #475569;
-}
-
-.estado-en_curso {
-    background: #fef3c7;
-    color: #92400e;
-}
-
-.estado-cerrada {
-    background: #dcfce7;
-    color: #166534;
-}
-
-.estado-anulada {
-    background: #fee2e2;
-    color: #991b1b;
-}
-
-.text-end {
-    text-align: right;
-}
-
-.text-center {
-    text-align: center;
-}
-
-.text-success {
-    color: #059669 !important;
-    font-weight: 600;
-}
-
-.text-danger {
-    color: #dc2626 !important;
-    font-weight: 600;
-}
-
-.text-warning {
-    color: #ea580c !important;
-    font-weight: 600;
-}
-
-.text-muted {
-    color: #94a3b8 !important;
-}
-
-.btn-icon, .btn-icon-act, .btn-icon-danger {
-    background: none;
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
-    padding: .35rem .55rem;
-    cursor: pointer;
-    color: #4f46e5;
-    margin-left: .2rem;
-    transition: all .15s;
-    font-size: .82rem;
-}
-
-    .btn-icon:hover {
-        background: #eef2ff;
-        border-color: #c7d2fe;
-    }
-
-.btn-icon-act {
-    background: #0891b2;
-    border-color: #0891b2;
-    color: white;
-    font-weight: 600;
-}
-
-    .btn-icon-act:hover {
-        background: #0e7490;
+        background: var(--brand-hover);
         transform: translateY(-1px);
     }
 
-.btn-icon.danger {
-    color: #b91c1c;
+.btn-secondary-custom {
+    background: var(--bg-subtle);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-soft);
 }
 
-    .btn-icon.danger:hover {
-        background: #fef2f2;
-        border-color: #fecaca;
+    .btn-secondary-custom:hover {
+        background: var(--border-soft);
+        color: var(--text-primary);
+    }
+
+/* Badges de estado de la toma física */
+.estado-badge {
+    display: inline-block;
+    padding: 0.25rem 0.7rem;
+    border-radius: var(--radius-full);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-bold);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.estado-borrador {
+    background: var(--bg-subtle);
+    color: var(--text-secondary);
+}
+
+.estado-en_curso {
+    background: var(--warning-soft);
+    color: var(--warning-text);
+}
+
+.estado-cerrada {
+    background: var(--success-soft);
+    color: var(--success-text);
+}
+
+.estado-anulada {
+    background: var(--danger-soft);
+    color: var(--danger-text);
+}
+
+/* Botones de acción de la tabla (específicos de TomaFisica) */
+.btn-icon-act {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-1);
+    background: var(--brand);
+    border: 1px solid var(--brand);
+    border-radius: var(--radius-sm);
+    padding: 0.4rem 0.75rem;
+    color: #fff;
+    font-family: inherit;
+    font-weight: var(--fw-semibold);
+    font-size: var(--fs-xs);
+    cursor: pointer;
+    margin-left: var(--space-1);
+    transition: all var(--t-fast);
+}
+
+    .btn-icon-act:hover {
+        background: var(--brand-hover);
+        border-color: var(--brand-hover);
+        transform: translateY(-1px);
     }
 
 .btn-icon-cerrar {
-    background: linear-gradient(135deg, #dc2626, #b91c1c);
-    color: white;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-1);
+    background: var(--danger);
     border: none;
-    border-radius: 8px;
-    padding: .35rem .75rem;
-    margin-left: .3rem;
-    font-weight: 600;
-    font-size: .78rem;
+    border-radius: var(--radius-sm);
+    padding: 0.4rem 0.75rem;
+    color: #fff;
+    font-family: inherit;
+    font-weight: var(--fw-semibold);
+    font-size: var(--fs-xs);
     cursor: pointer;
+    margin-left: var(--space-1);
+    transition: all var(--t-fast);
 }
 
     .btn-icon-cerrar:hover {
+        background: var(--danger-hover);
         transform: translateY(-1px);
     }
 
 .btn-icon-ver {
-    background: linear-gradient(135deg, #16a34a, #15803d);
-    color: white;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-1);
+    background: var(--success);
     border: none;
-    border-radius: 8px;
-    padding: .35rem .75rem;
-    font-weight: 600;
-    font-size: .78rem;
+    border-radius: var(--radius-sm);
+    padding: 0.4rem 0.75rem;
+    color: #fff;
+    font-family: inherit;
+    font-weight: var(--fw-semibold);
+    font-size: var(--fs-xs);
     cursor: pointer;
+    margin-left: var(--space-1);
+    transition: all var(--t-fast);
 }
 
     .btn-icon-ver:hover {
+        background: var(--success-hover);
         transform: translateY(-1px);
     }

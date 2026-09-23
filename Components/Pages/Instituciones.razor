@@ -40,7 +40,7 @@
             <div class="form-grid">
                 <div class="form-group">
                     <label>Nombre *</label>
-                    <div class="input-modern">
+                    <div class="input-icon">
                         <i class="bi bi-bank"></i>
                         <InputText class="form-control" @bind-Value="_model.Nombre" placeholder="Ej: IE Ciudad de Popayán" />
                     </div>
@@ -49,49 +49,49 @@
 
                 <div class="form-group">
                     <label>NIT</label>
-                    <div class="input-modern">
+                    <div class="input-icon">
                         <i class="bi bi-hash"></i>
-                        <InputText class="form-control" @bind-Value="_model.Nit" placeholder="900123456-7" />
+                        <InputText class="form-control" @bind-Value="_model.Nit" placeholder="Ej: 900123456-7" />
                     </div>
                 </div>
 
                 <div class="form-group">
                     <label>Código DANE</label>
-                    <div class="input-modern">
+                    <div class="input-icon">
                         <i class="bi bi-bookmark"></i>
-                        <InputText class="form-control" @bind-Value="_model.CodigoDane" />
+                        <InputText class="form-control" @bind-Value="_model.CodigoDane" placeholder="Ej: 219001000123" />
                     </div>
                 </div>
 
                 <div class="form-group">
                     <label>Rector</label>
-                    <div class="input-modern">
+                    <div class="input-icon">
                         <i class="bi bi-person-badge"></i>
-                        <InputText class="form-control" @bind-Value="_model.Rector" />
+                        <InputText class="form-control" @bind-Value="_model.Rector" placeholder="Nombre del rector" />
                     </div>
                 </div>
 
                 <div class="form-group">
                     <label>Dirección</label>
-                    <div class="input-modern">
+                    <div class="input-icon">
                         <i class="bi bi-geo-alt"></i>
-                        <InputText class="form-control" @bind-Value="_model.Direccion" />
+                        <InputText class="form-control" @bind-Value="_model.Direccion" placeholder="Dirección física" />
                     </div>
                 </div>
 
                 <div class="form-group">
                     <label>Teléfono</label>
-                    <div class="input-modern">
+                    <div class="input-icon">
                         <i class="bi bi-telephone"></i>
-                        <InputText class="form-control" @bind-Value="_model.Telefono" />
+                        <InputText class="form-control" @bind-Value="_model.Telefono" placeholder="Ej: 8201234" />
                     </div>
                 </div>
 
                 <div class="form-group">
                     <label>Email</label>
-                    <div class="input-modern">
+                    <div class="input-icon">
                         <i class="bi bi-envelope"></i>
-                        <InputText class="form-control" type="email" @bind-Value="_model.Email" />
+                        <InputText class="form-control" type="email" @bind-Value="_model.Email" placeholder="correo@institucion.edu.co" />
                     </div>
                     <ValidationMessage For="() => _model.Email" />
                 </div>
@@ -193,8 +193,6 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // Solo super-admin puede ver TODAS las IE
-        // Los demás solo ven la suya (filtrado por el repositorio)
         await Cargar();
     }
 
@@ -203,14 +201,12 @@
 
     private async Task Guardar()
     {
-        // Solo super-admin puede crear/editar instituciones
         if (!Sesion.EsSuperAdmin)
         {
             Toast.Error("Solo el super-administrador puede gestionar instituciones.");
             return;
         }
 
-        // Validar NIT único
         if (!string.IsNullOrWhiteSpace(_model.Nit))
         {
             if (await InstRepo.ExisteNitAsync(_model.Nit, _editando ? institucionEditandoId : null))
