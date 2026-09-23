@@ -15,5 +15,8 @@
         // ⬇️ NUEVAS
         public int InstitucionId { get; set; }
         public bool EsSuperAdmin { get; set; }
+        
+
+        public string? InstitucionNombre { get; set; }
     }
 }

@@ -1,6 +1,9 @@
 ﻿@inherits LayoutComponentBase
 @using Almacen.Components.Shared
+@using Almacen.Services
 @inject IJSRuntime JS
+@inject UsuarioSesionService Sesion
+@inject NavigationManager Nav
 
 <div class="app-shell @(sidebarCollapsed ? "is-collapsed" : "") @(mobileOpen ? "is-mobile-open" : "")">
 
@@ -18,6 +21,17 @@
                 <span class="topbar-title-main">Sistema de Inventario y Almacén</span>
                 <span class="topbar-title-sub">Alcaldía de Popayán</span>
             </div>
+
+            @if (Sesion.UsuarioActual != null)
+            {
+                <div class="topbar-user-mini">
+                    <span class="topbar-user-name">@Sesion.UsuarioActual.NombreCompleto</span>
+
+                    <button class="topbar-icon-btn" @onclick="CerrarSesion" title="Cerrar sesión">
+                        <i class="bi bi-box-arrow-right"></i>
+                    </button>
+                </div>
+            }
 
             <div class="topbar-actions">
                 <button class="btn-icon" title="Notificaciones">
@@ -81,4 +95,10 @@
     }
 
     private void CloseMobileSidebar() => mobileOpen = false;
+
+    private void CerrarSesion()
+    {
+        Sesion.CerrarSesion();
+        Nav.NavigateTo("/login", forceLoad: true);
+    }
 }

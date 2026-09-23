@@ -37,5 +37,7 @@ namespace Almacen.Services
         /// </summary>
         public int InstitucionId => UsuarioActual?.InstitucionId ?? 0;
 
+        public string? InstitucionNombre => UsuarioActual?.InstitucionNombre;
+
     }
 }

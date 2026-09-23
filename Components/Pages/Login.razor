@@ -2,7 +2,6 @@
 @rendermode InteractiveServer
 @using Almacen.Components.Layout
 @using System.ComponentModel.DataAnnotations
-
 @using Almacen.Interfaces
 @using Almacen.Models
 @using Almacen.Services
@@ -13,67 +12,142 @@
 @inject UsuarioSesionService Sesion
 @inject SeguridadService Seguridad
 
-<div class="login-container">
-    <!-- Panel Izquierdo: Identidad Oficial -->
-    <div class="brand-panel">
-        <div class="brand-overlay"></div>
-        <div class="brand-content">
-            <div class="logo-wrapper-large">
-                <svg xmlns="http://www.w3.org/2000/svg" width="44" fill="currentColor" viewBox="0 0 16 16">
-                    <path fill-rule="evenodd" d="M14.763.075A.5.5 0 0 1 15 .5v15a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5V14h-1v1.5a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5V10a.5.5 0 0 1 .342-.474L6 7.64V4.5a.5.5 0 0 1 .276-.447l8-4a.5.5 0 0 1 .487.022M6 8.694 1.458 10.21A.5.5 0 0 0 1 10.691V15h4v-2.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5V15h4v-1.5a.5.5 0 0 1 .5-.5h.5a.5.5 0 0 1 .5.5V15h1V1.309l-7 3.5z" />
-                </svg>
-            </div>
-            <h1>Alcaldía de Popayán</h1>
-            <h2>Almacén e Inventarios</h2>
-            <p>Módulo oficial para el control, registro, legalización y trazabilidad de bienes devolutivos y de consumo del municipio.</p>
-        </div>
-        <div class="brand-footer">
-            <span>&copy; 2026 Municipio de Popayán - Gestión Pública Transparente</span>
-        </div>
-    </div>
+<PageTitle>Acceso · AlmacénPro</PageTitle>
 
-    <!-- Panel Derecho: Formulario -->
-    <div class="form-panel">
-        <div class="form-container-box">
-            <div class="form-header">
-                <h2>Control de Acceso</h2>
-                <p>Identifíquese con sus credenciales institucionales</p>
+<div class="login-scene">
+
+    <!-- Orbes decorativos de fondo -->
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+    <div class="orb orb-4"></div>
+
+    <div class="login-box">
+
+        <!-- ═══════════════════════════════════════════════
+             LADO IZQUIERDO — Marketing
+             ═══════════════════════════════════════════════ -->
+        <div class="hero-side">
+
+            <div class="hero-top">
+                <div class="logo-mark">
+                    <i class="bi bi-box-seam-fill"></i>
+                </div>
+                <div class="logo-text">
+                    <span class="logo-name">Almacén<span class="logo-accent">Pro</span></span>
+                    <span class="logo-slogan">Inventario Educativo</span>
+                </div>
+            </div>
+
+            <div class="hero-main">
+                <h1>
+                    Gestiona tu inventario<br />
+                    como un <span class="hero-accent">profesional</span>.
+                </h1>
+
+                <p class="hero-sub">
+                    Control total de tus bienes, depreciación automática,
+                    trazabilidad con QR y reportes listos para auditoría.
+                </p>
+
+                <div class="hero-stats">
+                    <div class="stat">
+                        <span class="stat-num">100%</span>
+                        <span class="stat-lbl">Normativa NICSP</span>
+                    </div>
+                    <div class="stat-divider"></div>
+                    <div class="stat">
+                        <span class="stat-num">∞</span>
+                        <span class="stat-lbl">Bienes sin límite</span>
+                    </div>
+                    <div class="stat-divider"></div>
+                    <div class="stat">
+                        <span class="stat-num">24/7</span>
+                        <span class="stat-lbl">Disponible</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="hero-bottom">
+                <div class="aviso-dot"></div>
+                <span>Sistema activo · V 2.0</span>
+            </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════
+             LADO DERECHO — Formulario
+             ═══════════════════════════════════════════════ -->
+        <div class="form-side">
+
+            <div class="form-top">
+                <span class="badge-acceso">
+                    <span class="badge-dot"></span>
+                    Acceso Seguro
+                </span>
+            </div>
+
+            <div class="form-head">
+                <h2>Bienvenido de nuevo</h2>
+                <p>Ingresa tus credenciales para continuar</p>
             </div>
 
             <EditForm Model="@loginModel" OnValidSubmit="ProcesarLogin" FormName="LoginForm">
                 <DataAnnotationsValidator />
 
-                <div class="form-group-custom">
-                    <label class="input-title-label">Usuario / Correo Institucional</label>
-                    <div class="input-with-icon">
-                        <span class="input-icon-inner">@("@")</span>
-                        <InputText class="modern-input-field" @bind-Value="loginModel.Email" placeholder="funcionario@popayan.gov.co" />
-                    </div>
-                    <ValidationMessage For="@(() => loginModel.Email)" class="validation-error-message" />
+                <div class="campo">
+                    <label for="email">Correo institucional</label>
+                    <InputText id="email"
+                               class="ipt"
+                               @bind-Value="loginModel.Email"
+                               placeholder="tu@correo.edu.co"
+                               autocomplete="username" />
+                    <ValidationMessage For="@(() => loginModel.Email)" class="err" />
                 </div>
 
-                <div class="form-group-custom">
-                    <label class="input-title-label">Contraseña del Sistema</label>
-                    <div class="input-with-icon">
-                        <span class="input-icon-inner">🔑</span>
-                        <InputText type="password" class="modern-input-field" @bind-Value="loginModel.Password" placeholder="••••••••••••" />
-                    </div>
-                    <ValidationMessage For="@(() => loginModel.Password)" class="validation-error-message" />
+                <div class="campo">
+                    <label for="password">Contraseña</label>
+                    <InputText id="password"
+                               type="password"
+                               class="ipt"
+                               @bind-Value="loginModel.Password"
+                               placeholder="••••••••"
+                               autocomplete="current-password" />
+                    <ValidationMessage For="@(() => loginModel.Password)" class="err" />
                 </div>
 
                 @if (!string.IsNullOrEmpty(mensajeError))
                 {
-                    <div class="modern-alert-error">
-                        <span class="alert-icon">⚠️</span>
-                        <span class="alert-text">@mensajeError</span>
+                    <div class="alerta">
+                        <i class="bi bi-exclamation-octagon-fill"></i>
+                        <span>@mensajeError</span>
                     </div>
                 }
 
-                <button type="submit" class="modern-btn-primary" disabled="@cargando">
-                    @(cargando ? "Validando credenciales..." : "Ingresar de Forma Segura")
+                <button type="submit" class="btn-entrar" disabled="@cargando">
+                    @if (cargando)
+                    {
+                        <span class="spinner"></span>
+                        <span>Ingresando...</span>
+                    }
+                    else
+                    {
+                        <span>Ingresar</span>
+                        <i class="bi bi-arrow-right-short"></i>
+                    }
                 </button>
+
+                <div class="form-links">
+                    <a href="#" class="link-mini">¿Olvidaste tu contraseña?</a>
+                </div>
             </EditForm>
+
+            <div class="form-footer-mini">
+                <span>© @DateTime.Now.Year AlmacénPro</span>
+                <span class="dot-sep"></span>
+                <span>Powered by .NET 9</span>
+            </div>
         </div>
+
     </div>
 </div>
 
@@ -89,28 +163,24 @@
             mensajeError = string.Empty;
             cargando = true;
 
-            // 1) Limpia cualquier sesión previa
             Sesion.CerrarSesion();
 
-            // 2) Valida credenciales
             bool esValido = await AuthService.ValidarCredencialesAsync(
                 loginModel.Email, loginModel.Password);
 
             if (!esValido)
             {
-                mensajeError = "Las credenciales ingresadas no corresponden a un funcionario autorizado del Municipio.";
+                mensajeError = "Credenciales inválidas. Verifica tu correo y contraseña.";
                 return;
             }
 
-            // 3) Carga el usuario completo
             var usuario = await UsuarioRepository.ObtenerPorEmailAsync(loginModel.Email);
             if (usuario == null)
             {
-                mensajeError = "No se encontró información del funcionario autenticado.";
+                mensajeError = "Usuario no encontrado.";
                 return;
             }
 
-            // 4) Inicia sesión con contexto multi-institución
             var usuarioSesion = new UsuarioSesion
             {
                 Id = usuario.Id,
@@ -119,15 +189,13 @@
                 RolId = usuario.RolId,
                 NombreRol = usuario.NombreRol,
                 InstitucionId = usuario.InstitucionId,
-                EsSuperAdmin = usuario.EsSuperAdmin
+                EsSuperAdmin = usuario.EsSuperAdmin,
+                InstitucionNombre = usuario.InstitucionNombre
             };
 
             Sesion.IniciarSesion(usuarioSesion, Array.Empty<string>());
-
-            // 5) Carga los permisos AHORA (1 sola vez)
             await Seguridad.CargarPermisosEnSesionAsync();
 
-            // 6) Redirige al dashboard
             Navigation.NavigateTo("/", forceLoad: false);
         }
         catch (Exception ex)
@@ -142,11 +210,11 @@
 
     public class LoginInput
     {
-        [Required(ErrorMessage = "El correo de la Alcaldía de Popayán es obligatorio.")]
-        [EmailAddress(ErrorMessage = "El formato de correo institucional no es válido.")]
+        [Required(ErrorMessage = "El correo es obligatorio.")]
+        [EmailAddress(ErrorMessage = "Formato de correo inválido.")]
         public string Email { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Debe digitar su contraseña de seguridad.")]
+        [Required(ErrorMessage = "La contraseña es obligatoria.")]
         public string Password { get; set; } = string.Empty;
     }
 }

@@ -6,15 +6,6 @@
 
 <div class="sidebar-inner @(Collapsed ? "is-collapsed" : "")">
 
-    <!-- ═══════════ BRAND ═══════════ -->
-    <div class="sidebar-brand">
-        <div class="brand-icon"><i class="bi bi-box-seam-fill"></i></div>
-        <div class="brand-text">
-            <span class="brand-title">Almacén</span>
-            <span class="brand-subtitle">Municipal</span>
-        </div>
-    </div>
-
     <!-- ═══════════ BUSCADOR ═══════════ -->
     @if (!Collapsed)
     {
@@ -32,6 +23,7 @@
             }
         </div>
     }
+
 
     <!-- ═══════════ NAV ═══════════ -->
     <nav class="sidebar-nav">

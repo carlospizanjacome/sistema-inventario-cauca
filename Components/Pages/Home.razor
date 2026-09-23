@@ -55,7 +55,7 @@
                 <div class="kpi-icon"><i class="bi bi-cash-stack"></i></div>
                 <div class="kpi-body">
                     <span class="kpi-label">Valor inventario</span>
-                    <span class="kpi-value">@_kpis.ValorInventario.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("es-CO"))</span>
+                    <span class="kpi-value">@FormatearValorCompacto(_kpis.ValorInventario)</span>
                 </div>
             </div>
         </section>
@@ -190,4 +190,18 @@
             await JS.InvokeVoidAsync("eval", "window.location.replace('/login')");
         }
     }
+
+    private static string FormatearValorCompacto(decimal valor)
+{
+    var cultura = System.Globalization.CultureInfo.GetCultureInfo("es-CO");
+
+    if (valor >= 1_000_000_000)
+        return (valor / 1_000_000_000).ToString("N1", cultura) + "B";
+    if (valor >= 1_000_000)
+        return (valor / 1_000_000).ToString("N1", cultura) + "M";
+    if (valor >= 1_000)
+        return (valor / 1_000).ToString("N0", cultura) + "K";
+
+    return valor.ToString("C0", cultura);
+}
 }
