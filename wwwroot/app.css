@@ -5,6 +5,11 @@
 
 @import url("css/tokens.css");
 
+@import url("css/tokens.css");
+@import url("css/modules/crud.css");
+@import url("css/modules/forms.css");
+@import url("css/modules/filtros.css");
+
 /* ═══════════════════════════════════════════════════════════
    RESET + BASE
    ═══════════════════════════════════════════════════════════ */
@@ -285,7 +290,6 @@ code, kbd, samp, pre {
 
 /* ═══════════════════════════════════════════════════════════
    INPUT CON ICONO — patrón oficial
-   (Un solo borde. El icono flota sobre el input.)
    ═══════════════════════════════════════════════════════════ */
 .input-icon {
     position: relative;
@@ -1319,4 +1323,693 @@ code, kbd, samp, pre {
 }
 
 .mb-2 {
-    margin
+    margin-bottom: var(--space-2) !important;
+}
+
+.mb-3 {
+    margin-bottom: var(--space-3) !important;
+}
+
+.mb-4 {
+    margin-bottom: var(--space-4) !important;
+}
+
+.mb-5 {
+    margin-bottom: var(--space-5) !important;
+}
+
+.mb-6 {
+    margin-bottom: var(--space-6) !important;
+}
+
+.mt-2 {
+    margin-top: var(--space-2) !important;
+}
+
+.mt-4 {
+    margin-top: var(--space-4) !important;
+}
+
+.me-1 {
+    margin-right: var(--space-1) !important;
+}
+
+.me-2 {
+    margin-right: var(--space-2) !important;
+}
+
+.w-100 {
+    width: 100% !important;
+}
+
+.d-flex {
+    display: flex !important;
+}
+
+.d-none {
+    display: none !important;
+}
+
+.gap-2 {
+    gap: var(--space-2) !important;
+}
+
+.gap-3 {
+    gap: var(--space-3) !important;
+}
+
+.align-center {
+    align-items: center !important;
+}
+
+.justify-between {
+    justify-content: space-between !important;
+}
+
+.flex-wrap {
+    flex-wrap: wrap !important;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BLAZOR ERROR UI
+   ═══════════════════════════════════════════════════════════ */
+#blazor-error-ui {
+    color-scheme: light only;
+    background: var(--warning-soft);
+    border-top: 3px solid var(--warning);
+    bottom: 0;
+    box-shadow: 0 -2px 8px rgba(0,0,0,.08);
+    box-sizing: border-box;
+    display: none;
+    left: 0;
+    padding: var(--space-3) var(--space-5);
+    position: fixed;
+    width: 100%;
+    z-index: var(--z-toast);
+}
+
+    #blazor-error-ui .dismiss {
+        cursor: pointer;
+        position: absolute;
+        right: var(--space-3);
+        top: var(--space-2);
+    }
+
+/* ═══════════════════════════════════════════════════════════
+   PRINT STYLES
+   ═══════════════════════════════════════════════════════════ */
+@media print {
+    .no-print,
+    .btn,
+    .btn-primary,
+    .btn-secondary,
+    .btn-success,
+    .btn-danger,
+    .btn-ghost,
+    .btn-save,
+    .btn-cancel,
+    .btn-icon {
+        display: none !important;
+    }
+
+    body {
+        background: white !important;
+    }
+
+    .modern-card,
+    .card-form,
+    .card-table,
+    .panel,
+    .kpi-card {
+        box-shadow: none !important;
+        border: 1px solid #ddd !important;
+        page-break-inside: avoid;
+    }
+
+    .modern-table th,
+    .table th {
+        background: #f0f0f0 !important;
+    }
+
+    a {
+        color: inherit !important;
+        text-decoration: none !important;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RESPONSIVE GLOBAL
+   ═══════════════════════════════════════════════════════════ */
+@media (max-width: 767.98px) {
+    .page-container {
+        padding: var(--space-4);
+    }
+
+    .page-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .kpi-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .filtros-tabla {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .filtro-busqueda {
+        max-width: 100%;
+    }
+
+    .filtro-info {
+        justify-content: center;
+    }
+
+    .panel-tabla-elastic {
+        max-height: none;
+    }
+
+    .toast-container {
+        left: var(--space-4);
+        right: var(--space-4);
+        max-width: none;
+    }
+
+    .form-actions {
+        justify-content: stretch;
+    }
+
+        .form-actions .btn,
+        .form-actions .btn-save,
+        .form-actions .btn-cancel {
+            flex: 1;
+        }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PATRÓN: FORM COLAPSABLE + TABLA GRANDE
+   Una sola pantalla · Cero scroll del navegador
+   ═══════════════════════════════════════════════════════════ */
+
+
+
+    /* Page header con botón de acción */
+    .page-crud > .page-header {
+        flex-shrink: 0;
+        margin-bottom: 0;
+        align-items: center;
+        padding: 0;
+    }
+
+    /* Compactar el h1 del page-header en modo CRUD */
+    .page-crud .page-header h1 {
+        font-size: var(--fs-xl);
+        margin-bottom: 0;
+    }
+
+    .page-crud .page-header .subtitle {
+        margin-top: 2px;
+        font-size: var(--fs-xs);
+    }
+
+    
+        .page-crud .btn-nuevo:hover:not(:disabled) {
+            background: var(--brand-hover);
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .page-crud .btn-nuevo:active:not(:disabled) {
+            background: var(--brand-active);
+            transform: translateY(0) scale(0.98);
+        }
+
+        .page-crud .btn-nuevo i {
+            font-size: 1.05em;
+            line-height: 1;
+            color: inherit;
+        }
+
+    /* Form colapsable */
+    .page-crud .card-form {
+        flex-shrink: 0;
+        margin-bottom: 0;
+        padding: var(--space-4) var(--space-5);
+        animation: slideDown var(--t-slow);
+        border: 2px solid var(--brand-border);
+        box-shadow: 0 4px 16px rgba(79, 70, 229, 0.08);
+    }
+
+        .page-crud .card-form h3 {
+            margin-bottom: var(--space-3);
+            font-size: var(--fs-md);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--space-3);
+        }
+
+            .page-crud .card-form h3 .btn-cerrar-form {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 28px;
+                height: 28px;
+                background: transparent;
+                border: none;
+                border-radius: var(--radius-sm);
+                color: var(--text-muted);
+                cursor: pointer;
+                transition: all var(--t-fast);
+                font-size: 1rem;
+            }
+
+                .page-crud .card-form h3 .btn-cerrar-form:hover {
+                    background: var(--danger-soft);
+                    color: var(--danger);
+                }
+
+    .page-crud .form-grid {
+        gap: var(--space-3);
+    }
+
+    .page-crud .form-group label {
+        font-size: var(--fs-xs);
+        margin-bottom: var(--space-1);
+    }
+
+    .page-crud .form-control,
+    .page-crud .form-select {
+        padding: 0.55rem 0.75rem;
+    }
+
+    .page-crud .form-actions {
+        margin-top: var(--space-3);
+        padding-top: var(--space-3);
+    }
+
+        .page-crud .form-actions .btn,
+        .page-crud .form-actions .btn-save,
+        .page-crud .form-actions .btn-cancel {
+            padding: 0.5rem 1rem;
+            font-size: var(--fs-sm);
+        }
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-12px);
+        max-height: 0;
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+        max-height: 800px;
+    }
+}
+
+/* Card table — ocupa el resto */
+.page-crud > .card-table {
+    flex: 1 1 0;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    margin-bottom: 0;
+}
+
+    .page-crud > .card-table > .filtros-tabla,
+    .page-crud > .card-table > .export-bar {
+        flex-shrink: 0;
+    }
+
+    .page-crud > .card-table > .table-responsive {
+        flex: 1 1 0;
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: auto;
+        scrollbar-width: thin;
+        scrollbar-color: var(--border-strong) transparent;
+    }
+
+        .page-crud > .card-table > .table-responsive::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        .page-crud > .card-table > .table-responsive::-webkit-scrollbar-thumb {
+            background: var(--border-strong);
+            border-radius: var(--radius-sm);
+        }
+
+            .page-crud > .card-table > .table-responsive::-webkit-scrollbar-thumb:hover {
+                background: var(--text-disabled);
+            }
+
+/* Header sticky dentro de la tabla */
+.page-crud .modern-table thead th,
+.page-crud .table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--bg-muted);
+    box-shadow: 0 1px 0 var(--border-soft);
+}
+
+/* Responsive del patrón colapsable */
+@media (max-width: 767.98px) {
+    .page-crud {
+        height: auto;
+        max-height: none;
+        overflow: visible;
+        display: block;
+        padding: var(--space-4);
+    }
+
+        .page-crud > .page-header {
+            margin-bottom: var(--space-4);
+        }
+
+        .page-crud .btn-nuevo {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .page-crud .card-form,
+        .page-crud > .card-table {
+            margin-bottom: var(--space-4);
+        }
+
+        .page-crud > .card-table {
+            display: block;
+        }
+
+            .page-crud > .card-table > .table-responsive {
+                max-height: 60vh;
+            }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FORMULARIO CON SECCIONES — patrón premium
+   ═══════════════════════════════════════════════════════════ */
+
+.form-section {
+    padding: var(--space-4) 0;
+    border-bottom: 1px solid var(--border-soft);
+}
+
+    .form-section:first-of-type {
+        padding-top: 0;
+    }
+
+    .form-section:last-of-type {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+
+.form-section-title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-bold);
+    color: var(--brand);
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    margin-bottom: var(--space-3);
+    padding-bottom: var(--space-2);
+}
+
+    .form-section-title i {
+        font-size: 1rem;
+        opacity: 0.9;
+    }
+
+    .form-section-title::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: linear-gradient(90deg, var(--brand-border), transparent);
+        margin-left: var(--space-2);
+    }
+
+/* Grid de 3 columnas para formularios densos */
+.form-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-3);
+}
+
+/* Grid de 2 columnas */
+.form-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-3);
+}
+
+/* Campo que ocupa toda la fila */
+.form-group-full {
+    grid-column: 1 / -1;
+}
+
+@media (max-width: 1024px) {
+    .form-grid-3 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 767.98px) {
+    .form-grid-3,
+    .form-grid-2 {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Subtexto en celdas de tabla */
+.table-cell-primary {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+    .table-cell-primary strong {
+        color: var(--text-primary);
+        font-weight: var(--fw-semibold);
+    }
+
+    .table-cell-primary small {
+        color: var(--text-muted);
+        font-size: var(--fs-xs);
+        font-weight: var(--fw-regular);
+    }
+
+/* Badges de tipo de bien */
+.badge-tipo-devolutivo {
+    background: var(--brand-soft);
+    color: var(--brand);
+}
+
+.badge-tipo-consumo {
+    background: var(--bg-subtle);
+    color: var(--text-secondary);
+}
+
+/* Botón exportar CGN */
+.btn-export-cgn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 0.5rem 1rem;
+    background: var(--success);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    font-family: inherit;
+    font-weight: var(--fw-semibold);
+    font-size: var(--fs-sm);
+    cursor: pointer;
+    transition: all var(--t-fast);
+    box-shadow: 0 1px 2px rgba(22, 163, 74, 0.2);
+    white-space: nowrap;
+}
+
+    .btn-export-cgn:hover:not(:disabled) {
+        background: var(--success-hover);
+        box-shadow: 0 4px 12px rgba(22, 163, 74, 0.3);
+        transform: translateY(-1px);
+    }
+
+    .btn-export-cgn:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .btn-export-cgn i {
+        font-size: 1.05em;
+        line-height: 1;
+    }
+
+/* El input-icon en textarea necesita alineación superior */
+.input-icon > textarea {
+    padding-left: 2.5rem !important;
+    padding-top: 0.75rem !important;
+    resize: vertical;
+    min-height: 80px;
+}
+
+    .input-icon > textarea ~ i,
+    .input-icon > i.textarea-icon {
+        top: 0.75rem;
+        transform: none;
+    }
+
+/* ═══════════════════════════════════════════════════════════
+   BIENES — Layout cuando el form está abierto
+   El form se limita en altura, la tabla mantiene mínimo visible
+   ═══════════════════════════════════════════════════════════ */
+
+/* Cuando el form está abierto, limitarlo */
+.page-crud > .card-form {
+    max-height: 55vh; /* máximo 55% del viewport */
+    overflow-y: auto; /* scroll interno si es muy alto */
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+}
+
+    .page-crud > .card-form::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .page-crud > .card-form::-webkit-scrollbar-thumb {
+        background: var(--border-strong);
+        border-radius: var(--radius-sm);
+    }
+
+/* La card-table siempre mantiene mínimo 200px */
+.page-crud > .card-table {
+    flex: 1 1 0;
+    min-height: 200px; /* garantiza ver varias filas */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    margin-bottom: 0;
+}
+
+    /* Paginador siempre visible */
+    .page-crud > .card-table .paginador,
+    .page-crud > .card-table > .pagination {
+        flex-shrink: 0;
+        border-top: 1px solid var(--border-soft);
+        background: var(--bg-surface);
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+   BIENES — Layout cuando el form está abierto
+   El form se limita en altura, la tabla mantiene mínimo visible
+   ═══════════════════════════════════════════════════════════ */
+
+/* Cuando el form está abierto, limitarlo */
+.page-crud > .card-form {
+    max-height: 55vh;              /* máximo 55% del viewport */
+    overflow-y: auto;               /* scroll interno si es muy alto */
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+}
+
+.page-crud > .card-form::-webkit-scrollbar {
+    width: 6px;
+}
+.page-crud > .card-form::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: var(--radius-sm);
+}
+
+/* La card-table siempre mantiene mínimo 200px */
+.page-crud > .card-table {
+    flex: 1 1 0;
+    min-height: 200px;              /* garantiza ver varias filas */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    margin-bottom: 0;
+}
+
+/* Paginador siempre visible */
+.page-crud > .card-table .paginador,
+.page-crud > .card-table > .pagination {
+    flex-shrink: 0;
+    border-top: 1px solid var(--border-soft);
+    background: var(--bg-surface);
+}
+
+/* Compactar el form de Bienes cuando está abierto */
+.page-crud > .card-form .form-section {
+    padding: var(--space-3) 0;
+}
+
+.page-crud > .card-form .form-section-title {
+    margin-bottom: var(--space-2);
+    padding-bottom: var(--space-1);
+    font-size: 0.7rem;
+}
+
+.page-crud > .card-form .form-control,
+.page-crud > .card-form .form-select {
+    padding: 0.5rem 0.75rem;
+    font-size: var(--fs-sm);
+}
+
+.page-crud > .card-form .form-grid-3 {
+    gap: var(--space-2);
+}
+
+.page-crud > .card-form .form-group label {
+    font-size: 0.7rem;
+    margin-bottom: 4px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   APP LOADER — spinner inicial mientras Blazor hidrata
+   ═══════════════════════════════════════════════════════════ */
+#app-loading {
+    position: fixed;
+    inset: 0;
+    background: var(--bg-app);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 99999;
+    transition: opacity 0.15s ease;
+    will-change: opacity;
+}
+
+.app-loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--border-soft);
+    border-top-color: var(--brand);
+    border-radius: 50%;
+    margin-bottom: var(--space-3);
+    animation: appSpin 0.7s linear infinite;
+}
+
+.app-loading-text {
+    color: var(--text-muted);
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-medium);
+}
+
+@keyframes appSpin {
+    to {
+        transform: rotate(360deg);
+    }
+}

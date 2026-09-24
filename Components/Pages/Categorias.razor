@@ -12,134 +12,163 @@
 @inject SeguridadService Seguridad
 @inject NavigationManager Navigation
 @inject ToastService Toast
+@inject ConfirmService Confirm
 @inject IJSRuntime JS
 
-<PageTitle>Categorías</PageTitle>
+<PageTitle>Categorías · Almacén</PageTitle>
 
-<div class="usuarios-page usuarios-fullscreen">
+<div class="page-container page-crud">
 
-    <div class="modern-card mb-4">
-        <div class="card-top">
-            <div class="card-icon">
-                <i class="bi @(editando ? "bi-pencil-square" : "bi-tags-fill")"></i>
-            </div>
+    @* ═══════════════ PAGE HEADER (oculto si form abierto) ═══════════════ *@
+    @if (!_mostrarFormulario)
+    {
+        <div class="page-header">
             <div>
-                <h4 class="card-title">@(editando ? "Editar Categoría" : "Nueva Categoría")</h4>
-                <div class="card-subtitle">Administración de categorías de inventario</div>
+                <h1><i class="bi bi-tags"></i> Categorías</h1>
+                <p class="subtitle">Administración de categorías de inventario</p>
+            </div>
+
+            <div class="header-actions">
+                @if (puedeCrear)
+                {
+                    <button class="btn-nuevo" @onclick="AbrirFormulario">
+                        <i class="bi bi-plus-lg"></i> Nueva Categoría
+                    </button>
+                }
             </div>
         </div>
+    }
 
-        <EditForm @key="categoriaEditandoId" Model="categoriaDTO" OnValidSubmit="GuardarCategoria">
-            <DataAnnotationsValidator />
+    @* ═══════════════ FORM COLAPSABLE ═══════════════ *@
+    @if (_mostrarFormulario)
+    {
+        <div class="card-form">
+            <div class="form-header">
+                <div class="form-header-left">
+                    <i class="bi bi-@(_editando ? "pencil-square" : "plus-circle")"></i>
+                    <span>@(_editando ? "Editar Categoría" : "Nueva Categoría")</span>
+                </div>
 
-            <div class="row g-2">
-                <div class="col-md-6">
-                    <div class="modern-group">
-                        <label>Nombre</label>
-                        <div class="input-modern">
-                            <i class="bi bi-tag-fill"></i>
-                            <InputText class="form-control" @bind-Value="categoriaDTO.Nombre" />
-                        </div>
+                <div class="form-header-center">
+                    <i class="bi bi-tags"></i>
+                    <div>
+                        <div class="form-header-title">Categorías</div>
+                        <div class="form-header-subtitle">Administración de categorías de inventario</div>
                     </div>
                 </div>
 
-                <div class="col-md-6">
-                    <div class="modern-group">
+                <button class="btn-cerrar-form" @onclick="CerrarFormulario" title="Cerrar">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <EditForm @key="categoriaEditandoId" Model="categoriaDTO" OnValidSubmit="GuardarCategoria">
+                <DataAnnotationsValidator />
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Nombre *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-tag"></i>
+                            <InputText class="form-control" @bind-Value="categoriaDTO.Nombre"
+                                       placeholder="Ej: Equipos de Cómputo" />
+                        </div>
+                        <ValidationMessage For="() => categoriaDTO.Nombre" />
+                    </div>
+
+                    <div class="form-group">
                         <label>Estado</label>
-                        <div class="input-modern">
-                            <InputSelect class="form-select" @bind-Value="estadoString">
+                        <div class="input-icon">
+                            <i class="bi bi-toggle-on"></i>
+                            <InputSelect class="form-control" @bind-Value="estadoString">
                                 <option value="true">Activa</option>
                                 <option value="false">Inactiva</option>
                             </InputSelect>
                         </div>
                     </div>
-                </div>
 
-                <div class="col-12">
-                    <div class="modern-group">
+                    <div class="form-group">
                         <label>Descripción</label>
-                        <InputTextArea class="form-control" rows="4"
-                                       placeholder="Ingrese una descripción..."
+                        <div class="input-icon">
+                            <i class="bi bi-chat-left-text"></i>
+                            <InputText class="form-control"
+                                       placeholder="Descripción de la categoría"
                                        @bind-Value="categoriaDTO.Descripcion" />
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="mt-4">
-                @if ((!editando && puedeCrear) || (editando && puedeEditar))
-                {
-                    <button class="btn btn-save">
-                        <i class="bi bi-save-fill me-2"></i>
-                        @(editando ? "Actualizar" : "Guardar")
+                <div class="form-actions">
+                    <button type="button" class="btn btn-cancel" @onclick="CerrarFormulario">
+                        <i class="bi bi-x-lg"></i> Cerrar
                     </button>
-                }
-
-                @if (editando && puedeEditar)
-                {
-                    <button type="button" class="btn btn-cancel ms-2" @onclick="CancelarEdicion">
-                        Cancelar
+                    <button type="submit" class="btn btn-save">
+                        <i class="bi @(_editando ? "bi-check-circle-fill" : "bi-save-fill")"></i>
+                        @(_editando ? "Actualizar" : "Guardar")
                     </button>
-                }
-            </div>
-        </EditForm>
-    </div>
-
-    <div class="modern-card">
-        <table class="table modern-table">
-            <thead>
-                <tr>
-                    <th>Nombre</th>
-                    <th>Descripción</th>
-                    <th>Estado</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                @if (categorias != null)
-                {
-                    @foreach (var categoria in categorias)
+                </div>
+            </EditForm>
+        </div>
+    }
+    
+    @* ═══════════════ CARD TABLE ═══════════════ *@
+    <div class="card-table">
+        <div class="table-responsive">
+            <table class="table modern-table">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Descripción</th>
+                        <th>Estado</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (categorias is null || !categorias.Any())
                     {
-                        <tr>
-                            <td>@categoria.Nombre</td>
-                            <td>@categoria.Descripcion</td>
-                            <td>
-                                @if (categoria.Estado)
-                                {
-                                    <span class="status-active">Activa</span>
-                                }
-                                else
-                                {
-                                    <span class="status-inactive">Inactiva</span>
-                                }
-                            </td>
-                            <td class="text-center">
-                                @if (puedeEditar)
-                                {
-                                    <button class="btn-action-edit" @onclick="() => Editar(categoria)">
-                                        <i class="bi bi-pencil-fill"></i>
-                                    </button>
-                                }
-                                @if (puedeEliminar)
-                                {
-                                    <button class="btn-action-delete" @onclick="() => Eliminar(categoria.Id)">
-                                        <i class="bi bi-trash-fill"></i>
-                                    </button>
-                                }
-                            </td>
-                        </tr>
+                        <tr><td colspan="4" class="text-center py-3 text-muted">Sin categorías registradas.</td></tr>
                     }
-                }
-            </tbody>
-        </table>
+                    else
+                    {
+                        @foreach (var categoria in categorias)
+                        {
+                            <tr class="table-row-hover">
+                                <td><strong>@categoria.Nombre</strong></td>
+                                <td>@categoria.Descripcion</td>
+                                <td>
+                                    <span class="badge @(categoria.Estado ? "badge-ok" : "badge-off")">
+                                        @(categoria.Estado ? "Activa" : "Inactiva")
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    @if (puedeEditar)
+                                    {
+                                        <button class="btn-icon me-1" @onclick="() => Editar(categoria)" title="Editar">
+                                            <i class="bi bi-pencil-fill"></i>
+                                        </button>
+                                    }
+                                    @if (puedeEliminar)
+                                    {
+                                        <button class="btn-icon danger" @onclick="() => Eliminar(categoria.Id)" title="Eliminar">
+                                            <i class="bi bi-trash-fill"></i>
+                                        </button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
     </div>
-
 </div>
 
 @code {
     private IEnumerable<Categoria>? categorias;
     private CategoriaDTO categoriaDTO = new();
-    private bool editando;
+    private bool _editando;
     private int categoriaEditandoId;
+    private bool _mostrarFormulario = false;
 
     private bool puedeCrear;
     private bool puedeEditar;
@@ -171,15 +200,27 @@
         categorias = await CategoriaRepository.ObtenerTodosAsync();
     }
 
+    private void AbrirFormulario()
+    {
+        Limpiar();
+        _mostrarFormulario = true;
+    }
+
+    private void CerrarFormulario()
+    {
+        _mostrarFormulario = false;
+        Limpiar();
+    }
+
     private async Task GuardarCategoria()
     {
-        if (!editando && !puedeCrear)
+        if (!_editando && !puedeCrear)
         {
             Toast.Error("No tiene permiso para crear categorías.");
             return;
         }
 
-        if (editando && !puedeEditar)
+        if (_editando && !puedeEditar)
         {
             Toast.Error("No tiene permiso para editar categorías.");
             return;
@@ -187,8 +228,9 @@
 
         try
         {
-            if (editando)
+            if (_editando)
             {
+                // ── EDICIÓN: guardar y MANTENER ABIERTO con los datos ──
                 await CategoriaRepository.ActualizarAsync(new Categoria
                 {
                     Id = categoriaEditandoId,
@@ -196,21 +238,33 @@
                     Descripcion = categoriaDTO.Descripcion,
                     Estado = categoriaDTO.Estado
                 });
-                Toast.Exito("Categoría actualizada correctamente");
+                Toast.Exito($"Categoría '{categoriaDTO.Nombre}' actualizada. Puede seguir editando.");
             }
             else
             {
+                // ── CREACIÓN: guardar y MANTENER ABIERTO, limpiar form ──
                 await CategoriaRepository.CrearAsync(new Categoria
                 {
                     Nombre = categoriaDTO.Nombre,
                     Descripcion = categoriaDTO.Descripcion,
                     Estado = categoriaDTO.Estado
                 });
-                Toast.Exito("Categoría creada correctamente");
+                Toast.Exito($"Categoría '{categoriaDTO.Nombre}' creada. Puede continuar registrando.");
+
+                // Limpiar el form manteniendo Estado = true
+                categoriaDTO = new CategoriaDTO { Estado = true };
+
+                // Enfocar el primer campo (Nombre)
+                try
+                {
+                    await JS.InvokeVoidAsync("eval",
+                        "setTimeout(() => { const el = document.querySelector('.card-form input'); if (el) el.focus(); }, 100);");
+                }
+                catch { /* silencioso */ }
             }
 
-            Limpiar();
             await Cargar();
+            StateHasChanged();
         }
         catch (Exception ex)
         {
@@ -222,10 +276,10 @@
     {
         if (!puedeEditar) return;
 
-        editando = true;
+        _editando = true;
         categoriaEditandoId = categoria.Id;
+        _mostrarFormulario = true;
 
-        // Mutar propiedades (NO reemplazar el objeto)
         categoriaDTO.Id = categoria.Id;
         categoriaDTO.Nombre = categoria.Nombre;
         categoriaDTO.Descripcion = categoria.Descripcion;
@@ -242,7 +296,7 @@
             return;
         }
 
-        bool ok = await JS.InvokeAsync<bool>("confirm", "¿Eliminar categoría?");
+        var ok = await Confirm.Peligroso("¿Eliminar la categoría? Esta acción no se puede deshacer.");
         if (!ok) return;
 
         try
@@ -257,8 +311,6 @@
         }
     }
 
-    private void CancelarEdicion() => Limpiar();
-
     private void Limpiar()
     {
         categoriaDTO.Id = 0;
@@ -266,9 +318,7 @@
         categoriaDTO.Descripcion = string.Empty;
         categoriaDTO.Estado = true;
 
-        editando = false;
+        _editando = false;
         categoriaEditandoId = 0;
-
-        StateHasChanged();
     }
 }

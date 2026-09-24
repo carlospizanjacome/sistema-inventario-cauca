@@ -20,59 +20,82 @@
 @inject NavigationManager Navigation
 @inject ToastService Toast
 @inject ConfirmService Confirm
-
 @inject ExcelExportService ExcelService
 @inject UsuarioSesionService Sesion
 @inject IInstitucionRepository InstRepo
 
-<PageTitle>Bienes</PageTitle>
+<PageTitle>Bienes · Almacén</PageTitle>
 
-<div class="usuarios-page usuarios-fullscreen">
+<div class="page-container page-crud">
 
-    <!-- ═══════════ FORMULARIO ═══════════ -->
-    <div class="modern-card panel-formulario">
-
-        <div class="card-top-compact d-flex align-items-center gap-2 mb-2 pb-2 border-bottom">
-            <div class="card-icon-small-inline">
-                <i class="bi @(editando ? "bi-pencil-square" : "bi-box-seam-fill")" style="color: #4f46e5; font-size: 1.1rem;"></i>
+    @if (!_mostrarFormulario)
+    {
+        <div class="page-header">
+            <div>
+                <h1><i class="bi bi-box-seam"></i> Bienes</h1>
+                <p class="subtitle">Catálogo de bienes devolutivos y de consumo</p>
             </div>
-            <div class="d-flex align-items-baseline gap-2">
-                <h5 class="m-0 fw-bold text-dark" style="font-size: 1rem;">@(editando ? "Editar Bien" : "Nuevo Bien")</h5>
-                <span class="text-muted d-none d-sm-inline" style="font-size: 0.75rem;">| Registro y control de bienes del inventario</span>
+
+            <div class="header-actions">
+                @if (puedeCrear)
+                {
+                    <button class="btn-nuevo" @onclick="AbrirFormulario">
+                        <i class="bi bi-plus-lg"></i> Nuevo Bien
+                    </button>
+                }
             </div>
         </div>
+    }
 
-        <EditForm @key="bienEditandoId" Model="bienDTO" OnValidSubmit="GuardarBien">
-            <DataAnnotationsValidator />
+    @if (_mostrarFormulario)
+    {
+        <div class="card-form">
+            <div class="form-header">
+                <div class="form-header-left">
+                    <i class="bi bi-@(editando ? "pencil-square" : "plus-circle")"></i>
+                    <span>@(editando ? "Editar Bien" : "Nuevo Bien")</span>
+                </div>
 
-            <div class="container-fluid p-0">
+                <div class="form-header-center">
+                    <i class="bi bi-box-seam"></i>
+                    <div>
+                        <div class="form-header-title">Bienes</div>
+                        <div class="form-header-subtitle">Catálogo de bienes devolutivos y de consumo</div>
+                    </div>
+                </div>
 
-                <!-- FILA 1 -->
-                <div class="row g-2 mb-2">
-                    <div class="col-md-3">
-                        <div class="modern-group">
-                            <label>Código <span class="text-required">*</span></label>
-                            <div class="input-modern">
+                <button class="btn-cerrar-form" @onclick="CerrarFormulario" title="Cerrar">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <EditForm @key="bienEditandoId" Model="bienDTO" OnValidSubmit="GuardarBien">
+                <DataAnnotationsValidator />
+
+                <div class="form-section">
+                    <h4 class="form-section-title">
+                        <i class="bi bi-card-list"></i> Identificación
+                    </h4>
+                    <div class="form-grid-3">
+                        <div class="form-group">
+                            <label>Código *</label>
+                            <div class="input-icon">
                                 <i class="bi bi-upc-scan"></i>
                                 <InputText class="form-control" @bind-Value="bienDTO.Codigo" placeholder="Ej: 4555" />
                             </div>
                         </div>
-                    </div>
-                    <div class="col-md-5">
-                        <div class="modern-group">
-                            <label>Nombre <span class="text-required">*</span></label>
-                            <div class="input-modern">
+                        <div class="form-group">
+                            <label>Nombre *</label>
+                            <div class="input-icon">
                                 <i class="bi bi-box-fill"></i>
-                                <InputText class="form-control" @bind-Value="bienDTO.Nombre" placeholder="Monitor Asus ProArt" />
+                                <InputText class="form-control" @bind-Value="bienDTO.Nombre" placeholder="Ej: Monitor Asus" />
                             </div>
                         </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="modern-group">
-                            <label>Categoría <span class="text-required">*</span></label>
-                            <div class="input-modern">
+                        <div class="form-group">
+                            <label>Categoría *</label>
+                            <div class="input-icon">
                                 <i class="bi bi-tags-fill"></i>
-                                <InputSelect class="form-select" @bind-Value="bienDTO.CategoriaId">
+                                <InputSelect class="form-control" @bind-Value="bienDTO.CategoriaId">
                                     <option value="">Seleccione categoría</option>
                                     @foreach (var cat in categorias)
                                     {
@@ -81,84 +104,77 @@
                                 </InputSelect>
                             </div>
                         </div>
-                    </div>
-                </div>
-
-                <!-- FILA 2 -->
-                <div class="row g-2 mb-2">
-                    <div class="col-md-3">
-                        <div class="modern-group">
-                            <label>Tipo Bien <span class="text-required">*</span></label>
-                            <div class="input-modern">
+                        <div class="form-group">
+                            <label>Tipo Bien *</label>
+                            <div class="input-icon">
                                 <i class="bi bi-boxes"></i>
-                                <InputSelect class="form-select" @bind-Value="bienDTO.TipoBien">
+                                <InputSelect class="form-control" @bind-Value="bienDTO.TipoBien">
                                     <option value="devolutivo">Devolutivo</option>
                                     <option value="consumo">Consumo</option>
                                 </InputSelect>
                             </div>
                         </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="modern-group">
+                        <div class="form-group">
                             <label>Marca</label>
-                            <div class="input-modern">
+                            <div class="input-icon">
                                 <i class="bi bi-building"></i>
-                                <InputText class="form-control" @bind-Value="bienDTO.Marca" placeholder="Asus" />
+                                <InputText class="form-control" @bind-Value="bienDTO.Marca" />
                             </div>
                         </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="modern-group">
+                        <div class="form-group">
                             <label>Modelo</label>
-                            <div class="input-modern">
+                            <div class="input-icon">
                                 <i class="bi bi-cpu"></i>
-                                <InputText class="form-control" @bind-Value="bienDTO.Modelo" placeholder="PA278QV" />
+                                <InputText class="form-control" @bind-Value="bienDTO.Modelo" />
                             </div>
                         </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="modern-group">
-                            <label>Valor adquisición</label>
-                            <div class="input-modern">
+                        <div class="form-group">
+                            <label>Serie</label>
+                            <div class="input-icon">
+                                <i class="bi bi-upc"></i>
+                                <InputText class="form-control" @bind-Value="bienDTO.Serie" />
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Valor Adquisición</label>
+                            <div class="input-icon">
                                 <i class="bi bi-currency-dollar"></i>
                                 <InputNumber class="form-control" @bind-Value="bienDTO.ValorAdquisicion" />
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Cantidad</label>
+                            <div class="input-icon">
+                                <i class="bi bi-hash"></i>
+                                <InputNumber class="form-control" @bind-Value="bienDTO.Cantidad" min="1" />
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- FILA 3 -->
-                <div class="row g-2 mb-2">
-                    <div class="col-md-3">
-                        <div class="modern-group">
-                            <label>Serie</label>
-                            <div class="input-modern">
-                                <i class="bi bi-upc"></i>
-                                <InputText class="form-control" @bind-Value="bienDTO.Serie" placeholder="555" />
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="modern-group">
+                <div class="form-section">
+                    <h4 class="form-section-title">
+                        <i class="bi bi-geo-alt"></i> Ubicación y Responsable
+                    </h4>
+                    <div class="form-grid-3">
+                        <div class="form-group">
                             <label>Ubicación (Aula)</label>
-                            <div class="input-modern">
+                            <div class="input-icon">
                                 <i class="bi bi-geo-alt-fill"></i>
-                                <InputSelect class="form-select" @bind-Value="bienDTO.AulaId">
+                                <InputSelect class="form-control" @bind-Value="bienDTO.AulaId">
                                     <option value="">— Sin asignar —</option>
                                     @foreach (var a in aulas)
                                     {
-                                        <option value="@a.Id">@a.InstitucionNombre / @a.SedeNombre / @a.BloqueNombre / @a.Nombre</option>
+                                        <option value="@a.Id">@a.Nombre</option>
                                     }
                                 </InputSelect>
                             </div>
                         </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="modern-group">
-                            <label>Responsable (Funcionario)</label>
-                            <div class="input-modern">
+                        <div class="form-group">
+                            <label>Responsable</label>
+                            <div class="input-icon">
                                 <i class="bi bi-person-fill"></i>
-                                <InputSelect class="form-select" @bind-Value="bienDTO.FuncionarioId">
+                                <InputSelect class="form-control" @bind-Value="bienDTO.FuncionarioId">
                                     <option value="">— Sin asignar —</option>
                                     @foreach (var f in funcionarios)
                                     {
@@ -167,13 +183,11 @@
                                 </InputSelect>
                             </div>
                         </div>
-                    </div>
-                    <div class="col-md-2">
-                        <div class="modern-group">
+                        <div class="form-group">
                             <label>Estado Físico</label>
-                            <div class="input-modern">
+                            <div class="input-icon">
                                 <i class="bi bi-heart-pulse-fill"></i>
-                                <InputSelect class="form-select" @bind-Value="bienDTO.EstadoFisico">
+                                <InputSelect class="form-control" @bind-Value="bienDTO.EstadoFisico">
                                     <option value="bueno">Bueno</option>
                                     <option value="regular">Regular</option>
                                     <option value="malo">Malo</option>
@@ -184,26 +198,25 @@
                     </div>
                 </div>
 
-                <!-- FILA 4 — Solo si es devolutivo -->
                 @if (bienDTO.TipoBien == "devolutivo")
                 {
-                    <div class="row g-2 mb-2">
-                        <div class="col-md-3">
-                            <div class="modern-group">
+                    <div class="form-section">
+                        <h4 class="form-section-title">
+                            <i class="bi bi-calculator"></i> Depreciación
+                        </h4>
+                        <div class="form-grid-3">
+                            <div class="form-group">
                                 <label>Fecha Adquisición</label>
-                                <div class="input-modern">
+                                <div class="input-icon">
                                     <i class="bi bi-calendar-check"></i>
                                     <InputDate class="form-control" @bind-Value="bienDTO.FechaAdquisicion" />
                                 </div>
-                                <small class="text-muted" style="font-size:0.7rem;">Necesaria para depreciación</small>
                             </div>
-                        </div>
-                        <div class="col-md-5">
-                            <div class="modern-group">
+                            <div class="form-group">
                                 <label>Vida Útil (Tabla CGN)</label>
-                                <div class="input-modern">
+                                <div class="input-icon">
                                     <i class="bi bi-clock-history"></i>
-                                    <InputSelect class="form-select" @bind-Value="bienDTO.VidaUtilId">
+                                    <InputSelect class="form-control" @bind-Value="bienDTO.VidaUtilId">
                                         <option value="">— Sin asignar —</option>
                                         @foreach (var v in vidasUtiles)
                                         {
@@ -211,148 +224,218 @@
                                         }
                                     </InputSelect>
                                 </div>
-                                <small class="text-muted" style="font-size:0.7rem;">Requerida para calcular depreciación</small>
                             </div>
-                        </div>
-                        <div class="col-md-2">
-                            <div class="modern-group">
+                            <div class="form-group">
                                 <label>Valor Residual</label>
-                                <div class="input-modern">
+                                <div class="input-icon">
                                     <i class="bi bi-piggy-bank"></i>
                                     <InputNumber class="form-control" @bind-Value="bienDTO.ValorResidual" />
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-2">
-                            <div class="modern-group">
-                                <label>Cantidad</label>
-                                <div class="input-modern">
-                                    <i class="bi bi-hash"></i>
-                                    <InputNumber class="form-control" @bind-Value="bienDTO.Cantidad" min="1" />
-                                </div>
-                                <small class="text-muted" style="font-size:0.7rem;">Para lotes</small>
-                            </div>
-                        </div>
                     </div>
                 }
 
-                <!-- FILA 5 -->
-                <div class="row g-2 mb-2">
-                    <div class="col-md-2">
-                        <div class="modern-group">
-                            <label>Estado</label>
-                            <div class="input-modern">
-                                <i class="bi bi-check-circle-fill"></i>
-                                <InputSelect class="form-select" @bind-Value="estadoString">
-                                    <option value="true">Activo</option>
-                                    <option value="false">Inactivo</option>
-                                </InputSelect>
+                <div class="form-section">
+                    <h4 class="form-section-title">
+                        <i class="bi bi-chat-left-text"></i> Observaciones
+                    </h4>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Descripción</label>
+                            <div class="input-icon">
+                                <i class="bi bi-card-text"></i>
+                                <InputTextArea class="form-control" rows="3"
+                                               @bind-Value="bienDTO.Descripcion"
+                                               placeholder="Descripción detallada…" />
                             </div>
                         </div>
-                    </div>
-                    <div class="col-md-10">
-                        <div class="modern-group">
-                            <label>Descripción del Bien</label>
-                            <div class="input-modern" style="height: auto; padding: 6px 12px;">
-                                <i class="bi bi-card-text" style="align-self: flex-start; margin-top: 4px;"></i>
-                                <InputTextArea class="form-control" rows="2" @bind-Value="bienDTO.Descripcion" placeholder="Descripción detallada..." style="resize: none;" />
-                            </div>
+                        <div class="form-group checkbox-group">
+                            <label>
+                                <InputCheckbox @bind-Value="bienDTO.Activo" />
+                                Bien Activo
+                            </label>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="d-flex gap-2 mt-3 justify-content-end">
-                @if (editando)
-                {
-                    <button type="button" class="btn btn-cancel px-4" @onclick="Cancelar">
-                        <i class="bi bi-x-circle me-2"></i> Cancelar
+                <div class="form-actions">
+                    <button type="button" class="btn btn-cancel" @onclick="CerrarFormulario">
+                        <i class="bi bi-x-lg"></i> Cerrar
                     </button>
-                }
-                <button type="submit" class="btn btn-save px-4">
-                    <i class="bi @(editando ? "bi-check-circle-fill" : "bi-save-fill") me-2"></i>
-                    @(editando ? "Actualizar Bien" : "Guardar Bien")
-                </button>
-            </div>
-        </EditForm>
-    </div>
+                    <button type="submit" class="btn btn-save">
+                        <i class="bi @(editando ? "bi-check-circle-fill" : "bi-save-fill")"></i>
+                        @(editando ? "Actualizar" : "Guardar")
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    }
 
-    <FiltrosBien Filtro="_filtroAvanzado" OnCambio="AplicarFiltrosAvanzados" />
-    <!-- ═══════════ TABLA CON PAGINACIÓN ═══════════ -->
-    <div class="modern-card panel-tabla-elastic position-relative">
+    <div class="card-table">
 
-        <!-- Barra de búsqueda -->
-        <div class="filtros-tabla">
-            <div class="filtro-busqueda">
+        <div class="filtros-toolbar">
+            <div class="filtro-busqueda-principal">
                 <i class="bi bi-search"></i>
                 <input type="text"
-                       placeholder="Buscar por código o nombre…"
+                       placeholder="Buscar por código, nombre, marca o serie…"
                        @bind="_filtroTexto"
                        @bind:event="oninput"
                        @bind:after="BuscarConDebounce" />
                 @if (!string.IsNullOrEmpty(_filtroTexto))
                 {
-                    <button class="filtro-clear" @onclick="LimpiarFiltro" title="Limpiar">
+                    <button class="filtro-clear" @onclick="LimpiarFiltro" title="Limpiar búsqueda">
                         <i class="bi bi-x-lg"></i>
                     </button>
                 }
             </div>
-            <!-- Botón de exportar -->
-            <div class="export-bar">
-                <button class="btn-export" @onclick="ExportarExcel" disabled="@(_exportando)">
-                    <i class="bi @(_exportando ? "bi-hourglass-split" : "bi-file-earmark-excel")"></i>
-                    @(_exportando ? "Generando..." : "Exportar a Excel (CGN)")
-                </button>
-            </div>
 
-            <div class="filtro-info">
-                <span class="badge-total">
-                    <i class="bi bi-box-seam"></i>
-                    <strong>@(_pagina?.TotalRegistros ?? 0)</strong> bienes
-                </span>
+            <div class="filtros-toolbar-actions">
+                <button class="btn-filtros @(_mostrarFiltros ? "active" : "")"
+                        @onclick="ToggleFiltros">
+                    <i class="bi bi-sliders"></i>
+                    <span>Filtros</span>
+                    @if (_hayFiltrosAvanzados)
+                    {
+                        <span class="filtros-badge"></span>
+                    }
+                    <i class="bi @(_mostrarFiltros ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                </button>
+
+                <button class="btn-export-cgn" @onclick="ExportarExcel" disabled="@(_exportando)">
+                    <i class="bi @(_exportando ? "bi-hourglass-split" : "bi-download")"></i>
+                    <span>@(_exportando ? "Generando…" : "Exportar")</span>
+                </button>
             </div>
         </div>
 
-        <!-- Tabla -->
-        <div class="table-responsive style-scrollbar">
-            <table class="table modern-table align-middle m-0">
+        @if (_mostrarFiltros)
+        {
+            <div class="panel-filtros">
+                <div class="filtros-grid">
+                    <div class="filtro-select">
+                        <i class="bi bi-tags"></i>
+                        <select @bind="_filtroCategoriaId" @bind:after="AplicarFiltrosAvanzados">
+                            <option value="">Todas las categorías</option>
+                            @foreach (var cat in categorias)
+                            {
+                                <option value="@cat.Id">@cat.Nombre</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="filtro-select">
+                        <i class="bi bi-boxes"></i>
+                        <select @bind="_filtroTipoBien" @bind:after="AplicarFiltrosAvanzados">
+                            <option value="">Todos los tipos</option>
+                            <option value="devolutivo">Devolutivo</option>
+                            <option value="consumo">Consumo</option>
+                        </select>
+                    </div>
+                    <div class="filtro-select">
+                        <i class="bi bi-heart-pulse"></i>
+                        <select @bind="_filtroEstadoFisico" @bind:after="AplicarFiltrosAvanzados">
+                            <option value="">Todos los estados</option>
+                            <option value="bueno">Bueno</option>
+                            <option value="regular">Regular</option>
+                            <option value="malo">Malo</option>
+                            <option value="baja">Baja</option>
+                        </select>
+                    </div>
+                    <div class="filtro-select">
+                        <i class="bi bi-check-circle"></i>
+                        <select @bind="_filtroActivo" @bind:after="AplicarFiltrosAvanzados">
+                            <option value="">Activos e inactivos</option>
+                            <option value="true">Solo activos</option>
+                            <option value="false">Solo inactivos</option>
+                        </select>
+                    </div>
+                    <div class="filtro-select">
+                        <i class="bi bi-geo-alt"></i>
+                        <select @bind="_filtroAulaId" @bind:after="AplicarFiltrosAvanzados">
+                            <option value="">Todas las aulas</option>
+                            @foreach (var a in aulas)
+                            {
+                                <option value="@a.Id">@a.Nombre</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="filtro-select">
+                        <i class="bi bi-person"></i>
+                        <select @bind="_filtroFuncionarioId" @bind:after="AplicarFiltrosAvanzados">
+                            <option value="">Todos los responsables</option>
+                            @foreach (var f in funcionarios)
+                            {
+                                <option value="@f.Id">@f.NombreCompleto</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+
+                <div class="filtros-acciones">
+                    <span class="badge-total">
+                        <i class="bi bi-box-seam"></i>
+                        <strong>@(_pagina?.TotalRegistros ?? 0)</strong> bienes
+                        @if (_hayFiltrosActivos)
+                        {
+                            <span class="filtro-activo-tag">· Filtrado</span>
+                        }
+                    </span>
+                    @if (_hayFiltrosAvanzados)
+                    {
+                        <button class="btn-limpiar-filtros" @onclick="LimpiarTodosLosFiltros">
+                            <i class="bi bi-arrow-counterclockwise"></i>
+                            Limpiar filtros
+                        </button>
+                    }
+                </div>
+            </div>
+        }
+
+        <div class="table-responsive">
+            <table class="table modern-table">
                 <thead>
                     <tr>
                         <th>Código</th>
-                        <th>Nombre</th>
+                        <th>Bien</th>
                         <th>Tipo</th>
-                        <th>Cant.</th>
+                        <th class="text-center">Cant.</th>
                         <th>Ubicación</th>
                         <th>Responsable</th>
-                        <th>Vida Útil</th>
-                        <th>Estado</th>
+                        <th class="text-center">Estado</th>
                         <th class="text-center">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
                     @if (_pagina is null)
                     {
-                        <tr><td colspan="9" class="text-center py-3 text-muted">
-                            <div class="spinner-border spinner-border-sm me-2" role="status"></div>
-                            Cargando bienes...
-                        </td></tr>
+                        <tr><td colspan="8" class="text-center py-3 text-muted">Cargando bienes…</td></tr>
                     }
                     else if (!_pagina.Items.Any())
                     {
-                        <tr><td colspan="9" class="text-center py-3 text-muted">
-                            Sin bienes para mostrar.
-                        </td></tr>
+                        <tr><td colspan="8" class="text-center py-3 text-muted">Sin bienes para mostrar.</td></tr>
                     }
                     else
                     {
                         @foreach (var bien in _pagina.Items)
                         {
                             <tr class="table-row-hover">
-                                <td><strong>@bien.Codigo</strong></td>
-                                <td>@bien.Nombre</td>
-                                <td>@bien.TipoBien</td>
+                                <td><code>@bien.Codigo</code></td>
                                 <td>
-                                    <span class="badge bg-secondary">@bien.Cantidad</span>
+                                    <div class="table-cell-primary">
+                                        <strong>@bien.Nombre</strong>
+                                        @if (!string.IsNullOrEmpty(bien.CategoriaNombre))
+                                        {
+                                            <small>@bien.CategoriaNombre</small>
+                                        }
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge @(bien.TipoBien == "devolutivo" ? "badge-tipo-devolutivo" : "badge-tipo-consumo")">
+                                        @bien.TipoBien
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge badge-neutral">@bien.Cantidad</span>
                                 </td>
                                 <td>
                                     @if (!string.IsNullOrEmpty(bien.AulaNombre))
@@ -382,41 +465,21 @@
                                         <span class="text-muted">—</span>
                                     }
                                 </td>
-                                <td>
-                                    @if (bien.VidaUtilId.HasValue)
-                                    {
-                                        var v = vidasUtiles.FirstOrDefault(x => x.Id == bien.VidaUtilId);
-                                        <span class="badge bg-info text-dark">@(v?.VidaUtilMeses ?? 0) meses</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="text-muted">—</span>
-                                    }
-                                </td>
-                                <td>
-                                    @if (bien.Activo)
-                                    {
-                                        <span class="status-active">
-                                            <i class="bi bi-check-circle-fill"></i> Activo
-                                        </span>
-                                    }
-                                    else
-                                    {
-                                        <span class="status-inactive">
-                                            <i class="bi bi-x-circle-fill"></i> Inactivo
-                                        </span>
-                                    }
+                                <td class="text-center">
+                                    <span class="badge @(bien.Activo ? "badge-ok" : "badge-off")">
+                                        @(bien.Activo ? "Activo" : "Inactivo")
+                                    </span>
                                 </td>
                                 <td class="text-center">
                                     @if (puedeEditar)
                                     {
-                                        <button class="btn-action-edit me-2" @onclick="() => Editar(bien)">
+                                        <button class="btn-icon me-1" @onclick="() => Editar(bien)">
                                             <i class="bi bi-pencil-fill"></i>
                                         </button>
                                     }
                                     @if (puedeEliminar)
                                     {
-                                        <button class="btn-action-delete" @onclick="() => Eliminar(bien.Id, bien.Nombre)">
+                                        <button class="btn-icon danger" @onclick="() => Eliminar(bien.Id, bien.Nombre)">
                                             <i class="bi bi-trash-fill"></i>
                                         </button>
                                     }
@@ -428,7 +491,6 @@
             </table>
         </div>
 
-        <!-- Paginador -->
         @if (_pagina is not null && _pagina.TotalRegistros > 0)
         {
             <Paginador T="Bien"
@@ -440,36 +502,52 @@
 </div>
 
 @code {
-    // ── Datos ──
-    private ResultadoPaginado<Bien>? _pagina;
-    private IEnumerable<Categoria> categorias = [];
-    private IEnumerable<AulaDTO> aulas = [];
-    private IEnumerable<FuncionarioDTO> funcionarios = [];
-    private IEnumerable<VidaUtilDTO> vidasUtiles = [];
-
-    // ── Formulario ──
+    private bool _mostrarFormulario = false;
     private BienDTO bienDTO = new();
     private bool editando;
     private int bienEditandoId;
 
-    // ── Paginación ──
+    private ResultadoPaginado<Bien>? _pagina;
+    private List<Categoria> categorias = new();
+    private List<AulaDTO> aulas = new();
+    private List<FuncionarioDTO> funcionarios = new();
+    private List<VidaUtilDTO> vidasUtiles = new();
+
     private int _paginaActual = 1;
     private int _tamanoPagina = 25;
     private string _filtroTexto = string.Empty;
     private CancellationTokenSource? _debounceCts;
 
-    // ── Permisos ──
     private bool puedeCrear;
     private bool puedeEditar;
     private bool puedeEliminar;
 
-    private FiltroBienDTO _filtroAvanzado = new();
+    private bool _exportando = false;
 
-    private string estadoString
-    {
-        get => bienDTO.Activo.ToString().ToLower();
-        set => bienDTO.Activo = bool.Parse(value);
-    }
+    private bool _mostrarFiltros = false;
+    private string? _filtroCategoriaId;
+    private string? _filtroTipoBien;
+    private string? _filtroEstadoFisico;
+    private string? _filtroActivo;
+    private string? _filtroAulaId;
+    private string? _filtroFuncionarioId;
+
+    private bool _hayFiltrosActivos =>
+        !string.IsNullOrEmpty(_filtroTexto) ||
+        !string.IsNullOrEmpty(_filtroCategoriaId) ||
+        !string.IsNullOrEmpty(_filtroTipoBien) ||
+        !string.IsNullOrEmpty(_filtroEstadoFisico) ||
+        !string.IsNullOrEmpty(_filtroActivo) ||
+        !string.IsNullOrEmpty(_filtroAulaId) ||
+        !string.IsNullOrEmpty(_filtroFuncionarioId);
+
+    private bool _hayFiltrosAvanzados =>
+        !string.IsNullOrEmpty(_filtroCategoriaId) ||
+        !string.IsNullOrEmpty(_filtroTipoBien) ||
+        !string.IsNullOrEmpty(_filtroEstadoFisico) ||
+        !string.IsNullOrEmpty(_filtroActivo) ||
+        !string.IsNullOrEmpty(_filtroAulaId) ||
+        !string.IsNullOrEmpty(_filtroFuncionarioId);
 
     protected override async Task OnInitializedAsync()
     {
@@ -483,24 +561,79 @@
         puedeEditar = await Seguridad.TienePermisoAsync("bienes.editar");
         puedeEliminar = await Seguridad.TienePermisoAsync("bienes.eliminar");
 
-        // Catálogos (una sola vez)
-        categorias = await CategoriaRepository.ObtenerTodosAsync();
-        aulas = await AulaRepository.ObtenerTodasAsync();
-        funcionarios = await FuncionarioRepository.ObtenerTodosAsync();
-        vidasUtiles = await VidaUtilRepo.ObtenerTodosAsync();
+        var t1 = CategoriaRepository.ObtenerTodosAsync();
+        var t2 = AulaRepository.ObtenerTodasAsync();
+        var t3 = FuncionarioRepository.ObtenerTodosAsync();
+        var t4 = VidaUtilRepo.ObtenerTodosAsync();
 
-        // Datos paginados
+        await Task.WhenAll(t1, t2, t3, t4);
+
+        categorias = (await t1).ToList();
+        aulas = (await t2).ToList();
+        funcionarios = (await t3).ToList();
+        vidasUtiles = (await t4).ToList();
+
         await CargarBienes();
     }
 
-    // ═══════════ CARGA PAGINADA ═══════════
+    private void AbrirFormulario()
+    {
+        bienDTO = new BienDTO
+        {
+            Activo = true,
+            TipoBien = "devolutivo",
+            EstadoFisico = "bueno",
+            Cantidad = 1
+        };
+        editando = false;
+        bienEditandoId = 0;
+        _mostrarFormulario = true;
+        _mostrarFiltros = false;
+    }
+
+    private void CerrarFormulario()
+    {
+        _mostrarFormulario = false;
+        bienDTO = new();
+        editando = false;
+        bienEditandoId = 0;
+        StateHasChanged();
+    }
+
+    private void ToggleFiltros()
+    {
+        if (_mostrarFormulario)
+        {
+            _mostrarFormulario = false;
+            bienDTO = new();
+            editando = false;
+            bienEditandoId = 0;
+        }
+
+        _mostrarFiltros = !_mostrarFiltros;
+    }
+
     private async Task CargarBienes()
     {
-        // Si hay filtros avanzados activos, usar el método con filtros
-        if (_filtroAvanzado.HayFiltros)
+        int? categoriaId = int.TryParse(_filtroCategoriaId, out var c) ? c : null;
+        int? aulaId = int.TryParse(_filtroAulaId, out var a) ? a : null;
+        int? funcionarioId = int.TryParse(_filtroFuncionarioId, out var f) ? f : null;
+        bool? activo = bool.TryParse(_filtroActivo, out var act) ? act : null;
+
+        if (_hayFiltrosAvanzados)
         {
             _pagina = await BienRepository.ObtenerPaginadoConFiltrosAsync(
-                _filtroAvanzado, _paginaActual, _tamanoPagina);
+                new FiltroBienDTO
+                {
+                    CategoriaId = categoriaId,
+                    TipoBien = _filtroTipoBien,
+                    EstadoFisico = _filtroEstadoFisico,
+                    Activo = activo,
+                    AulaId = aulaId,
+                    FuncionarioId = funcionarioId
+                },
+                _paginaActual,
+                _tamanoPagina);
         }
         else
         {
@@ -533,10 +666,8 @@
         StateHasChanged();
     }
 
-    // ═══════════ BÚSQUEDA CON DEBOUNCE ═══════════
     private async Task BuscarConDebounce()
     {
-        // Cancelar la búsqueda anterior si el usuario sigue escribiendo
         _debounceCts?.Cancel();
         _debounceCts = new CancellationTokenSource();
         var token = _debounceCts.Token;
@@ -550,10 +681,7 @@
             await CargarBienes();
             StateHasChanged();
         }
-        catch (TaskCanceledException)
-        {
-            // El usuario siguió escribiendo, ignorar
-        }
+        catch (TaskCanceledException) { }
     }
 
     private async Task LimpiarFiltro()
@@ -564,7 +692,20 @@
         StateHasChanged();
     }
 
-    // ═══════════ GUARDAR ═══════════
+    private async Task LimpiarTodosLosFiltros()
+    {
+        _filtroTexto = string.Empty;
+        _filtroCategoriaId = null;
+        _filtroTipoBien = null;
+        _filtroEstadoFisico = null;
+        _filtroActivo = null;
+        _filtroAulaId = null;
+        _filtroFuncionarioId = null;
+        _paginaActual = 1;
+        await CargarBienes();
+        StateHasChanged();
+    }
+
     private async Task GuardarBien()
     {
         if (!editando && !puedeCrear) return;
@@ -585,9 +726,7 @@
                 Serie = bienDTO.Serie,
                 ValorAdquisicion = bienDTO.ValorAdquisicion,
                 FechaAdquisicion = bienDTO.FechaAdquisicion,
-                EstadoFisico = string.IsNullOrWhiteSpace(bienDTO.EstadoFisico)
-                    ? "bueno"
-                    : bienDTO.EstadoFisico.ToLower(),
+                EstadoFisico = string.IsNullOrWhiteSpace(bienDTO.EstadoFisico) ? "bueno" : bienDTO.EstadoFisico.ToLower(),
                 Activo = bienDTO.Activo,
                 AulaId = bienDTO.AulaId,
                 FuncionarioId = bienDTO.FuncionarioId,
@@ -602,17 +741,39 @@
 
             if (editando)
             {
+                // ── EDICIÓN: guardar y MANTENER ABIERTO para seguir editando ──
                 await BienRepository.ActualizarAsync(bien);
-                Toast.Exito("Bien actualizado correctamente");
+                Toast.Exito($"Bien '{bien.Nombre}' actualizado. Puede seguir editando.");
             }
             else
             {
+                // ── CREACIÓN: guardar y MANTENER ABIERTO para seguir registrando ──
                 await BienRepository.CrearAsync(bien);
-                Toast.Exito("Bien creado correctamente");
+                Toast.Exito($"Bien '{bien.Nombre}' creado. Puede continuar registrando.");
+
+                var tipoActual = bienDTO.TipoBien;
+                var estadoActual = bienDTO.EstadoFisico;
+                var categoriaActual = bienDTO.CategoriaId;
+                var aulaActual = bienDTO.AulaId;
+                var funcionarioActual = bienDTO.FuncionarioId;
+
+                bienDTO = new BienDTO
+                {
+                    Activo = true,
+                    TipoBien = tipoActual,
+                    EstadoFisico = estadoActual,
+                    Cantidad = 1,
+                    CategoriaId = categoriaActual,
+                    AulaId = aulaActual,
+                    FuncionarioId = funcionarioActual
+                };
+
+                await JS.InvokeVoidAsync("eval",
+                    "setTimeout(() => { const el = document.querySelector('.card-form input'); if (el) el.focus(); }, 100);");
             }
 
-            Cancelar();
             await CargarBienes();
+            StateHasChanged();
         }
         catch (Exception ex)
         {
@@ -620,11 +781,12 @@
         }
     }
 
-    // ═══════════ EDITAR / CANCELAR ═══════════
     private void Editar(Bien bien)
     {
         editando = true;
         bienEditandoId = bien.Id;
+        _mostrarFormulario = true;
+        _mostrarFiltros = false;
 
         bienDTO = new BienDTO
         {
@@ -651,17 +813,10 @@
             Ubicacion = bien.Ubicacion,
             Responsable = bien.Responsable
         };
-    }
 
-    private void Cancelar()
-    {
-        bienDTO = new();
-        editando = false;
-        bienEditandoId = 0;
         StateHasChanged();
     }
 
-    // ═══════════ ELIMINAR ═══════════
     private async Task Eliminar(int id, string nombre)
     {
         var ok = await Confirm.Peligroso(
@@ -680,50 +835,45 @@
         }
     }
 
-    private bool _exportando = false;
-
-private async Task ExportarExcel()
-{
-    _exportando = true;
-    StateHasChanged();
-
-    try
+    private async Task ExportarExcel()
     {
-        // Cargar todos los bienes (sin paginar)
-        var todos = (await BienRepository.ObtenerTodosAsync()).ToList();
-
-        if (!todos.Any())
-        {
-            Toast.Warning("No hay bienes para exportar.");
-            return;
-        }
-
-        // Obtener nombre de la institución actual
-        var institucion = await InstRepo.ObtenerPorIdAsync(Sesion.InstitucionId);
-        var nombreInst = institucion?.Nombre ?? "Institución no identificada";
-
-        var bytes = ExcelService.ExportarInventarioCGN(
-            nombreInst,
-            Sesion.UsuarioActual?.NombreCompleto ?? "N/A",
-            todos);
-
-        // Descargar
-        var nombreArchivo = $"InventarioCGN_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
-        await JS.InvokeVoidAsync("descargarArchivo",
-            Convert.ToBase64String(bytes),
-            nombreArchivo,
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-
-        Toast.Exito($"Excel generado con {todos.Count} bienes");
-    }
-    catch (Exception ex)
-    {
-        Toast.Error($"Error al exportar: {ex.Message}");
-    }
-    finally
-    {
-        _exportando = false;
+        _exportando = true;
         StateHasChanged();
+
+        try
+        {
+            var todos = (await BienRepository.ObtenerTodosAsync()).ToList();
+
+            if (!todos.Any())
+            {
+                Toast.Warning("No hay bienes para exportar.");
+                return;
+            }
+
+            var institucion = await InstRepo.ObtenerPorIdAsync(Sesion.InstitucionId);
+            var nombreInst = institucion?.Nombre ?? "Institución no identificada";
+
+            var bytes = ExcelService.ExportarInventarioCGN(
+                nombreInst,
+                Sesion.UsuarioActual?.NombreCompleto ?? "N/A",
+                todos);
+
+            var nombreArchivo = $"InventarioCGN_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+            await JS.InvokeVoidAsync("descargarArchivo",
+                Convert.ToBase64String(bytes),
+                nombreArchivo,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+
+            Toast.Exito($"Excel generado con {todos.Count} bienes");
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error al exportar: {ex.Message}");
+        }
+        finally
+        {
+            _exportando = false;
+            StateHasChanged();
+        }
     }
-}
 }

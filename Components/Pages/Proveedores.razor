@@ -18,147 +18,172 @@
 
 <PageTitle>Proveedores · Almacén</PageTitle>
 
-<div class="usuarios-page usuarios-fullscreen">
+<div class="page-container page-crud">
 
-    <div class="modern-card panel-formulario">
-
-        <div class="card-top-compact d-flex align-items-center gap-2 mb-2 pb-2 border-bottom">
-            <div class="card-icon-small-inline">
-                <i class="bi @(editando ? "bi-pencil-square" : "bi-shop")" style="color: #4f46e5; font-size: 1.1rem;"></i>
-            </div>
-            <div class="d-flex align-items-baseline gap-2">
-                <h5 class="m-0 fw-bold text-dark" style="font-size: 1rem;">@(editando ? "Editar Proveedor" : "Nuevo Proveedor")</h5>
-                <span class="text-muted d-none d-sm-inline" style="font-size: 0.75rem;">| Registro de proveedores del sistema</span>
-            </div>
-        </div>
-
-        <EditForm @key="proveedorEditandoId" Model="proveedorDTO" OnValidSubmit="Guardar">
-            <DataAnnotationsValidator />
-
-            <div class="container-fluid p-0">
-
-                <div class="row g-2 mb-2">
-                    <div class="col-md-3">
-                        <div class="modern-group">
-                            <label>NIT</label>
-                            <div class="input-modern">
-                                <i class="bi bi-hash"></i>
-                                <InputText class="form-control" @bind-Value="proveedorDTO.Nit" placeholder="900123456-7" />
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-5">
-                        <div class="modern-group">
-                            <label>Nombre *</label>
-                            <div class="input-modern">
-                                <i class="bi bi-shop"></i>
-                                <InputText class="form-control" @bind-Value="proveedorDTO.Nombre" />
-                            </div>
-                            <ValidationMessage For="() => proveedorDTO.Nombre" />
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="modern-group">
-                            <label>Contacto</label>
-                            <div class="input-modern">
-                                <i class="bi bi-person"></i>
-                                <InputText class="form-control" @bind-Value="proveedorDTO.Contacto" />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row g-2 mb-2">
-                    <div class="col-md-4">
-                        <div class="modern-group">
-                            <label>Dirección</label>
-                            <div class="input-modern">
-                                <i class="bi bi-geo-alt"></i>
-                                <InputText class="form-control" @bind-Value="proveedorDTO.Direccion" />
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="modern-group">
-                            <label>Teléfono</label>
-                            <div class="input-modern">
-                                <i class="bi bi-telephone"></i>
-                                <InputText class="form-control" @bind-Value="proveedorDTO.Telefono" />
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="modern-group">
-                            <label>Email</label>
-                            <div class="input-modern">
-                                <i class="bi bi-envelope"></i>
-                                <InputText class="form-control" type="email" @bind-Value="proveedorDTO.Email" />
-                            </div>
-                            <ValidationMessage For="() => proveedorDTO.Email" />
-                        </div>
-                    </div>
-                    <div class="col-md-2 d-flex align-items-end pb-2">
-                        <div class="form-check">
-                            <InputCheckbox class="form-check-input" @bind-Value="proveedorDTO.Activo" id="chkActivoProv" />
-                            <label class="form-check-label" for="chkActivoProv">Activo</label>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row g-2 mb-2">
-                    <div class="col-md-12">
-                        <div class="modern-group">
-                            <label>Observaciones</label>
-                            <InputTextArea class="form-control" rows="2" @bind-Value="proveedorDTO.Observaciones" />
-                        </div>
-                    </div>
-                </div>
-
+    @* ═══════════════ PAGE HEADER (oculto si form abierto) ═══════════════ *@
+    @if (!_mostrarFormulario)
+    {
+        <div class="page-header">
+            <div>
+                <h1><i class="bi bi-shop"></i> Proveedores</h1>
+                <p class="subtitle">Registro de proveedores del sistema</p>
             </div>
 
-            <div class="d-flex gap-2 mt-3 justify-content-end">
-                @if (editando)
+            <div class="header-actions">
+                @if (puedeCrear)
                 {
-                    <button type="button" class="btn btn-cancel px-4" @onclick="Cancelar">
-                        <i class="bi bi-x-circle me-2"></i> Cancelar
+                    <button class="btn-nuevo" @onclick="AbrirFormulario">
+                        <i class="bi bi-plus-lg"></i> Nuevo Proveedor
                     </button>
                 }
-                <button type="submit" class="btn btn-save px-4">
-                    <i class="bi @(editando ? "bi-check-circle-fill" : "bi-save-fill") me-2"></i>
-                    @(editando ? "Actualizar Proveedor" : "Guardar Proveedor")
+            </div>
+        </div>
+    }
+
+    @* ═══════════════ FORM COLAPSABLE ═══════════════ *@
+    @if (_mostrarFormulario)
+    {
+        <div class="card-form">
+            <div class="form-header">
+                <div class="form-header-left">
+                    <i class="bi bi-@(editando ? "pencil-square" : "plus-circle")"></i>
+                    <span>@(editando ? "Editar Proveedor" : "Nuevo Proveedor")</span>
+                </div>
+
+                <div class="form-header-center">
+                    <i class="bi bi-shop"></i>
+                    <div>
+                        <div class="form-header-title">Proveedores</div>
+                        <div class="form-header-subtitle">Registro de proveedores del sistema</div>
+                    </div>
+                </div>
+
+                <button class="btn-cerrar-form" @onclick="CerrarFormulario" title="Cerrar">
+                    <i class="bi bi-x-lg"></i>
                 </button>
             </div>
-        </EditForm>
-    </div>
 
-    <!-- ═══════════ TABLA CON PAGINACIÓN ═══════════ -->
-    <div class="modern-card panel-tabla-elastic position-relative">
+            <EditForm @key="proveedorEditandoId" Model="proveedorDTO" OnValidSubmit="Guardar">
+                <DataAnnotationsValidator />
 
-        <div class="filtros-tabla">
-            <div class="filtro-busqueda">
-                <i class="bi bi-search"></i>
-                <input type="text"
-                       placeholder="Buscar por NIT, nombre o email…"
-                       @bind="_filtroTexto"
-                       @bind:event="oninput"
-                       @bind:after="BuscarConDebounce" />
-                @if (!string.IsNullOrEmpty(_filtroTexto))
-                {
-                    <button class="filtro-clear" @onclick="LimpiarFiltro" title="Limpiar">
-                        <i class="bi bi-x-lg"></i>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>NIT</label>
+                        <div class="input-icon">
+                            <i class="bi bi-hash"></i>
+                            <InputText class="form-control" @bind-Value="proveedorDTO.Nit"
+                                       placeholder="Ej: 900123456-7" />
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Nombre *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-shop"></i>
+                            <InputText class="form-control" @bind-Value="proveedorDTO.Nombre"
+                                       placeholder="Nombre del proveedor" />
+                        </div>
+                        <ValidationMessage For="() => proveedorDTO.Nombre" />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Contacto</label>
+                        <div class="input-icon">
+                            <i class="bi bi-person"></i>
+                            <InputText class="form-control" @bind-Value="proveedorDTO.Contacto"
+                                       placeholder="Persona de contacto" />
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Dirección</label>
+                        <div class="input-icon">
+                            <i class="bi bi-geo-alt"></i>
+                            <InputText class="form-control" @bind-Value="proveedorDTO.Direccion"
+                                       placeholder="Dirección física" />
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Teléfono</label>
+                        <div class="input-icon">
+                            <i class="bi bi-telephone"></i>
+                            <InputText class="form-control" @bind-Value="proveedorDTO.Telefono"
+                                       placeholder="Ej: 8201234" />
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Email</label>
+                        <div class="input-icon">
+                            <i class="bi bi-envelope"></i>
+                            <InputText class="form-control" type="email" @bind-Value="proveedorDTO.Email"
+                                       placeholder="correo@proveedor.com" />
+                        </div>
+                        <ValidationMessage For="() => proveedorDTO.Email" />
+                    </div>
+
+                    <div class="form-group" style="grid-column: 1 / -1;">
+                        <label>Observaciones</label>
+                        <div class="input-icon">
+                            <i class="bi bi-chat-left-text"></i>
+                            <InputText class="form-control" @bind-Value="proveedorDTO.Observaciones"
+                                       placeholder="Notas adicionales" />
+                        </div>
+                    </div>
+
+                    <div class="form-group checkbox-group">
+                        <label>
+                            <InputCheckbox @bind-Value="proveedorDTO.Activo" />
+                            Activo
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-cancel" @onclick="CerrarFormulario">
+                        <i class="bi bi-x-lg"></i> Cerrar
                     </button>
-                }
-            </div>
-            <div class="filtro-info">
-                <span class="badge-total">
-                    <i class="bi bi-shop"></i>
-                    <strong>@(_pagina?.TotalRegistros ?? 0)</strong> proveedores
-                </span>
-            </div>
+                    <button type="submit" class="btn btn-save">
+                        <i class="bi @(editando ? "bi-check-circle-fill" : "bi-save-fill")"></i>
+                        @(editando ? "Actualizar" : "Guardar")
+                    </button>
+                </div>
+            </EditForm>
         </div>
+    }
+    
+    @* ═══════════════ CARD TABLE ═══════════════ *@
+    <div class="card-table">
 
-        <div class="table-responsive style-scrollbar">
-            <table class="table modern-table align-middle m-0">
+        @if (!_mostrarFormulario)
+        {
+            <div class="filtros-tabla">
+                <div class="filtro-busqueda">
+                    <i class="bi bi-search"></i>
+                    <input type="text"
+                           placeholder="Buscar por NIT, nombre o email…"
+                           @bind="_filtroTexto"
+                           @bind:event="oninput"
+                           @bind:after="BuscarConDebounce" />
+                    @if (!string.IsNullOrEmpty(_filtroTexto))
+                    {
+                        <button class="filtro-clear" @onclick="LimpiarFiltro" title="Limpiar">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    }
+                </div>
+                <div class="filtro-info">
+                    <span class="badge-total">
+                        <i class="bi bi-shop"></i>
+                        <strong>@(_pagina?.TotalRegistros ?? 0)</strong> proveedores
+                    </span>
+                </div>
+            </div>
+        }
+
+        <div class="table-responsive">
+            <table class="table modern-table">
                 <thead>
                     <tr>
                         <th>NIT</th>
@@ -173,10 +198,7 @@
                 <tbody>
                     @if (_pagina is null)
                     {
-                        <tr><td colspan="7" class="text-center py-3 text-muted">
-                            <div class="spinner-border spinner-border-sm me-2" role="status"></div>
-                            Cargando...
-                        </td></tr>
+                        <tr><td colspan="7" class="text-center py-3 text-muted">Cargando...</td></tr>
                     }
                     else if (!_pagina.Items.Any())
                     {
@@ -200,13 +222,13 @@
                                 <td class="text-center">
                                     @if (puedeEditar)
                                     {
-                                        <button class="btn-icon me-1" @onclick="() => Editar(p)">
+                                        <button class="btn-icon me-1" @onclick="() => Editar(p)" title="Editar">
                                             <i class="bi bi-pencil-fill"></i>
                                         </button>
                                     }
                                     @if (puedeEliminar)
                                     {
-                                        <button class="btn-icon danger" @onclick="() => Eliminar(p)">
+                                        <button class="btn-icon danger" @onclick="() => Eliminar(p)" title="Eliminar">
                                             <i class="bi bi-trash-fill"></i>
                                         </button>
                                     }
@@ -232,6 +254,7 @@
     private ResultadoPaginado<ProveedorDTO>? _pagina;
     private ProveedorDTO proveedorDTO = new();
     private bool editando = false;
+    private bool _mostrarFormulario = false;
     private int proveedorEditandoId;
 
     private int _paginaActual = 1;
@@ -264,6 +287,23 @@
             _paginaActual,
             _tamanoPagina,
             string.IsNullOrWhiteSpace(_filtroTexto) ? null : _filtroTexto);
+    }
+
+    private void AbrirFormulario()
+    {
+        proveedorDTO = new ProveedorDTO { Activo = true };
+        editando = false;
+        proveedorEditandoId = 0;
+        _mostrarFormulario = true;
+    }
+
+    private void CerrarFormulario()
+    {
+        _mostrarFormulario = false;
+        proveedorDTO = new ProveedorDTO();
+        editando = false;
+        proveedorEditandoId = 0;
+        StateHasChanged();
     }
 
     private async Task CambioPagina(int nuevaPagina)
@@ -334,17 +374,30 @@
         {
             if (editando)
             {
+                // ── EDICIÓN: guardar y MANTENER ABIERTO con los datos ──
                 await ProveedorRepo.ActualizarAsync(proveedorDTO);
-                Toast.Exito("Proveedor actualizado correctamente");
+                Toast.Exito($"Proveedor '{proveedorDTO.Nombre}' actualizado. Puede seguir editando.");
             }
             else
             {
+                // ── CREACIÓN: guardar y MANTENER ABIERTO, limpiar form ──
                 await ProveedorRepo.CrearAsync(proveedorDTO);
-                Toast.Exito("Proveedor creado correctamente");
+                Toast.Exito($"Proveedor '{proveedorDTO.Nombre}' creado. Puede continuar registrando.");
+
+                // Limpiar el form manteniendo Activo = true
+                proveedorDTO = new ProveedorDTO { Activo = true };
+
+                // Enfocar el primer campo
+                try
+                {
+                    await JS.InvokeVoidAsync("eval",
+                        "setTimeout(() => { const el = document.querySelector('.card-form input'); if (el) el.focus(); }, 100);");
+                }
+                catch { /* silencioso */ }
             }
 
-            Cancelar();
             await Cargar();
+            StateHasChanged();
         }
         catch (Exception ex)
         {
@@ -358,6 +411,7 @@
 
         editando = true;
         proveedorEditandoId = p.Id;
+        _mostrarFormulario = true;
 
         proveedorDTO.Id = p.Id;
         proveedorDTO.Nit = p.Nit;
@@ -399,13 +453,5 @@
         {
             Toast.Error($"Error: {ex.Message}");
         }
-    }
-
-    private void Cancelar()
-    {
-        proveedorDTO = new ProveedorDTO();
-        editando = false;
-        proveedorEditandoId = 0;
-        StateHasChanged();
     }
 }

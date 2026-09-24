@@ -1,140 +1,186 @@
 ﻿@page "/aulas"
+@rendermode InteractiveServer
+
 @using Almacen.DTOs
 @using Almacen.Interfaces
 @using Almacen.Services
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
+
 @inject IAulaRepository AulaRepo
 @inject IBloqueRepository BloqueRepo
 @inject ToastService Toast
+@inject ConfirmService Confirm
 @inject IJSRuntime JS
 
 <PageTitle>Aulas · Almacén</PageTitle>
 
-<div class="page-container">
+<div class="page-container page-crud">
 
-    <div class="page-header">
-        <div>
-            <h1><i class="bi bi-door-open"></i> Aulas y Espacios</h1>
-            <p class="subtitle">Aulas, laboratorios, oficinas y demás espacios físicos</p>
-        </div>
-    </div>
-
-    <div class="card-form">
-        <h3>
-            <i class="bi bi-@(_editando ? "pencil-square" : "plus-circle")"></i>
-            @(_editando ? "Editar Aula" : "Nueva Aula")
-        </h3>
-
-        <EditForm Model="_model" OnValidSubmit="Guardar">
-            <DataAnnotationsValidator />
-
-            <div class="form-grid">
-                <div class="form-group">
-                    <label>Bloque *</label>
-                    <InputSelect @bind-Value="_model.BloqueId" class="form-control">
-                        <option value="0">— Seleccione —</option>
-                        @foreach (var b in _bloques)
-                        {
-                            <option value="@b.Id">
-                                @b.InstitucionNombre / @b.SedeNombre / @b.Nombre
-                            </option>
-                        }
-                    </InputSelect>
-                    <ValidationMessage For="() => _model.BloqueId" />
-                </div>
-
-                <div class="form-group">
-                    <label>Nombre *</label>
-                    <InputText @bind-Value="_model.Nombre" class="form-control"
-                               placeholder="Ej: Aula 101" />
-                    <ValidationMessage For="() => _model.Nombre" />
-                </div>
-
-                <div class="form-group">
-                    <label>Tipo</label>
-                    <InputSelect @bind-Value="_model.Tipo" class="form-control">
-                        <option value="Aula">Aula</option>
-                        <option value="Laboratorio">Laboratorio</option>
-                        <option value="Oficina">Oficina</option>
-                        <option value="Bodega">Bodega</option>
-                        <option value="Biblioteca">Biblioteca</option>
-                        <option value="Baño">Baño</option>
-                        <option value="Otro">Otro</option>
-                    </InputSelect>
-                </div>
-
-                <div class="form-group">
-                    <label>Capacidad</label>
-                    <InputNumber @bind-Value="_model.Capacidad" class="form-control" />
-                    <ValidationMessage For="() => _model.Capacidad" />
-                </div>
-
-                <div class="form-group checkbox-group">
-                    <label>
-                        <InputCheckbox @bind-Value="_model.Activo" />
-                        Activa
-                    </label>
-                </div>
+    @* ═══════════════ PAGE HEADER (oculto si form abierto) ═══════════════ *@
+    @if (!_mostrarFormulario)
+    {
+        <div class="page-header">
+            <div>
+                <h1><i class="bi bi-door-open"></i> Aulas y Espacios</h1>
+                <p class="subtitle">Aulas, laboratorios, oficinas y demás espacios físicos</p>
             </div>
 
-            <div class="form-actions">
-                <button type="submit" class="btn-primary">
-                    <i class="bi bi-check-lg"></i>
-                    @(_editando ? "Actualizar" : "Guardar")
+            <div class="header-actions">
+                <button class="btn-nuevo" @onclick="AbrirFormulario">
+                    <i class="bi bi-plus-lg"></i> Nueva Aula
                 </button>
-                @if (_editando)
-                {
-                    <button type="button" class="btn-secondary" @onclick="Cancelar">
-                        <i class="bi bi-x-lg"></i> Cancelar
-                    </button>
-                }
             </div>
-        </EditForm>
-    </div>
+        </div>
+    }
 
+    @* ═══════════════ FORM COLAPSABLE ═══════════════ *@
+    @if (_mostrarFormulario)
+    {
+        <div class="card-form">
+            <div class="form-header">
+                <div class="form-header-left">
+                    <i class="bi bi-@(_editando ? "pencil-square" : "plus-circle")"></i>
+                    <span>@(_editando ? "Editar Aula" : "Nueva Aula")</span>
+                </div>
+
+                <div class="form-header-center">
+                    <i class="bi bi-door-open"></i>
+                    <div>
+                        <div class="form-header-title">Aulas y Espacios</div>
+                        <div class="form-header-subtitle">Aulas, laboratorios, oficinas y demás espacios físicos</div>
+                    </div>
+                </div>
+
+                <button class="btn-cerrar-form" @onclick="CerrarFormulario" title="Cerrar">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <EditForm Model="_model" OnValidSubmit="Guardar">
+                <DataAnnotationsValidator />
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Bloque *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-box"></i>
+                            <InputSelect @bind-Value="_model.BloqueId" class="form-control">
+                                <option value="0">— Seleccione —</option>
+                                @foreach (var b in _bloques)
+                                {
+                                    <option value="@b.Id">
+                                        @b.InstitucionNombre / @b.SedeNombre / @b.Nombre
+                                    </option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <ValidationMessage For="() => _model.BloqueId" />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Nombre *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-door-open"></i>
+                            <InputText @bind-Value="_model.Nombre" class="form-control"
+                                       placeholder="Ej: Aula 101" />
+                        </div>
+                        <ValidationMessage For="() => _model.Nombre" />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Tipo</label>
+                        <div class="input-icon">
+                            <i class="bi bi-tag"></i>
+                            <InputSelect @bind-Value="_model.Tipo" class="form-control">
+                                <option value="Aula">Aula</option>
+                                <option value="Laboratorio">Laboratorio</option>
+                                <option value="Oficina">Oficina</option>
+                                <option value="Bodega">Bodega</option>
+                                <option value="Biblioteca">Biblioteca</option>
+                                <option value="Baño">Baño</option>
+                                <option value="Otro">Otro</option>
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Capacidad</label>
+                        <div class="input-icon">
+                            <i class="bi bi-people"></i>
+                            <InputNumber @bind-Value="_model.Capacidad" class="form-control" />
+                        </div>
+                        <ValidationMessage For="() => _model.Capacidad" />
+                    </div>
+
+                    <div class="form-group checkbox-group">
+                        <label>
+                            <InputCheckbox @bind-Value="_model.Activo" />
+                            Activa
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-cancel" @onclick="CerrarFormulario">
+                        <i class="bi bi-x-lg"></i> Cerrar
+                    </button>
+                    <button type="submit" class="btn btn-save">
+                        <i class="bi @(_editando ? "bi-check-circle-fill" : "bi-save-fill")"></i>
+                        @(_editando ? "Actualizar" : "Guardar")
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    }
+    
+    @* ═══════════════ CARD TABLE ═══════════════ *@
     <div class="card-table">
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Bloque</th>
-                    <th>Aula</th>
-                    <th>Tipo</th>
-                    <th>Capacidad</th>
-                    <th>Estado</th>
-                    <th class="text-end">Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                @if (_aulas.Count == 0)
-                {
-                    <tr><td colspan="6" class="empty">Sin aulas registradas.</td></tr>
-                }
-                else
-                {
-                    @foreach (var a in _aulas)
+        <div class="table-responsive">
+            <table class="table modern-table">
+                <thead>
+                    <tr>
+                        <th>Bloque</th>
+                        <th>Aula</th>
+                        <th>Tipo</th>
+                        <th>Capacidad</th>
+                        <th>Estado</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (_aulas.Count == 0)
                     {
-                        <tr>
-                            <td>@a.InstitucionNombre / @a.SedeNombre / @a.BloqueNombre</td>
-                            <td><strong>@a.Nombre</strong></td>
-                            <td>@a.Tipo</td>
-                            <td>@a.Capacidad</td>
-                            <td>
-                                <span class="badge @(a.Activo ? "badge-ok" : "badge-off")">
-                                    @(a.Activo ? "Activa" : "Inactiva")
-                                </span>
-                            </td>
-                            <td class="text-end">
-                                <button class="btn-icon" @onclick="() => Editar(a)" title="Editar">
-                                    <i class="bi bi-pencil"></i>
-                                </button>
-                                <button class="btn-icon danger" @onclick="() => Eliminar(a)" title="Eliminar">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </td>
-                        </tr>
+                        <tr><td colspan="6" class="text-center py-3 text-muted">Sin aulas registradas.</td></tr>
                     }
-                }
-            </tbody>
-        </table>
+                    else
+                    {
+                        @foreach (var a in _aulas)
+                        {
+                            <tr class="table-row-hover">
+                                <td>@a.InstitucionNombre / @a.SedeNombre / @a.BloqueNombre</td>
+                                <td><strong>@a.Nombre</strong></td>
+                                <td>@a.Tipo</td>
+                                <td>@a.Capacidad</td>
+                                <td>
+                                    <span class="badge @(a.Activo ? "badge-ok" : "badge-off")">
+                                        @(a.Activo ? "Activa" : "Inactiva")
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    <button class="btn-icon me-1" @onclick="() => Editar(a)" title="Editar">
+                                        <i class="bi bi-pencil-fill"></i>
+                                    </button>
+                                    <button class="btn-icon danger" @onclick="() => Eliminar(a)" title="Eliminar">
+                                        <i class="bi bi-trash-fill"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
@@ -143,6 +189,7 @@
     private List<BloqueDTO> _bloques = new();
     private AulaDTO _model = new();
     private bool _editando = false;
+    private bool _mostrarFormulario = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -152,6 +199,21 @@
 
     private async Task Cargar()
         => _aulas = (await AulaRepo.ObtenerTodasAsync()).ToList();
+
+    private void AbrirFormulario()
+    {
+        _model = new AulaDTO { Activo = true, Tipo = "Aula" };
+        _editando = false;
+        _mostrarFormulario = true;
+    }
+
+    private void CerrarFormulario()
+    {
+        _mostrarFormulario = false;
+        _model = new AulaDTO();
+        _editando = false;
+        StateHasChanged();
+    }
 
     private async Task Guardar()
     {
@@ -165,17 +227,40 @@
         {
             if (_editando)
             {
+                // ── EDICIÓN: guardar y MANTENER ABIERTO con los datos ──
                 await AulaRepo.ActualizarAsync(_model);
-                Toast.Exito("Aula actualizada correctamente");
+                Toast.Exito($"Aula '{_model.Nombre}' actualizada. Puede seguir editando.");
             }
             else
             {
+                // ── CREACIÓN: guardar y MANTENER ABIERTO, limpiar form ──
                 await AulaRepo.CrearAsync(_model);
-                Toast.Exito("Aula creada correctamente");
+                Toast.Exito($"Aula '{_model.Nombre}' creada. Puede continuar registrando.");
+
+                // Mantener bloque, tipo y capacidad para registros masivos
+                var bloqueActual = _model.BloqueId;
+                var tipoActual = _model.Tipo;
+                var capacidadActual = _model.Capacidad;
+
+                _model = new AulaDTO
+                {
+                    Activo = true,
+                    BloqueId = bloqueActual,
+                    Tipo = tipoActual,
+                    Capacidad = capacidadActual
+                };
+
+                // Enfocar el primer campo (Nombre)
+                try
+                {
+                    await JS.InvokeVoidAsync("eval",
+                        "setTimeout(() => { const el = document.querySelector('.card-form input'); if (el) el.focus(); }, 100);");
+                }
+                catch { /* silencioso */ }
             }
 
-            Cancelar();
             await Cargar();
+            StateHasChanged();
         }
         catch (Exception ex)
         {
@@ -195,18 +280,14 @@
             Activo = a.Activo
         };
         _editando = true;
-    }
-
-    private void Cancelar()
-    {
-        _model = new AulaDTO();
-        _editando = false;
+        _mostrarFormulario = true;
+        StateHasChanged();
     }
 
     private async Task Eliminar(AulaDTO a)
     {
-        var ok = await JS.InvokeAsync<bool>("confirm",
-            $"¿Eliminar el aula '{a.Nombre}'?");
+        var ok = await Confirm.Peligroso(
+            $"¿Eliminar el aula '{a.Nombre}'? Esta acción no se puede deshacer.");
         if (!ok) return;
 
         if (await AulaRepo.TieneBienesAsync(a.Id))

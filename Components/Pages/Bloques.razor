@@ -1,132 +1,179 @@
 ﻿@page "/bloques"
+@rendermode InteractiveServer
+
 @using Almacen.DTOs
 @using Almacen.Interfaces
 @using Almacen.Services
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
+
 @inject IBloqueRepository BloqueRepo
 @inject ISedeRepository SedeRepo
 @inject ToastService Toast
+@inject ConfirmService Confirm
 @inject IJSRuntime JS
 
 <PageTitle>Bloques · Almacén</PageTitle>
 
-<div class="page-container">
+<div class="page-container page-crud">
 
-    <div class="page-header">
-        <div>
-            <h1><i class="bi bi-grid-3x3"></i> Bloques</h1>
-            <p class="subtitle">Bloques o edificaciones dentro de cada sede</p>
-        </div>
-    </div>
-
-    <div class="card-form">
-        <h3>
-            <i class="bi bi-@(_editando ? "pencil-square" : "plus-circle")"></i>
-            @(_editando ? "Editar Bloque" : "Nuevo Bloque")
-        </h3>
-
-        <EditForm Model="_model" OnValidSubmit="Guardar">
-            <DataAnnotationsValidator />
-
-            <div class="form-grid">
-                <div class="form-group">
-                    <label>Sede *</label>
-                    <InputSelect @bind-Value="_model.SedeId" class="form-control">
-                        <option value="0">— Seleccione —</option>
-                        @foreach (var s in _sedes)
-                        {
-                            <option value="@s.Id">@s.InstitucionNombre — @s.Nombre</option>
-                        }
-                    </InputSelect>
-                    <ValidationMessage For="() => _model.SedeId" />
-                </div>
-
-                <div class="form-group">
-                    <label>Nombre *</label>
-                    <InputText @bind-Value="_model.Nombre" class="form-control"
-                               placeholder="Ej: Bloque A" />
-                    <ValidationMessage For="() => _model.Nombre" />
-                </div>
-
-                <div class="form-group">
-                    <label>Descripción</label>
-                    <InputText @bind-Value="_model.Descripcion" class="form-control" />
-                </div>
-
-                <div class="form-group">
-                    <label>Pisos</label>
-                    <InputNumber @bind-Value="_model.Pisos" class="form-control" />
-                    <ValidationMessage For="() => _model.Pisos" />
-                </div>
-
-                <div class="form-group checkbox-group">
-                    <label>
-                        <InputCheckbox @bind-Value="_model.Activo" />
-                        Activo
-                    </label>
-                </div>
+    @* ═══════════════ PAGE HEADER (oculto si form abierto) ═══════════════ *@
+    @if (!_mostrarFormulario)
+    {
+        <div class="page-header">
+            <div>
+                <h1><i class="bi bi-grid-3x3"></i> Bloques</h1>
+                <p class="subtitle">Bloques o edificaciones dentro de cada sede</p>
             </div>
 
-            <div class="form-actions">
-                <button type="submit" class="btn-primary">
-                    <i class="bi bi-check-lg"></i>
-                    @(_editando ? "Actualizar" : "Guardar")
+            <div class="header-actions">
+                <button class="btn-nuevo" @onclick="AbrirFormulario">
+                    <i class="bi bi-plus-lg"></i> Nuevo Bloque
                 </button>
-                @if (_editando)
-                {
-                    <button type="button" class="btn-secondary" @onclick="Cancelar">
-                        <i class="bi bi-x-lg"></i> Cancelar
-                    </button>
-                }
             </div>
-        </EditForm>
-    </div>
+        </div>
+    }
 
+    @* ═══════════════ FORM COLAPSABLE ═══════════════ *@
+    @if (_mostrarFormulario)
+    {
+        <div class="card-form">
+            <div class="form-header">
+                <div class="form-header-left">
+                    <i class="bi bi-@(_editando ? "pencil-square" : "plus-circle")"></i>
+                    <span>@(_editando ? "Editar Bloque" : "Nuevo Bloque")</span>
+                </div>
+
+                <div class="form-header-center">
+                    <i class="bi bi-grid-3x3"></i>
+                    <div>
+                        <div class="form-header-title">Bloques</div>
+                        <div class="form-header-subtitle">Bloques o edificaciones dentro de cada sede</div>
+                    </div>
+                </div>
+
+                <button class="btn-cerrar-form" @onclick="CerrarFormulario" title="Cerrar">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <EditForm Model="_model" OnValidSubmit="Guardar">
+                <DataAnnotationsValidator />
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Sede *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-building"></i>
+                            <InputSelect @bind-Value="_model.SedeId" class="form-control">
+                                <option value="0">— Seleccione —</option>
+                                @foreach (var s in _sedes)
+                                {
+                                    <option value="@s.Id">@s.InstitucionNombre — @s.Nombre</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <ValidationMessage For="() => _model.SedeId" />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Nombre *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-box"></i>
+                            <InputText @bind-Value="_model.Nombre" class="form-control"
+                                       placeholder="Ej: Bloque A" />
+                        </div>
+                        <ValidationMessage For="() => _model.Nombre" />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Descripción</label>
+                        <div class="input-icon">
+                            <i class="bi bi-chat-left-text"></i>
+                            <InputText @bind-Value="_model.Descripcion" class="form-control"
+                                       placeholder="Descripción del bloque" />
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Pisos</label>
+                        <div class="input-icon">
+                            <i class="bi bi-layers"></i>
+                            <InputNumber @bind-Value="_model.Pisos" class="form-control" />
+                        </div>
+                        <ValidationMessage For="() => _model.Pisos" />
+                    </div>
+
+                    <div class="form-group checkbox-group">
+                        <label>
+                            <InputCheckbox @bind-Value="_model.Activo" />
+                            Activo
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-cancel" @onclick="CerrarFormulario">
+                        <i class="bi bi-x-lg"></i> Cerrar
+                    </button>
+                    <button type="submit" class="btn btn-save">
+                        <i class="bi @(_editando ? "bi-check-circle-fill" : "bi-save-fill")"></i>
+                        @(_editando ? "Actualizar" : "Guardar")
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    }
+    
+    @* ═══════════════ CARD TABLE ═══════════════ *@
     <div class="card-table">
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Institución</th>
-                    <th>Sede</th>
-                    <th>Bloque</th>
-                    <th>Descripción</th>
-                    <th>Pisos</th>
-                    <th>Estado</th>
-                    <th class="text-end">Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                @if (_bloques.Count == 0)
-                {
-                    <tr><td colspan="7" class="empty">Sin bloques registrados.</td></tr>
-                }
-                else
-                {
-                    @foreach (var b in _bloques)
+        <div class="table-responsive">
+            <table class="table modern-table">
+                <thead>
+                    <tr>
+                        <th>Institución</th>
+                        <th>Sede</th>
+                        <th>Bloque</th>
+                        <th>Descripción</th>
+                        <th>Pisos</th>
+                        <th>Estado</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (_bloques.Count == 0)
                     {
-                        <tr>
-                            <td>@b.InstitucionNombre</td>
-                            <td>@b.SedeNombre</td>
-                            <td><strong>@b.Nombre</strong></td>
-                            <td>@b.Descripcion</td>
-                            <td>@b.Pisos</td>
-                            <td>
-                                <span class="badge @(b.Activo ? "badge-ok" : "badge-off")">
-                                    @(b.Activo ? "Activo" : "Inactivo")
-                                </span>
-                            </td>
-                            <td class="text-end">
-                                <button class="btn-icon" @onclick="() => Editar(b)" title="Editar">
-                                    <i class="bi bi-pencil"></i>
-                                </button>
-                                <button class="btn-icon danger" @onclick="() => Eliminar(b)" title="Eliminar">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </td>
-                        </tr>
+                        <tr><td colspan="7" class="text-center py-3 text-muted">Sin bloques registrados.</td></tr>
                     }
-                }
-            </tbody>
-        </table>
+                    else
+                    {
+                        @foreach (var b in _bloques)
+                        {
+                            <tr class="table-row-hover">
+                                <td>@b.InstitucionNombre</td>
+                                <td>@b.SedeNombre</td>
+                                <td><strong>@b.Nombre</strong></td>
+                                <td>@b.Descripcion</td>
+                                <td>@b.Pisos</td>
+                                <td>
+                                    <span class="badge @(b.Activo ? "badge-ok" : "badge-off")">
+                                        @(b.Activo ? "Activo" : "Inactivo")
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    <button class="btn-icon me-1" @onclick="() => Editar(b)" title="Editar">
+                                        <i class="bi bi-pencil-fill"></i>
+                                    </button>
+                                    <button class="btn-icon danger" @onclick="() => Eliminar(b)" title="Eliminar">
+                                        <i class="bi bi-trash-fill"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
@@ -135,6 +182,7 @@
     private List<SedeDTO> _sedes = new();
     private BloqueDTO _model = new();
     private bool _editando = false;
+    private bool _mostrarFormulario = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -144,6 +192,21 @@
 
     private async Task Cargar()
         => _bloques = (await BloqueRepo.ObtenerTodosAsync()).ToList();
+
+    private void AbrirFormulario()
+    {
+        _model = new BloqueDTO { Activo = true, Pisos = 1 };
+        _editando = false;
+        _mostrarFormulario = true;
+    }
+
+    private void CerrarFormulario()
+    {
+        _mostrarFormulario = false;
+        _model = new BloqueDTO();
+        _editando = false;
+        StateHasChanged();
+    }
 
     private async Task Guardar()
     {
@@ -157,17 +220,38 @@
         {
             if (_editando)
             {
+                // ── EDICIÓN: guardar y MANTENER ABIERTO con los datos ──
                 await BloqueRepo.ActualizarAsync(_model);
-                Toast.Exito("Bloque actualizado correctamente");
+                Toast.Exito($"Bloque '{_model.Nombre}' actualizado. Puede seguir editando.");
             }
             else
             {
+                // ── CREACIÓN: guardar y MANTENER ABIERTO, limpiar form ──
                 await BloqueRepo.CrearAsync(_model);
-                Toast.Exito("Bloque creado correctamente");
+                Toast.Exito($"Bloque '{_model.Nombre}' creado. Puede continuar registrando.");
+
+                // Mantener sede y pisos para registros masivos
+                var sedeActual = _model.SedeId;
+                var pisosActual = _model.Pisos;
+
+                _model = new BloqueDTO
+                {
+                    Activo = true,
+                    SedeId = sedeActual,
+                    Pisos = pisosActual
+                };
+
+                // Enfocar el primer campo (Nombre)
+                try
+                {
+                    await JS.InvokeVoidAsync("eval",
+                        "setTimeout(() => { const el = document.querySelector('.card-form input'); if (el) el.focus(); }, 100);");
+                }
+                catch { /* silencioso */ }
             }
 
-            Cancelar();
             await Cargar();
+            StateHasChanged();
         }
         catch (Exception ex)
         {
@@ -187,18 +271,14 @@
             Activo = b.Activo
         };
         _editando = true;
-    }
-
-    private void Cancelar()
-    {
-        _model = new BloqueDTO();
-        _editando = false;
+        _mostrarFormulario = true;
+        StateHasChanged();
     }
 
     private async Task Eliminar(BloqueDTO b)
     {
-        var ok = await JS.InvokeAsync<bool>("confirm",
-            $"¿Eliminar el bloque '{b.Nombre}'?");
+        var ok = await Confirm.Peligroso(
+            $"¿Eliminar el bloque '{b.Nombre}'? Esta acción no se puede deshacer.");
         if (!ok) return;
 
         if (await BloqueRepo.TieneAulasAsync(b.Id))

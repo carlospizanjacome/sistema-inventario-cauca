@@ -1,141 +1,192 @@
 ﻿@page "/sedes"
+@rendermode InteractiveServer
+
 @using Almacen.DTOs
 @using Almacen.Interfaces
 @using Almacen.Services
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
+
 @inject ISedeRepository SedeRepo
 @inject IInstitucionRepository InstRepo
 @inject ToastService Toast
+@inject ConfirmService Confirm
 @inject IJSRuntime JS
 
 <PageTitle>Sedes · Almacén</PageTitle>
 
-<div class="page-container">
+<div class="page-container page-crud">
 
-    <div class="page-header">
-        <div>
-            <h1><i class="bi bi-buildings"></i> Sedes</h1>
-            <p class="subtitle">Administración de sedes por institución educativa</p>
-        </div>
-    </div>
-
-    <div class="card-form">
-        <h3>
-            <i class="bi bi-@(_editando ? "pencil-square" : "plus-circle")"></i>
-            @(_editando ? "Editar Sede" : "Nueva Sede")
-        </h3>
-
-        <EditForm Model="_model" OnValidSubmit="Guardar">
-            <DataAnnotationsValidator />
-
-            <div class="form-grid">
-                <div class="form-group">
-                    <label>Institución *</label>
-                    <InputSelect @bind-Value="_model.InstitucionId" class="form-control">
-                        <option value="0">— Seleccione —</option>
-                        @foreach (var i in _instituciones)
-                        {
-                            <option value="@i.Id">@i.Nombre</option>
-                        }
-                    </InputSelect>
-                    <ValidationMessage For="() => _model.InstitucionId" />
-                </div>
-
-                <div class="form-group">
-                    <label>Nombre *</label>
-                    <InputText @bind-Value="_model.Nombre" class="form-control"
-                               placeholder="Ej: Sede Principal" />
-                    <ValidationMessage For="() => _model.Nombre" />
-                </div>
-
-                <div class="form-group">
-                    <label>Tipo</label>
-                    <InputSelect @bind-Value="_model.Tipo" class="form-control">
-                        <option value="Principal">Principal</option>
-                        <option value="Anexa">Anexa</option>
-                        <option value="Rural">Rural</option>
-                        <option value="Urbana">Urbana</option>
-                    </InputSelect>
-                </div>
-
-                <div class="form-group">
-                    <label>Dirección</label>
-                    <InputText @bind-Value="_model.Direccion" class="form-control" />
-                </div>
-
-                <div class="form-group">
-                    <label>Teléfono</label>
-                    <InputText @bind-Value="_model.Telefono" class="form-control" />
-                </div>
-
-                <div class="form-group checkbox-group">
-                    <label>
-                        <InputCheckbox @bind-Value="_model.Activo" />
-                        Activa
-                    </label>
-                </div>
+    @* ═══════════════ PAGE HEADER (oculto si form abierto) ═══════════════ *@
+    @if (!_mostrarFormulario)
+    {
+        <div class="page-header">
+            <div>
+                <h1><i class="bi bi-buildings"></i> Sedes</h1>
+                <p class="subtitle">Administración de sedes por institución educativa</p>
             </div>
 
-            <div class="form-actions">
-                <button type="submit" class="btn-primary">
-                    <i class="bi bi-check-lg"></i>
-                    @(_editando ? "Actualizar" : "Guardar")
+            <div class="header-actions">
+                <button class="btn-nuevo" @onclick="AbrirFormulario">
+                    <i class="bi bi-plus-lg"></i> Nueva Sede
                 </button>
-                @if (_editando)
-                {
-                    <button type="button" class="btn-secondary" @onclick="Cancelar">
-                        <i class="bi bi-x-lg"></i> Cancelar
-                    </button>
-                }
             </div>
-        </EditForm>
-    </div>
+        </div>
+    }
 
+    @* ═══════════════ FORM COLAPSABLE ═══════════════ *@
+    @if (_mostrarFormulario)
+    {
+        <div class="card-form">
+            <div class="form-header">
+                <div class="form-header-left">
+                    <i class="bi bi-@(_editando ? "pencil-square" : "plus-circle")"></i>
+                    <span>@(_editando ? "Editar Sede" : "Nueva Sede")</span>
+                </div>
+
+                <div class="form-header-center">
+                    <i class="bi bi-buildings"></i>
+                    <div>
+                        <div class="form-header-title">Sedes</div>
+                        <div class="form-header-subtitle">Administración de sedes por institución educativa</div>
+                    </div>
+                </div>
+
+                <button class="btn-cerrar-form" @onclick="CerrarFormulario" title="Cerrar">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <EditForm Model="_model" OnValidSubmit="Guardar">
+                <DataAnnotationsValidator />
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Institución *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-bank"></i>
+                            <InputSelect @bind-Value="_model.InstitucionId" class="form-control">
+                                <option value="0">— Seleccione —</option>
+                                @foreach (var i in _instituciones)
+                                {
+                                    <option value="@i.Id">@i.Nombre</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <ValidationMessage For="() => _model.InstitucionId" />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Nombre *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-building"></i>
+                            <InputText @bind-Value="_model.Nombre" class="form-control"
+                                       placeholder="Ej: Sede Principal" />
+                        </div>
+                        <ValidationMessage For="() => _model.Nombre" />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Tipo</label>
+                        <div class="input-icon">
+                            <i class="bi bi-tag"></i>
+                            <InputSelect @bind-Value="_model.Tipo" class="form-control">
+                                <option value="Principal">Principal</option>
+                                <option value="Anexa">Anexa</option>
+                                <option value="Rural">Rural</option>
+                                <option value="Urbana">Urbana</option>
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Dirección</label>
+                        <div class="input-icon">
+                            <i class="bi bi-geo-alt"></i>
+                            <InputText @bind-Value="_model.Direccion" class="form-control"
+                                       placeholder="Dirección física" />
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Teléfono</label>
+                        <div class="input-icon">
+                            <i class="bi bi-telephone"></i>
+                            <InputText @bind-Value="_model.Telefono" class="form-control"
+                                       placeholder="Ej: 8201234" />
+                        </div>
+                    </div>
+
+                    <div class="form-group checkbox-group">
+                        <label>
+                            <InputCheckbox @bind-Value="_model.Activo" />
+                            Activa
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-cancel" @onclick="CerrarFormulario">
+                        <i class="bi bi-x-lg"></i> Cerrar
+                    </button>
+                    <button type="submit" class="btn btn-save">
+                        <i class="bi @(_editando ? "bi-check-circle-fill" : "bi-save-fill")"></i>
+                        @(_editando ? "Actualizar" : "Guardar")
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    }
+    
+    @* ═══════════════ CARD TABLE ═══════════════ *@
     <div class="card-table">
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Institución</th>
-                    <th>Sede</th>
-                    <th>Tipo</th>
-                    <th>Dirección</th>
-                    <th>Teléfono</th>
-                    <th>Estado</th>
-                    <th class="text-end">Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                @if (_sedes.Count == 0)
-                {
-                    <tr><td colspan="7" class="empty">Sin sedes registradas.</td></tr>
-                }
-                else
-                {
-                    @foreach (var s in _sedes)
+        <div class="table-responsive">
+            <table class="table modern-table">
+                <thead>
+                    <tr>
+                        <th>Institución</th>
+                        <th>Sede</th>
+                        <th>Tipo</th>
+                        <th>Dirección</th>
+                        <th>Teléfono</th>
+                        <th>Estado</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (_sedes.Count == 0)
                     {
-                        <tr>
-                            <td>@s.InstitucionNombre</td>
-                            <td><strong>@s.Nombre</strong></td>
-                            <td>@s.Tipo</td>
-                            <td>@s.Direccion</td>
-                            <td>@s.Telefono</td>
-                            <td>
-                                <span class="badge @(s.Activo ? "badge-ok" : "badge-off")">
-                                    @(s.Activo ? "Activa" : "Inactiva")
-                                </span>
-                            </td>
-                            <td class="text-end">
-                                <button class="btn-icon" @onclick="() => Editar(s)" title="Editar">
-                                    <i class="bi bi-pencil"></i>
-                                </button>
-                                <button class="btn-icon danger" @onclick="() => Eliminar(s)" title="Eliminar">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </td>
-                        </tr>
+                        <tr><td colspan="7" class="text-center py-3 text-muted">Sin sedes registradas.</td></tr>
                     }
-                }
-            </tbody>
-        </table>
+                    else
+                    {
+                        @foreach (var s in _sedes)
+                        {
+                            <tr class="table-row-hover">
+                                <td>@s.InstitucionNombre</td>
+                                <td><strong>@s.Nombre</strong></td>
+                                <td>@s.Tipo</td>
+                                <td>@s.Direccion</td>
+                                <td>@s.Telefono</td>
+                                <td>
+                                    <span class="badge @(s.Activo ? "badge-ok" : "badge-off")">
+                                        @(s.Activo ? "Activa" : "Inactiva")
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    <button class="btn-icon me-1" @onclick="() => Editar(s)" title="Editar">
+                                        <i class="bi bi-pencil-fill"></i>
+                                    </button>
+                                    <button class="btn-icon danger" @onclick="() => Eliminar(s)" title="Eliminar">
+                                        <i class="bi bi-trash-fill"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
@@ -144,6 +195,7 @@
     private List<InstitucionDTO> _instituciones = new();
     private SedeDTO _model = new();
     private bool _editando = false;
+    private bool _mostrarFormulario = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -153,6 +205,21 @@
 
     private async Task Cargar()
         => _sedes = (await SedeRepo.ObtenerTodasAsync()).ToList();
+
+    private void AbrirFormulario()
+    {
+        _model = new SedeDTO { Activo = true, Tipo = "Principal" };
+        _editando = false;
+        _mostrarFormulario = true;
+    }
+
+    private void CerrarFormulario()
+    {
+        _mostrarFormulario = false;
+        _model = new SedeDTO();
+        _editando = false;
+        StateHasChanged();
+    }
 
     private async Task Guardar()
     {
@@ -166,17 +233,38 @@
         {
             if (_editando)
             {
+                // ── EDICIÓN: guardar y MANTENER ABIERTO con los datos ──
                 await SedeRepo.ActualizarAsync(_model);
-                Toast.Exito("Sede actualizada correctamente");
+                Toast.Exito($"Sede '{_model.Nombre}' actualizada. Puede seguir editando.");
             }
             else
             {
+                // ── CREACIÓN: guardar y MANTENER ABIERTO, limpiar form ──
                 await SedeRepo.CrearAsync(_model);
-                Toast.Exito("Sede creada correctamente");
+                Toast.Exito($"Sede '{_model.Nombre}' creada. Puede continuar registrando.");
+
+                // Mantener institución y tipo para registros masivos
+                var institucionActual = _model.InstitucionId;
+                var tipoActual = _model.Tipo;
+
+                _model = new SedeDTO
+                {
+                    Activo = true,
+                    Tipo = tipoActual,
+                    InstitucionId = institucionActual
+                };
+
+                // Enfocar el primer campo (Nombre)
+                try
+                {
+                    await JS.InvokeVoidAsync("eval",
+                        "setTimeout(() => { const el = document.querySelector('.card-form input'); if (el) el.focus(); }, 100);");
+                }
+                catch { /* silencioso */ }
             }
 
-            Cancelar();
             await Cargar();
+            StateHasChanged();
         }
         catch (Exception ex)
         {
@@ -197,18 +285,14 @@
             Activo = s.Activo
         };
         _editando = true;
-    }
-
-    private void Cancelar()
-    {
-        _model = new SedeDTO();
-        _editando = false;
+        _mostrarFormulario = true;
+        StateHasChanged();
     }
 
     private async Task Eliminar(SedeDTO s)
     {
-        var ok = await JS.InvokeAsync<bool>("confirm",
-            $"¿Eliminar la sede '{s.Nombre}'?");
+        var ok = await Confirm.Peligroso(
+            $"¿Eliminar la sede '{s.Nombre}'? Esta acción no se puede deshacer.");
         if (!ok) return;
 
         if (await SedeRepo.TieneBloquesAsync(s.Id))

@@ -118,11 +118,14 @@
 /* ═══ CONTENIDO ═══ */
 .app-content {
     flex: 1;
-    padding: var(--space-6);
+    padding: var(--space-5) var(--space-6);
     background-color: var(--bg-app);
-    min-height: calc(100vh - var(--topbar-height));
+    height: calc(100vh - var(--topbar-height));
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
 }
-
 /* ═══ BACKDROP MÓVIL ═══ */
 .app-backdrop {
     display: none;

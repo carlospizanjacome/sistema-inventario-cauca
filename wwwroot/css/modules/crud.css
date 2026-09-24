@@ -1,0 +1,273 @@
+﻿/* =========================================================
+   MÓDULO CRUD — patrón de páginas con formulario colapsable
+   Sistema de Inventario Educativo · Gobernación del Cauca
+   ========================================================= */
+
+/* ═══════════════════════════════════════════════════════════
+   LAYOUT DE PÁGINA CRUD
+   Form colapsable + tabla grande · Cero scroll del navegador
+   ═══════════════════════════════════════════════════════════ */
+
+.page-crud {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - var(--topbar-height) - (var(--space-6) * 2));
+    max-height: calc(100vh - var(--topbar-height) - (var(--space-6) * 2));
+    min-height: 600px;
+    width: 100%;
+    overflow: hidden;
+    gap: var(--space-4);
+    padding: var(--space-6);
+    margin: 0 auto;
+    max-width: var(--content-max);
+}
+
+    .page-crud > .page-header {
+        flex-shrink: 0;
+        margin-bottom: 0;
+        align-items: center;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+   BOTÓN NUEVO
+   ═══════════════════════════════════════════════════════════ */
+
+    .page-crud .btn-nuevo {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-2);
+        padding: 0.65rem 1.25rem;
+        background: var(--brand);
+        color: #fff;
+        border: 1px solid transparent;
+        border-radius: var(--radius);
+        font-family: inherit;
+        font-weight: var(--fw-semibold);
+        font-size: var(--fs-base);
+        cursor: pointer;
+        transition: all var(--t-fast);
+        box-shadow: 0 1px 2px rgba(79, 70, 229, 0.2);
+        white-space: nowrap;
+    }
+
+        .page-crud .btn-nuevo:hover:not(:disabled) {
+            background: var(--brand-hover);
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .page-crud .btn-nuevo:active:not(:disabled) {
+            background: var(--brand-active);
+            transform: translateY(0) scale(0.98);
+        }
+
+        .page-crud .btn-nuevo i {
+            font-size: 1.05em;
+            line-height: 1;
+            color: inherit;
+        }
+
+    /* ═══════════════════════════════════════════════════════════
+   FORM COLAPSABLE
+   ═══════════════════════════════════════════════════════════ */
+
+    .page-crud > .card-form {
+        flex-shrink: 0;
+        margin-bottom: 0;
+        padding: var(--space-4) var(--space-5);
+        animation: slideDown var(--t-slow);
+        border: 2px solid var(--brand-border);
+        box-shadow: 0 4px 16px rgba(79, 70, 229, 0.08);
+        max-height: 55vh;
+        overflow-y: auto;
+        overflow-x: hidden;
+        scrollbar-width: thin;
+        scrollbar-color: var(--border-strong) transparent;
+    }
+
+        .page-crud > .card-form::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .page-crud > .card-form::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .page-crud > .card-form::-webkit-scrollbar-thumb {
+            background: var(--border-strong);
+            border-radius: var(--radius-sm);
+        }
+
+            .page-crud > .card-form::-webkit-scrollbar-thumb:hover {
+                background: var(--text-disabled);
+            }
+
+        .page-crud > .card-form h3 {
+            margin-bottom: var(--space-3);
+            padding-bottom: var(--space-2);
+            border-bottom: 1px solid var(--border-soft);
+            font-size: var(--fs-base);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--space-3);
+        }
+
+    .page-crud .btn-cerrar-form {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        background: transparent;
+        border: none;
+        border-radius: var(--radius-sm);
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: all var(--t-fast);
+        font-size: 1rem;
+    }
+
+        .page-crud .btn-cerrar-form:hover {
+            background: var(--danger-soft);
+            color: var(--danger);
+        }
+
+    .page-crud .form-grid {
+        gap: var(--space-3);
+    }
+
+    .page-crud .form-group label {
+        font-size: var(--fs-xs);
+        margin-bottom: var(--space-1);
+    }
+
+    .page-crud .form-control,
+    .page-crud .form-select {
+        padding: 0.55rem 0.75rem;
+    }
+
+    .page-crud .form-actions {
+        margin-top: var(--space-3);
+        padding-top: var(--space-3);
+    }
+
+        .page-crud .form-actions .btn,
+        .page-crud .form-actions .btn-save,
+        .page-crud .form-actions .btn-cancel {
+            padding: 0.5rem 1rem;
+            font-size: var(--fs-sm);
+        }
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-12px);
+        max-height: 0;
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+        max-height: 55vh;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CARD TABLE — ocupa el resto
+   ═══════════════════════════════════════════════════════════ */
+
+.page-crud > .card-table {
+    flex: 1 1 0;
+    min-height: 240px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    margin-bottom: 0;
+}
+
+    .page-crud > .card-table > .filtros-toolbar,
+    .page-crud > .card-table > .filtros-tabla,
+    .page-crud > .card-table > .export-bar,
+    .page-crud > .card-table > .panel-filtros {
+        flex-shrink: 0;
+    }
+
+    .page-crud > .card-table > .table-responsive {
+        flex: 1 1 0;
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: auto;
+        scrollbar-width: thin;
+        scrollbar-color: var(--border-strong) transparent;
+    }
+
+        .page-crud > .card-table > .table-responsive::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        .page-crud > .card-table > .table-responsive::-webkit-scrollbar-thumb {
+            background: var(--border-strong);
+            border-radius: var(--radius-sm);
+        }
+
+            .page-crud > .card-table > .table-responsive::-webkit-scrollbar-thumb:hover {
+                background: var(--text-disabled);
+            }
+
+    .page-crud > .card-table .paginador {
+        flex-shrink: 0;
+        border-top: 1px solid var(--border-soft);
+        background: var(--bg-surface);
+    }
+
+.page-crud .modern-table thead th,
+.page-crud .table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--bg-muted);
+    box-shadow: 0 1px 0 var(--border-soft);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════════════ */
+
+@media (max-width: 767.98px) {
+    .page-crud {
+        height: auto;
+        max-height: none;
+        min-height: auto;
+        overflow: visible;
+        display: block;
+        padding: var(--space-4);
+    }
+
+        .page-crud > .page-header {
+            margin-bottom: var(--space-4);
+        }
+
+        .page-crud .btn-nuevo {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .page-crud > .card-form,
+        .page-crud > .card-table {
+            margin-bottom: var(--space-4);
+        }
+
+        .page-crud > .card-form {
+            max-height: none;
+        }
+
+        .page-crud > .card-table {
+            display: block;
+        }
+
+            .page-crud > .card-table > .table-responsive {
+                max-height: 60vh;
+            }
+}

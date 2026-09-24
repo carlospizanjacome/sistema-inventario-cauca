@@ -1,0 +1,102 @@
+﻿/* =========================================================
+   MÓDULO FORMS — formularios con secciones + inputs con icono
+   Sistema de Inventario Educativo · Gobernación del Cauca
+   ========================================================= */
+
+/* ═══════════════════════════════════════════════════════════
+   FORMULARIO CON SECCIONES
+   ═══════════════════════════════════════════════════════════ */
+
+.form-section {
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid var(--border-soft);
+}
+
+    .form-section:first-of-type {
+        padding-top: 0;
+    }
+
+    .form-section:last-of-type {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+
+.form-section-title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: 0.72rem;
+    font-weight: var(--fw-bold);
+    color: var(--brand);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: var(--space-2);
+    padding-bottom: var(--space-1);
+}
+
+    .form-section-title i {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+
+    .form-section-title::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: linear-gradient(90deg, var(--brand-border), transparent);
+        margin-left: var(--space-2);
+    }
+
+/* ═══════════════════════════════════════════════════════════
+   GRIDS DEL FORMULARIO
+   ═══════════════════════════════════════════════════════════ */
+
+.form-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-2);
+}
+
+.form-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-2);
+}
+
+.form-group-full {
+    grid-column: 1 / -1;
+}
+
+@media (max-width: 1024px) {
+    .form-grid-3 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 767.98px) {
+    .form-grid-3,
+    .form-grid-2 {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SUBTEXTO EN CELDAS DE TABLA
+   ═══════════════════════════════════════════════════════════ */
+
+.table-cell-primary {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+    .table-cell-primary strong {
+        color: var(--text-primary);
+        font-weight: var(--fw-semibold);
+    }
+
+    .table-cell-primary small {
+        color: var(--text-muted);
+        font-size: var(--fs-xs);
+        font-weight: var(--fw-regular);
+    }

@@ -1,0 +1,274 @@
+﻿/* =========================================================
+   MÓDULO FILTROS — panel de filtros avanzados siempre visible
+   Sistema de Inventario Educativo · Gobernación del Cauca
+   ========================================================= */
+
+.panel-filtros {
+    padding: var(--space-4) var(--space-5);
+    background: var(--bg-muted);
+    border-bottom: 1px solid var(--border-soft);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    flex-shrink: 0;
+    width: 100%;
+}
+
+/* ═══ Fila 1: buscador principal ═══ */
+.filtro-busqueda-principal {
+    position: relative;
+    display: flex;
+    align-items: center;
+    max-width: 500px;
+    width: 100%;
+}
+
+    .filtro-busqueda-principal > i {
+        position: absolute;
+        left: 0.85rem;
+        color: var(--text-disabled);
+        font-size: 1rem;
+        pointer-events: none;
+        z-index: 2;
+    }
+
+    .filtro-busqueda-principal input {
+        width: 100%;
+        padding: 0.6rem 2.4rem 0.6rem 2.5rem;
+        border: 1.5px solid #94a3b8;
+        border-radius: var(--radius);
+        font-size: var(--fs-base);
+        font-family: inherit;
+        background: #ffffff;
+        color: var(--text-primary);
+        transition: all var(--t-fast);
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    }
+
+        .filtro-busqueda-principal input:focus {
+            outline: none;
+            border-color: var(--brand);
+            border-width: 2px;
+            box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.15);
+            padding: calc(0.6rem - 0.5px) 2.4rem calc(0.6rem - 0.5px) calc(2.5rem - 0.5px);
+        }
+
+    .filtro-busqueda-principal .filtro-clear {
+        position: absolute;
+        right: 0.5rem;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        color: var(--text-disabled);
+        cursor: pointer;
+        padding: 4px;
+        border-radius: var(--radius-sm);
+        display: flex;
+        align-items: center;
+        font-size: 0.85rem;
+        transition: all var(--t-fast);
+    }
+
+        .filtro-busqueda-principal .filtro-clear:hover {
+            color: var(--danger);
+            background: var(--danger-soft);
+        }
+
+/* ═══ Fila 2: filtros en grid ═══ */
+.filtros-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: var(--space-3);
+    width: 100%;
+}
+
+.filtro-select,
+.filtro-fecha {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+    .filtro-select > i,
+    .filtro-fecha > i {
+        position: absolute;
+        left: 0.65rem;
+        color: var(--text-disabled);
+        font-size: 0.9rem;
+        pointer-events: none;
+        z-index: 2;
+    }
+
+    .filtro-select select,
+    .filtro-fecha input {
+        width: 100%;
+        padding: 0.5rem 0.75rem 0.5rem 2.15rem;
+        border: 1.5px solid #94a3b8;
+        border-radius: var(--radius);
+        font-size: var(--fs-sm);
+        font-family: inherit;
+        background: #ffffff;
+        color: var(--text-primary);
+        cursor: pointer;
+        transition: all var(--t-fast);
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+        height: 40px;
+    }
+
+        .filtro-select select:hover,
+        .filtro-fecha input:hover {
+            border-color: #64748b;
+        }
+
+        .filtro-select select:focus,
+        .filtro-fecha input:focus {
+            outline: none;
+            border-color: var(--brand);
+            border-width: 2px;
+            box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.15);
+        }
+
+/* ═══ Fila 3: acciones ═══ */
+.filtros-acciones {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+    padding-top: var(--space-2);
+    border-top: 1px solid var(--border-soft);
+    width: 100%;
+}
+
+.filtros-acciones-right {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.filtro-activo-tag {
+    color: var(--brand);
+    font-weight: var(--fw-bold);
+    font-size: var(--fs-xs);
+    margin-left: 4px;
+}
+
+.btn-limpiar-filtros {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 0.45rem 0.85rem;
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius);
+    font-family: inherit;
+    font-weight: var(--fw-semibold);
+    font-size: var(--fs-sm);
+    cursor: pointer;
+    transition: all var(--t-fast);
+    white-space: nowrap;
+}
+
+    .btn-limpiar-filtros:hover {
+        background: var(--danger-soft);
+        color: var(--danger);
+        border-color: #fecaca;
+    }
+
+    .btn-limpiar-filtros i {
+        font-size: 0.95rem;
+        line-height: 1;
+    }
+
+/* ═══ Badges de tipo de bien ═══ */
+.badge-tipo-devolutivo {
+    background: var(--brand-soft);
+    color: var(--brand);
+}
+
+.badge-tipo-consumo {
+    background: var(--bg-subtle);
+    color: var(--text-secondary);
+}
+
+/* ═══ Botón exportar CGN ═══ */
+.btn-export-cgn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 0.5rem 1rem;
+    background: var(--success);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    font-family: inherit;
+    font-weight: var(--fw-semibold);
+    font-size: var(--fs-sm);
+    cursor: pointer;
+    transition: all var(--t-fast);
+    box-shadow: 0 1px 2px rgba(22, 163, 74, 0.2);
+    white-space: nowrap;
+}
+
+    .btn-export-cgn:hover:not(:disabled) {
+        background: var(--success-hover);
+        box-shadow: 0 4px 12px rgba(22, 163, 74, 0.3);
+        transform: translateY(-1px);
+    }
+
+    .btn-export-cgn:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .btn-export-cgn i {
+        font-size: 1.05em;
+        line-height: 1;
+    }
+
+/* ═══ Textarea con icono ═══ */
+.input-icon > textarea {
+    padding-left: 2.5rem !important;
+    padding-top: 0.75rem !important;
+    resize: vertical;
+    min-height: 80px;
+}
+
+/* ═══ Responsive ═══ */
+@media (max-width: 767.98px) {
+    .panel-filtros {
+        padding: var(--space-3);
+    }
+
+    .filtro-busqueda-principal {
+        max-width: 100%;
+    }
+
+    .filtros-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .filtros-acciones {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .filtros-acciones-right {
+        flex-direction: column;
+    }
+
+    .btn-export-cgn,
+    .btn-limpiar-filtros {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .filtros-grid {
+        grid-template-columns: 1fr;
+    }
+}
