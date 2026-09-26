@@ -23,13 +23,12 @@
 
 <div class="page-container page-crud">
 
-    @* ═══════════════ PAGE HEADER (oculto cuando el form está abierto) ═══════════════ *@
     @if (!_mostrarFormulario)
     {
         <div class="page-header">
             <div>
                 <h1><i class="bi bi-box-arrow-up"></i> Salidas / Bajas</h1>
-                <p class="subtitle">Retiro definitivo de bienes del inventario (obsolescencia, daño, hurto)</p>
+                <p class="subtitle">Retiro definitivo de bienes del inventario</p>
             </div>
 
             @if (puedeCrear)
@@ -43,7 +42,6 @@
         </div>
     }
 
-    @* ═══════════════ FORM COLAPSABLE ═══════════════ *@
     @if (_mostrarFormulario)
     {
         <div class="card-form">
@@ -52,7 +50,6 @@
                     <i class="bi bi-@(editando ? "pencil-square" : "plus-circle")"></i>
                     <span>@(editando ? "Editar Salida" : "Nueva Salida / Baja")</span>
                 </div>
-
                 <div class="form-header-center">
                     <i class="bi bi-box-arrow-up"></i>
                     <div>
@@ -60,7 +57,6 @@
                         <div class="form-header-subtitle">Retiro definitivo del inventario</div>
                     </div>
                 </div>
-
                 <button class="btn-cerrar-form" @onclick="Cancelar" title="Cerrar">
                     <i class="bi bi-x-lg"></i>
                 </button>
@@ -70,9 +66,7 @@
                 <DataAnnotationsValidator />
 
                 <div class="form-section">
-                    <h4 class="form-section-title">
-                        <i class="bi bi-card-list"></i> Identificación
-                    </h4>
+                    <h4 class="form-section-title"><i class="bi bi-card-list"></i> Identificación</h4>
                     <div class="form-grid-3">
 
                         <div class="form-group" style="grid-column: span 2;">
@@ -159,7 +153,7 @@
                             <div class="input-icon">
                                 <i class="bi bi-chat-left-text"></i>
                                 <InputText class="form-control" @bind-Value="salidaDTO.Motivo"
-                                           placeholder="Descripción del motivo de la baja" />
+                                           placeholder="Descripción del motivo" />
                             </div>
                             <ValidationMessage For="() => salidaDTO.Motivo" class="form-error" />
                         </div>
@@ -168,8 +162,7 @@
                             <label>Observaciones</label>
                             <div class="input-icon">
                                 <i class="bi bi-chat-left-text textarea-icon"></i>
-                                <InputTextArea class="form-control" rows="2" @bind-Value="salidaDTO.Observaciones"
-                                               placeholder="Observaciones adicionales sobre la baja" />
+                                <InputTextArea class="form-control" rows="2" @bind-Value="salidaDTO.Observaciones" />
                             </div>
                         </div>
 
@@ -179,9 +172,7 @@
                 @if (editando && salidaEditandoId > 0)
                 {
                     <div class="form-section">
-                        <h4 class="form-section-title">
-                            <i class="bi bi-paperclip"></i> Soportes
-                        </h4>
+                        <h4 class="form-section-title"><i class="bi bi-paperclip"></i> Soportes</h4>
                         <AdjuntosUploader EntidadTipo="salida" EntidadId="salidaEditandoId" />
                     </div>
                 }
@@ -199,12 +190,9 @@
         </div>
     }
 
-    @* ═══════════════ CARD TABLE ═══════════════ *@
     <div class="card-table">
 
-        @* Barra de filtros *@
         <div class="filtros-toolbar">
-
             <div class="filtro-busqueda-principal">
                 <i class="bi bi-search"></i>
                 <input type="text"
@@ -221,34 +209,57 @@
             </div>
 
             <div class="filtros-toolbar-actions">
-                <button class="btn-filtros @(_mostrarFiltrosAvanzados ? "active" : "")"
-                        @onclick="ToggleFiltrosAvanzados">
+                <button class="btn-filtros @(_mostrarFiltros ? "active" : "")"
+                        @onclick="ToggleFiltros">
                     <i class="bi bi-sliders"></i>
                     <span>Filtros</span>
-                    @if (_filtroAvanzado.HayFiltros)
+                    @if (_hayFiltrosAvanzados)
                     {
                         <span class="filtros-badge"></span>
                     }
-                    <i class="bi @(_mostrarFiltrosAvanzados ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                    <i class="bi @(_mostrarFiltros ? "bi-chevron-up" : "bi-chevron-down")"></i>
                 </button>
             </div>
         </div>
 
-        @* Filtros avanzados (colapsables) *@
-        @if (_mostrarFiltrosAvanzados)
+        @if (_mostrarFiltros)
         {
             <div class="panel-filtros">
-                <FiltrosMovimiento Filtro="_filtroAvanzado"
-                                   OnCambio="AplicarFiltrosAvanzados"
-                                   EtiquetaTipo="Tipo de Baja"
-                                   OpcionesTipo="@TiposBaja" />
+                <div class="filtros-grid">
+                    <div class="filtro-select">
+                        <i class="bi bi-x-circle"></i>
+                        <select @bind="_filtroTipo" @bind:after="AplicarFiltrosAvanzados">
+                            <option value="">Todos los tipos</option>
+                            <option value="Obsolescencia">Obsolescencia</option>
+                            <option value="Daño">Daño irreparable</option>
+                            <option value="Hurto">Hurto</option>
+                            <option value="Donacion">Donación</option>
+                            <option value="Transferencia">Transferencia</option>
+                            <option value="Otro">Otro</option>
+                        </select>
+                    </div>
+
+                    <div class="filtro-select">
+                        <i class="bi bi-calendar"></i>
+                        <input type="date" @bind="_filtroFechaDesde" @bind:after="AplicarFiltrosAvanzados" />
+                    </div>
+
+                    <div class="filtro-select">
+                        <i class="bi bi-calendar"></i>
+                        <input type="date" @bind="_filtroFechaHasta" @bind:after="AplicarFiltrosAvanzados" />
+                    </div>
+                </div>
 
                 <div class="filtros-acciones">
                     <span class="badge-total">
                         <i class="bi bi-box-arrow-up"></i>
                         <strong>@(_pagina?.TotalRegistros ?? 0)</strong> salidas
+                        @if (_hayFiltrosActivos)
+                        {
+                            <span class="filtro-activo-tag">· Filtrado</span>
+                        }
                     </span>
-                    @if (_filtroAvanzado.HayFiltros)
+                    @if (_hayFiltrosAvanzados)
                     {
                         <button class="btn-limpiar-filtros" @onclick="LimpiarTodosLosFiltros">
                             <i class="bi bi-arrow-counterclockwise"></i>
@@ -277,15 +288,11 @@
                 <tbody>
                     @if (_pagina is null)
                     {
-                        <tr>
-                            <td colspan="9" class="text-center py-4 text-muted">Cargando salidas…</td>
-                        </tr>
+                        <tr><td colspan="9" class="text-center py-4 text-muted">Cargando salidas…</td></tr>
                     }
                     else if (!_pagina.Items.Any())
                     {
-                        <tr>
-                            <td colspan="9" class="text-center py-4 text-muted">Sin salidas registradas.</td>
-                        </tr>
+                        <tr><td colspan="9" class="text-center py-4 text-muted">Sin salidas registradas.</td></tr>
                     }
                     else
                     {
@@ -300,9 +307,7 @@
                                     </div>
                                 </td>
                                 <td>
-                                    <span class="badge @GetClaseBadgeTipoBaja(s.TipoBaja)">
-                                        @s.TipoBaja
-                                    </span>
+                                    <span class="badge @GetClaseBadgeTipoBaja(s.TipoBaja)">@s.TipoBaja</span>
                                 </td>
                                 <td>@s.Motivo</td>
                                 <td class="text-mono">@s.NumeroActaComite</td>
@@ -310,8 +315,7 @@
                                     @if (!string.IsNullOrEmpty(s.NumeroDenuncia))
                                     {
                                         <span class="text-danger">
-                                            <i class="bi bi-shield-exclamation"></i>
-                                            @s.NumeroDenuncia
+                                            <i class="bi bi-shield-exclamation"></i> @s.NumeroDenuncia
                                         </span>
                                     }
                                     else
@@ -335,7 +339,7 @@
                                         {
                                             <button class="btn-action btn-action-delete"
                                                     @onclick="() => Eliminar(s)"
-                                                    title="Eliminar / Reactivar bien">
+                                                    title="Eliminar">
                                                 <i class="bi bi-trash-fill"></i>
                                             </button>
                                         }
@@ -370,23 +374,30 @@
     private bool editando = false;
     private int salidaEditandoId;
     private bool _mostrarFormulario = false;
-    private bool _mostrarFiltrosAvanzados = false;
+    private bool _mostrarFiltros = false;
 
     private int _paginaActual = 1;
     private int _tamanoPagina = 25;
     private string _filtroTexto = string.Empty;
+    private string? _filtroTipo;
+    private DateTime? _filtroFechaDesde;
+    private DateTime? _filtroFechaHasta;
     private CancellationTokenSource? _debounceCts;
 
     private bool puedeCrear;
     private bool puedeEditar;
     private bool puedeEliminar;
 
-    private FiltroMovimientoDTO _filtroAvanzado = new();
+    private bool _hayFiltrosActivos =>
+        !string.IsNullOrEmpty(_filtroTexto) ||
+        !string.IsNullOrEmpty(_filtroTipo) ||
+        _filtroFechaDesde.HasValue ||
+        _filtroFechaHasta.HasValue;
 
-    private static readonly string[] TiposBaja = new[]
-    {
-        "Obsolescencia", "Daño", "Hurto", "Donacion", "Transferencia", "Otro"
-    };
+    private bool _hayFiltrosAvanzados =>
+        !string.IsNullOrEmpty(_filtroTipo) ||
+        _filtroFechaDesde.HasValue ||
+        _filtroFechaHasta.HasValue;
 
     protected override async Task OnInitializedAsync()
     {
@@ -408,10 +419,18 @@
 
     private async Task Cargar()
     {
-        if (_filtroAvanzado.HayFiltros)
+        var filtro = new FiltroMovimientoDTO
+        {
+            Texto = string.IsNullOrWhiteSpace(_filtroTexto) ? null : _filtroTexto,
+            Tipo = _filtroTipo,
+            FechaDesde = _filtroFechaDesde,
+            FechaHasta = _filtroFechaHasta
+        };
+
+        if (filtro.HayFiltros)
         {
             _pagina = await SalidaRepo.ObtenerPaginadoConFiltrosAsync(
-                _filtroAvanzado, _paginaActual, _tamanoPagina);
+                filtro, _paginaActual, _tamanoPagina);
         }
         else
         {
@@ -423,46 +442,51 @@
 
     private void AbrirFormulario()
     {
-        salidaDTO = new SalidaDTO
-        {
-            FechaSalida = DateTime.Today,
-            TipoBaja = "Obsolescencia"
-        };
+        salidaDTO = new SalidaDTO { FechaSalida = DateTime.Today, TipoBaja = "Obsolescencia" };
         editando = false;
         salidaEditandoId = 0;
         _mostrarFormulario = true;
-        _mostrarFiltrosAvanzados = false;
+        _mostrarFiltros = false;
     }
 
     private void Cancelar()
     {
         _mostrarFormulario = false;
-        salidaDTO = new SalidaDTO
-        {
-            FechaSalida = DateTime.Today,
-            TipoBaja = "Obsolescencia"
-        };
+        salidaDTO = new SalidaDTO { FechaSalida = DateTime.Today, TipoBaja = "Obsolescencia" };
         editando = false;
         salidaEditandoId = 0;
         _filtroTexto = string.Empty;
         StateHasChanged();
     }
 
-    private void ToggleFiltrosAvanzados()
+    private void ToggleFiltros()
     {
         if (_mostrarFormulario)
         {
             _mostrarFormulario = false;
-            salidaDTO = new SalidaDTO
-            {
-                FechaSalida = DateTime.Today,
-                TipoBaja = "Obsolescencia"
-            };
+            salidaDTO = new SalidaDTO { FechaSalida = DateTime.Today, TipoBaja = "Obsolescencia" };
             editando = false;
             salidaEditandoId = 0;
         }
+        _mostrarFiltros = !_mostrarFiltros;
+    }
 
-        _mostrarFiltrosAvanzados = !_mostrarFiltrosAvanzados;
+    private async Task AplicarFiltrosAvanzados()
+    {
+        _paginaActual = 1;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task LimpiarTodosLosFiltros()
+    {
+        _filtroTexto = string.Empty;
+        _filtroTipo = null;
+        _filtroFechaDesde = null;
+        _filtroFechaHasta = null;
+        _paginaActual = 1;
+        await Cargar();
+        StateHasChanged();
     }
 
     private async Task CambioPagina(int nuevaPagina)
@@ -480,22 +504,6 @@
         StateHasChanged();
     }
 
-    private async Task AplicarFiltrosAvanzados()
-    {
-        _paginaActual = 1;
-        await Cargar();
-        StateHasChanged();
-    }
-
-    private async Task LimpiarTodosLosFiltros()
-    {
-        _filtroAvanzado = new FiltroMovimientoDTO();
-        _filtroTexto = string.Empty;
-        _paginaActual = 1;
-        await Cargar();
-        StateHasChanged();
-    }
-
     private async Task BuscarConDebounce()
     {
         _debounceCts?.Cancel();
@@ -506,7 +514,6 @@
         {
             await Task.Delay(350, token);
             if (token.IsCancellationRequested) return;
-
             _paginaActual = 1;
             await Cargar();
             StateHasChanged();
@@ -524,24 +531,9 @@
 
     private async Task Guardar()
     {
-        if (!editando && !puedeCrear)
-        {
-            Toast.Error("No tiene permiso para registrar salidas.");
-            return;
-        }
-
-        if (editando && !puedeEditar)
-        {
-            Toast.Error("No tiene permiso para editar salidas.");
-            return;
-        }
-
-        if (salidaDTO.BienId <= 0)
-        {
-            Toast.Error("Debe seleccionar un bien.");
-            return;
-        }
-
+        if (!editando && !puedeCrear) { Toast.Error("No tiene permiso para registrar salidas."); return; }
+        if (editando && !puedeEditar) { Toast.Error("No tiene permiso para editar salidas."); return; }
+        if (salidaDTO.BienId <= 0) { Toast.Error("Debe seleccionar un bien."); return; }
         if (salidaDTO.TipoBaja == "Hurto" && string.IsNullOrWhiteSpace(salidaDTO.NumeroDenuncia))
         {
             Toast.Error("Para tipo de baja 'Hurto' debe registrar el N° de denuncia penal.");
@@ -554,7 +546,6 @@
             {
                 await SalidaRepo.ActualizarAsync(salidaDTO);
                 Toast.Exito("Salida actualizada correctamente");
-
                 _filtroTexto = string.Empty;
                 await Cargar();
                 StateHasChanged();
@@ -571,25 +562,20 @@
                 await SalidaRepo.DesactivarBienAsync(salidaDTO.BienId);
 
                 Toast.Exito("Salida registrada. El bien fue dado de baja.");
-
                 Cancelar();
                 await Cargar();
             }
         }
-        catch (Exception ex)
-        {
-            Toast.Error($"Error: {ex.Message}");
-        }
+        catch (Exception ex) { Toast.Error($"Error: {ex.Message}"); }
     }
 
     private void Editar(SalidaDTO s)
     {
         if (!puedeEditar) return;
-
         editando = true;
         salidaEditandoId = s.Id;
         _mostrarFormulario = true;
-        _mostrarFiltrosAvanzados = false;
+        _mostrarFiltros = false;
 
         salidaDTO.Id = s.Id;
         salidaDTO.BienId = s.BienId;
@@ -608,12 +594,7 @@
 
     private async Task Eliminar(SalidaDTO s)
     {
-        if (!puedeEliminar)
-        {
-            Toast.Error("No tiene permiso para eliminar salidas.");
-            return;
-        }
-
+        if (!puedeEliminar) { Toast.Error("No tiene permiso para eliminar salidas."); return; }
         var ok = await Confirm.Peligroso(
             $"¿Eliminar la salida del bien '{s.BienNombre}'? El bien volverá a estado Activo.");
         if (!ok) return;
@@ -625,22 +606,16 @@
             Toast.Exito("Salida eliminada. El bien fue reactivado.");
             await Cargar();
         }
-        catch (Exception ex)
-        {
-            Toast.Error($"Error: {ex.Message}");
-        }
+        catch (Exception ex) { Toast.Error($"Error: {ex.Message}"); }
     }
 
-    private static string GetClaseBadgeTipoBaja(string? tipo)
+    private static string GetClaseBadgeTipoBaja(string? tipo) => tipo switch
     {
-        return tipo switch
-        {
-            "Hurto"           => "badge-danger",
-            "Daño"            => "badge-warn",
-            "Obsolescencia"   => "badge-neutral",
-            "Donacion"        => "badge-info",
-            "Transferencia"   => "badge-info",
-            _                 => "badge-neutral"
-        };
-    }
+        "Hurto"         => "badge-danger",
+        "Daño"          => "badge-warn",
+        "Obsolescencia" => "badge-neutral",
+        "Donacion"      => "badge-info",
+        "Transferencia" => "badge-info",
+        _               => "badge-neutral"
+    };
 }

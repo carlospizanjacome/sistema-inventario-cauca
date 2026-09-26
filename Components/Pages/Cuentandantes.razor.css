@@ -36,3 +36,32 @@
         cursor: not-allowed;
         transform: none;
     }
+
+/* Ajuste: sin form, la card-table llena el espacio */
+.page-crud > .page-header {
+    margin-bottom: var(--space-4);
+}
+
+.page-crud > .card-table {
+    flex: 1 1 0;
+    min-height: 300px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    margin-bottom: 0;
+}
+
+    .page-crud > .card-table > .filtros-tabla {
+        flex-shrink: 0;
+    }
+
+    .page-crud > .card-table > .table-responsive {
+        flex: 1 1 0;
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: auto;
+    }
+
+    .page-crud > .card-table .paginador {
+        flex-shrink: 0;
+    }

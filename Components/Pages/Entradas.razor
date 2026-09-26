@@ -24,7 +24,6 @@
 
 <div class="page-container page-crud">
 
-    @* ═══════════════ PAGE HEADER (oculto cuando el form está abierto) ═══════════════ *@
     @if (!_mostrarFormulario)
     {
         <div class="page-header">
@@ -44,7 +43,6 @@
         </div>
     }
 
-    @* ═══════════════ FORM COLAPSABLE ═══════════════ *@
     @if (_mostrarFormulario)
     {
         <div class="card-form">
@@ -53,7 +51,6 @@
                     <i class="bi bi-@(editando ? "pencil-square" : "plus-circle")"></i>
                     <span>@(editando ? "Editar Entrada" : "Nueva Entrada")</span>
                 </div>
-
                 <div class="form-header-center">
                     <i class="bi bi-box-arrow-in-down"></i>
                     <div>
@@ -61,7 +58,6 @@
                         <div class="form-header-subtitle">Registro de altas al inventario</div>
                     </div>
                 </div>
-
                 <button class="btn-cerrar-form" @onclick="Cancelar" title="Cerrar">
                     <i class="bi bi-x-lg"></i>
                 </button>
@@ -71,9 +67,7 @@
                 <DataAnnotationsValidator />
 
                 <div class="form-section">
-                    <h4 class="form-section-title">
-                        <i class="bi bi-card-list"></i> Identificación
-                    </h4>
+                    <h4 class="form-section-title"><i class="bi bi-card-list"></i> Identificación</h4>
                     <div class="form-grid-3">
 
                         <div class="form-group" style="grid-column: span 2;">
@@ -173,9 +167,7 @@
                 @if (editando && entradaEditandoId > 0)
                 {
                     <div class="form-section">
-                        <h4 class="form-section-title">
-                            <i class="bi bi-paperclip"></i> Soportes
-                        </h4>
+                        <h4 class="form-section-title"><i class="bi bi-paperclip"></i> Soportes</h4>
                         <AdjuntosUploader EntidadTipo="entrada" EntidadId="entradaEditandoId" />
                     </div>
                 }
@@ -193,12 +185,9 @@
         </div>
     }
 
-    @* ═══════════════ CARD TABLE ═══════════════ *@
     <div class="card-table">
 
-        @* Barra de filtros *@
         <div class="filtros-toolbar">
-
             <div class="filtro-busqueda-principal">
                 <i class="bi bi-search"></i>
                 <input type="text"
@@ -215,34 +204,61 @@
             </div>
 
             <div class="filtros-toolbar-actions">
-                <button class="btn-filtros @(_mostrarFiltrosAvanzados ? "active" : "")"
-                        @onclick="ToggleFiltrosAvanzados">
+                <button class="btn-filtros @(_mostrarFiltros ? "active" : "")"
+                        @onclick="ToggleFiltros">
                     <i class="bi bi-sliders"></i>
                     <span>Filtros</span>
-                    @if (_filtroAvanzado.HayFiltros)
+                    @if (_hayFiltrosAvanzados)
                     {
                         <span class="filtros-badge"></span>
                     }
-                    <i class="bi @(_mostrarFiltrosAvanzados ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                    <i class="bi @(_mostrarFiltros ? "bi-chevron-up" : "bi-chevron-down")"></i>
                 </button>
             </div>
         </div>
 
-        @* Filtros avanzados (colapsables) *@
-        @if (_mostrarFiltrosAvanzados)
+        @if (_mostrarFiltros)
         {
             <div class="panel-filtros">
-                <FiltrosMovimiento Filtro="_filtroAvanzado"
-                                   OnCambio="AplicarFiltrosAvanzados"
-                                   EtiquetaTipo="Fuente"
-                                   OpcionesTipo="@(new[] { "FSE", "Donacion", "Transferencia", "Otro" })" />
+                <div class="filtros-grid">
+                    <div class="filtro-select">
+                        <i class="bi bi-tag"></i>
+                        <select @bind="_filtroTipo" @bind:after="AplicarFiltrosAvanzados">
+                            <option value="">Todas las fuentes</option>
+                            <option value="FSE">Compra FSE</option>
+                            <option value="Donacion">Donación</option>
+                            <option value="Transferencia">Transferencia</option>
+                            <option value="Otro">Otro</option>
+                        </select>
+                    </div>
+
+                    <div class="filtro-select">
+                        <i class="bi bi-calendar"></i>
+                        <input type="date"
+                               @bind="_filtroFechaDesde"
+                               @bind:after="AplicarFiltrosAvanzados"
+                               placeholder="Desde" />
+                    </div>
+
+                    <div class="filtro-select">
+                        <i class="bi bi-calendar"></i>
+                        <input type="date"
+                               @bind="_filtroFechaHasta"
+                               @bind:after="AplicarFiltrosAvanzados"
+                               placeholder="Hasta" />
+                    </div>
+                </div>
 
                 <div class="filtros-acciones">
                     <span class="badge-total">
                         <i class="bi bi-box-arrow-in-down"></i>
                         <strong>@(_pagina?.TotalRegistros ?? 0)</strong> entradas
+                        @if (_hayFiltrosActivos)
+                        {
+                            <span class="filtro-activo-tag">· Filtrado</span>
+                        }
                     </span>
-                    @if (_filtroAvanzado.HayFiltros)
+                    @if (_hayFiltrosAvanzados)
                     {
                         <button class="btn-limpiar-filtros" @onclick="LimpiarTodosLosFiltros">
                             <i class="bi bi-arrow-counterclockwise"></i>
@@ -270,15 +286,11 @@
                 <tbody>
                     @if (_pagina is null)
                     {
-                        <tr>
-                            <td colspan="8" class="text-center py-4 text-muted">Cargando entradas…</td>
-                        </tr>
+                        <tr><td colspan="8" class="text-center py-4 text-muted">Cargando entradas…</td></tr>
                     }
                     else if (!_pagina.Items.Any())
                     {
-                        <tr>
-                            <td colspan="8" class="text-center py-4 text-muted">Sin entradas registradas.</td>
-                        </tr>
+                        <tr><td colspan="8" class="text-center py-4 text-muted">Sin entradas registradas.</td></tr>
                     }
                     else
                     {
@@ -292,9 +304,7 @@
                                         <small>@e.BienCodigo</small>
                                     </div>
                                 </td>
-                                <td>
-                                    <span class="badge badge-info">@e.TipoFuente</span>
-                                </td>
+                                <td><span class="badge badge-info">@e.TipoFuente</span></td>
                                 <td>
                                     @if (!string.IsNullOrEmpty(e.ProveedorNombre))
                                     {
@@ -354,7 +364,6 @@
         System.Globalization.CultureInfo.GetCultureInfo("es-CO");
 
     private ResultadoPaginado<EntradaDTO>? _pagina;
-
     private IEnumerable<Bien> bienes = [];
     private IEnumerable<FuncionarioDTO> funcionarios = [];
     private IEnumerable<ProveedorDTO> proveedores = [];
@@ -363,18 +372,30 @@
     private bool editando = false;
     private int entradaEditandoId;
     private bool _mostrarFormulario = false;
-    private bool _mostrarFiltrosAvanzados = false;
+    private bool _mostrarFiltros = false;
 
     private int _paginaActual = 1;
     private int _tamanoPagina = 25;
     private string _filtroTexto = string.Empty;
+    private string? _filtroTipo;
+    private DateTime? _filtroFechaDesde;
+    private DateTime? _filtroFechaHasta;
     private CancellationTokenSource? _debounceCts;
 
     private bool puedeCrear;
     private bool puedeEditar;
     private bool puedeEliminar;
 
-    private FiltroMovimientoDTO _filtroAvanzado = new();
+    private bool _hayFiltrosActivos =>
+        !string.IsNullOrEmpty(_filtroTexto) ||
+        !string.IsNullOrEmpty(_filtroTipo) ||
+        _filtroFechaDesde.HasValue ||
+        _filtroFechaHasta.HasValue;
+
+    private bool _hayFiltrosAvanzados =>
+        !string.IsNullOrEmpty(_filtroTipo) ||
+        _filtroFechaDesde.HasValue ||
+        _filtroFechaHasta.HasValue;
 
     protected override async Task OnInitializedAsync()
     {
@@ -397,10 +418,18 @@
 
     private async Task Cargar()
     {
-        if (_filtroAvanzado.HayFiltros)
+        var filtro = new FiltroMovimientoDTO
+        {
+            Texto = string.IsNullOrWhiteSpace(_filtroTexto) ? null : _filtroTexto,
+            Tipo = _filtroTipo,
+            FechaDesde = _filtroFechaDesde,
+            FechaHasta = _filtroFechaHasta
+        };
+
+        if (filtro.HayFiltros)
         {
             _pagina = await EntradaRepo.ObtenerPaginadoConFiltrosAsync(
-                _filtroAvanzado, _paginaActual, _tamanoPagina);
+                filtro, _paginaActual, _tamanoPagina);
         }
         else
         {
@@ -412,46 +441,33 @@
 
     private void AbrirFormulario()
     {
-        entradaDTO = new EntradaDTO
-        {
-            FechaEntrada = DateTime.Today,
-            TipoFuente = "FSE"
-        };
+        entradaDTO = new EntradaDTO { FechaEntrada = DateTime.Today, TipoFuente = "FSE" };
         editando = false;
         entradaEditandoId = 0;
         _mostrarFormulario = true;
-        _mostrarFiltrosAvanzados = false;
+        _mostrarFiltros = false;
     }
 
     private void Cancelar()
     {
         _mostrarFormulario = false;
-        entradaDTO = new EntradaDTO
-        {
-            FechaEntrada = DateTime.Today,
-            TipoFuente = "FSE"
-        };
+        entradaDTO = new EntradaDTO { FechaEntrada = DateTime.Today, TipoFuente = "FSE" };
         editando = false;
         entradaEditandoId = 0;
         _filtroTexto = string.Empty;
         StateHasChanged();
     }
 
-    private void ToggleFiltrosAvanzados()
+    private void ToggleFiltros()
     {
         if (_mostrarFormulario)
         {
             _mostrarFormulario = false;
-            entradaDTO = new EntradaDTO
-            {
-                FechaEntrada = DateTime.Today,
-                TipoFuente = "FSE"
-            };
+            entradaDTO = new EntradaDTO { FechaEntrada = DateTime.Today, TipoFuente = "FSE" };
             editando = false;
             entradaEditandoId = 0;
         }
-
-        _mostrarFiltrosAvanzados = !_mostrarFiltrosAvanzados;
+        _mostrarFiltros = !_mostrarFiltros;
     }
 
     private async Task AplicarFiltrosAvanzados()
@@ -463,8 +479,10 @@
 
     private async Task LimpiarTodosLosFiltros()
     {
-        _filtroAvanzado = new FiltroMovimientoDTO();
         _filtroTexto = string.Empty;
+        _filtroTipo = null;
+        _filtroFechaDesde = null;
+        _filtroFechaHasta = null;
         _paginaActual = 1;
         await Cargar();
         StateHasChanged();
@@ -513,23 +531,9 @@
 
     private async Task Guardar()
     {
-        if (!editando && !puedeCrear)
-        {
-            Toast.Error("No tiene permiso para registrar entradas.");
-            return;
-        }
-
-        if (editando && !puedeEditar)
-        {
-            Toast.Error("No tiene permiso para editar entradas.");
-            return;
-        }
-
-        if (entradaDTO.BienId <= 0)
-        {
-            Toast.Error("Debe seleccionar un bien.");
-            return;
-        }
+        if (!editando && !puedeCrear) { Toast.Error("No tiene permiso para registrar entradas."); return; }
+        if (editando && !puedeEditar) { Toast.Error("No tiene permiso para editar entradas."); return; }
+        if (entradaDTO.BienId <= 0) { Toast.Error("Debe seleccionar un bien."); return; }
 
         try
         {
@@ -537,7 +541,6 @@
             {
                 await EntradaRepo.ActualizarAsync(entradaDTO);
                 Toast.Exito("Entrada actualizada correctamente");
-
                 _filtroTexto = string.Empty;
                 await Cargar();
                 StateHasChanged();
@@ -549,28 +552,22 @@
                     Toast.Error("Este bien ya tiene una entrada registrada.");
                     return;
                 }
-
                 await EntradaRepo.CrearAsync(entradaDTO);
                 Toast.Exito("Entrada registrada correctamente");
-
                 Cancelar();
                 await Cargar();
             }
         }
-        catch (Exception ex)
-        {
-            Toast.Error($"Error: {ex.Message}");
-        }
+        catch (Exception ex) { Toast.Error($"Error: {ex.Message}"); }
     }
 
     private void Editar(EntradaDTO e)
     {
         if (!puedeEditar) return;
-
         editando = true;
         entradaEditandoId = e.Id;
         _mostrarFormulario = true;
-        _mostrarFiltrosAvanzados = false;
+        _mostrarFiltros = false;
 
         entradaDTO.Id = e.Id;
         entradaDTO.BienId = e.BienId;
@@ -589,24 +586,15 @@
 
     private async Task Eliminar(int id)
     {
-        if (!puedeEliminar)
-        {
-            Toast.Error("No tiene permiso para eliminar entradas.");
-            return;
-        }
-
+        if (!puedeEliminar) { Toast.Error("No tiene permiso para eliminar entradas."); return; }
         var ok = await Confirm.Peligroso("¿Eliminar esta entrada? Esta acción no se puede deshacer.");
         if (!ok) return;
-
         try
         {
             await EntradaRepo.EliminarAsync(id);
             Toast.Exito("Entrada eliminada correctamente");
             await Cargar();
         }
-        catch (Exception ex)
-        {
-            Toast.Error($"Error: {ex.Message}");
-        }
+        catch (Exception ex) { Toast.Error($"Error: {ex.Message}"); }
     }
 }

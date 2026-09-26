@@ -1512,112 +1512,105 @@ code, kbd, samp, pre {
 
 /* ═══════════════════════════════════════════════════════════
    PATRÓN: FORM COLAPSABLE + TABLA GRANDE
-   Una sola pantalla · Cero scroll del navegador
    ═══════════════════════════════════════════════════════════ */
 
+.page-crud > .page-header {
+    flex-shrink: 0;
+    margin-bottom: 0;
+    align-items: center;
+    padding: 0;
+}
 
+.page-crud .page-header h1 {
+    font-size: var(--fs-xl);
+    margin-bottom: 0;
+}
 
-    /* Page header con botón de acción */
-    .page-crud > .page-header {
-        flex-shrink: 0;
-        margin-bottom: 0;
+.page-crud .page-header .subtitle {
+    margin-top: 2px;
+    font-size: var(--fs-xs);
+}
+
+.page-crud .btn-nuevo:hover:not(:disabled) {
+    background: var(--brand-hover);
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+    transform: translateY(-1px);
+}
+
+.page-crud .btn-nuevo:active:not(:disabled) {
+    background: var(--brand-active);
+    transform: translateY(0) scale(0.98);
+}
+
+.page-crud .btn-nuevo i {
+    font-size: 1.05em;
+    line-height: 1;
+    color: inherit;
+}
+
+.page-crud .card-form {
+    flex-shrink: 0;
+    margin-bottom: 0;
+    padding: var(--space-4) var(--space-5);
+    animation: slideDown var(--t-slow);
+    border: 2px solid var(--brand-border);
+    box-shadow: 0 4px 16px rgba(79, 70, 229, 0.08);
+}
+
+    .page-crud .card-form h3 {
+        margin-bottom: var(--space-3);
+        font-size: var(--fs-md);
+        display: flex;
         align-items: center;
-        padding: 0;
-    }
-
-    /* Compactar el h1 del page-header en modo CRUD */
-    .page-crud .page-header h1 {
-        font-size: var(--fs-xl);
-        margin-bottom: 0;
-    }
-
-    .page-crud .page-header .subtitle {
-        margin-top: 2px;
-        font-size: var(--fs-xs);
-    }
-
-    
-        .page-crud .btn-nuevo:hover:not(:disabled) {
-            background: var(--brand-hover);
-            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
-            transform: translateY(-1px);
-        }
-
-        .page-crud .btn-nuevo:active:not(:disabled) {
-            background: var(--brand-active);
-            transform: translateY(0) scale(0.98);
-        }
-
-        .page-crud .btn-nuevo i {
-            font-size: 1.05em;
-            line-height: 1;
-            color: inherit;
-        }
-
-    /* Form colapsable */
-    .page-crud .card-form {
-        flex-shrink: 0;
-        margin-bottom: 0;
-        padding: var(--space-4) var(--space-5);
-        animation: slideDown var(--t-slow);
-        border: 2px solid var(--brand-border);
-        box-shadow: 0 4px 16px rgba(79, 70, 229, 0.08);
-    }
-
-        .page-crud .card-form h3 {
-            margin-bottom: var(--space-3);
-            font-size: var(--fs-md);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: var(--space-3);
-        }
-
-            .page-crud .card-form h3 .btn-cerrar-form {
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                width: 28px;
-                height: 28px;
-                background: transparent;
-                border: none;
-                border-radius: var(--radius-sm);
-                color: var(--text-muted);
-                cursor: pointer;
-                transition: all var(--t-fast);
-                font-size: 1rem;
-            }
-
-                .page-crud .card-form h3 .btn-cerrar-form:hover {
-                    background: var(--danger-soft);
-                    color: var(--danger);
-                }
-
-    .page-crud .form-grid {
+        justify-content: space-between;
         gap: var(--space-3);
     }
 
-    .page-crud .form-group label {
-        font-size: var(--fs-xs);
-        margin-bottom: var(--space-1);
-    }
-
-    .page-crud .form-control,
-    .page-crud .form-select {
-        padding: 0.55rem 0.75rem;
-    }
-
-    .page-crud .form-actions {
-        margin-top: var(--space-3);
-        padding-top: var(--space-3);
-    }
-
-        .page-crud .form-actions .btn,
-        .page-crud .form-actions .btn-save,
-        .page-crud .form-actions .btn-cancel {
-            padding: 0.5rem 1rem;
-            font-size: var(--fs-sm);
+        .page-crud .card-form h3 .btn-cerrar-form {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            background: transparent;
+            border: none;
+            border-radius: var(--radius-sm);
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all var(--t-fast);
+            font-size: 1rem;
         }
+
+            .page-crud .card-form h3 .btn-cerrar-form:hover {
+                background: var(--danger-soft);
+                color: var(--danger);
+            }
+
+.page-crud .form-grid {
+    gap: var(--space-3);
+}
+
+.page-crud .form-group label {
+    font-size: var(--fs-xs);
+    margin-bottom: var(--space-1);
+}
+
+.page-crud .form-control,
+.page-crud .form-select {
+    padding: 0.55rem 0.75rem;
+}
+
+.page-crud .form-actions {
+    margin-top: var(--space-3);
+    padding-top: var(--space-3);
+}
+
+    .page-crud .form-actions .btn,
+    .page-crud .form-actions .btn-save,
+    .page-crud .form-actions .btn-cancel {
+        padding: 0.5rem 1rem;
+        font-size: var(--fs-sm);
+    }
 
 @keyframes slideDown {
     from {
@@ -1633,7 +1626,6 @@ code, kbd, samp, pre {
     }
 }
 
-/* Card table — ocupa el resto */
 .page-crud > .card-table {
     flex: 1 1 0;
     min-height: 200px;
@@ -1671,7 +1663,6 @@ code, kbd, samp, pre {
                 background: var(--text-disabled);
             }
 
-/* Header sticky dentro de la tabla */
 .page-crud .modern-table thead th,
 .page-crud .table thead th {
     position: sticky;
@@ -1681,7 +1672,6 @@ code, kbd, samp, pre {
     box-shadow: 0 1px 0 var(--border-soft);
 }
 
-/* Responsive del patrón colapsable */
 @media (max-width: 767.98px) {
     .page-crud {
         height: auto;
@@ -1717,7 +1707,6 @@ code, kbd, samp, pre {
 /* ═══════════════════════════════════════════════════════════
    FORMULARIO CON SECCIONES — patrón premium
    ═══════════════════════════════════════════════════════════ */
-
 .form-section {
     padding: var(--space-4) 0;
     border-bottom: 1px solid var(--border-soft);
@@ -1758,21 +1747,18 @@ code, kbd, samp, pre {
         margin-left: var(--space-2);
     }
 
-/* Grid de 3 columnas para formularios densos */
 .form-grid-3 {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: var(--space-3);
 }
 
-/* Grid de 2 columnas */
 .form-grid-2 {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: var(--space-3);
 }
 
-/* Campo que ocupa toda la fila */
 .form-group-full {
     grid-column: 1 / -1;
 }
@@ -1790,7 +1776,6 @@ code, kbd, samp, pre {
     }
 }
 
-/* Subtexto en celdas de tabla */
 .table-cell-primary {
     display: flex;
     flex-direction: column;
@@ -1808,7 +1793,6 @@ code, kbd, samp, pre {
         font-weight: var(--fw-regular);
     }
 
-/* Badges de tipo de bien */
 .badge-tipo-devolutivo {
     background: var(--brand-soft);
     color: var(--brand);
@@ -1855,7 +1839,6 @@ code, kbd, samp, pre {
         line-height: 1;
     }
 
-/* El input-icon en textarea necesita alineación superior */
 .input-icon > textarea {
     padding-left: 2.5rem !important;
     padding-top: 0.75rem !important;
@@ -1870,112 +1853,7 @@ code, kbd, samp, pre {
     }
 
 /* ═══════════════════════════════════════════════════════════
-   BIENES — Layout cuando el form está abierto
-   El form se limita en altura, la tabla mantiene mínimo visible
-   ═══════════════════════════════════════════════════════════ */
-
-/* Cuando el form está abierto, limitarlo */
-.page-crud > .card-form {
-    max-height: 55vh; /* máximo 55% del viewport */
-    overflow-y: auto; /* scroll interno si es muy alto */
-    scrollbar-width: thin;
-    scrollbar-color: var(--border-strong) transparent;
-}
-
-    .page-crud > .card-form::-webkit-scrollbar {
-        width: 6px;
-    }
-
-    .page-crud > .card-form::-webkit-scrollbar-thumb {
-        background: var(--border-strong);
-        border-radius: var(--radius-sm);
-    }
-
-/* La card-table siempre mantiene mínimo 200px */
-.page-crud > .card-table {
-    flex: 1 1 0;
-    min-height: 200px; /* garantiza ver varias filas */
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    margin-bottom: 0;
-}
-
-    /* Paginador siempre visible */
-    .page-crud > .card-table .paginador,
-    .page-crud > .card-table > .pagination {
-        flex-shrink: 0;
-        border-top: 1px solid var(--border-soft);
-        background: var(--bg-surface);
-    }
-
-    /* ═══════════════════════════════════════════════════════════
-   BIENES — Layout cuando el form está abierto
-   El form se limita en altura, la tabla mantiene mínimo visible
-   ═══════════════════════════════════════════════════════════ */
-
-/* Cuando el form está abierto, limitarlo */
-.page-crud > .card-form {
-    max-height: 55vh;              /* máximo 55% del viewport */
-    overflow-y: auto;               /* scroll interno si es muy alto */
-    scrollbar-width: thin;
-    scrollbar-color: var(--border-strong) transparent;
-}
-
-.page-crud > .card-form::-webkit-scrollbar {
-    width: 6px;
-}
-.page-crud > .card-form::-webkit-scrollbar-thumb {
-    background: var(--border-strong);
-    border-radius: var(--radius-sm);
-}
-
-/* La card-table siempre mantiene mínimo 200px */
-.page-crud > .card-table {
-    flex: 1 1 0;
-    min-height: 200px;              /* garantiza ver varias filas */
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    margin-bottom: 0;
-}
-
-/* Paginador siempre visible */
-.page-crud > .card-table .paginador,
-.page-crud > .card-table > .pagination {
-    flex-shrink: 0;
-    border-top: 1px solid var(--border-soft);
-    background: var(--bg-surface);
-}
-
-/* Compactar el form de Bienes cuando está abierto */
-.page-crud > .card-form .form-section {
-    padding: var(--space-3) 0;
-}
-
-.page-crud > .card-form .form-section-title {
-    margin-bottom: var(--space-2);
-    padding-bottom: var(--space-1);
-    font-size: 0.7rem;
-}
-
-.page-crud > .card-form .form-control,
-.page-crud > .card-form .form-select {
-    padding: 0.5rem 0.75rem;
-    font-size: var(--fs-sm);
-}
-
-.page-crud > .card-form .form-grid-3 {
-    gap: var(--space-2);
-}
-
-.page-crud > .card-form .form-group label {
-    font-size: 0.7rem;
-    margin-bottom: 4px;
-}
-
-/* ═══════════════════════════════════════════════════════════
-   APP LOADER — spinner inicial mientras Blazor hidrata
+   APP LOADER
    ═══════════════════════════════════════════════════════════ */
 #app-loading {
     position: fixed;
@@ -2013,10 +1891,8 @@ code, kbd, samp, pre {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   FORM-HEADER BLINDADO — todas las páginas CRUD
-   Aplica a Funcionarios, Usuarios, y cualquier otra sin .razor.css
+   FORM-HEADER BLINDADO — fallback global
    ═══════════════════════════════════════════════════════════ */
-
 .card-form .form-header {
     display: flex !important;
     align-items: center !important;
@@ -2095,21 +1971,207 @@ code, kbd, samp, pre {
         color: #dc2626 !important;
     }
 
-/* Responsive: en móvil se oculta el centro */
 @media (max-width: 767.98px) {
     .card-form .form-header-center {
         display: none !important;
     }
 }
 
-/* ═══ Ocultar barra de scroll — mantiene el scroll funcional ═══ */
-.table-responsive::-webkit-scrollbar {
-    width: 0;
-    height: 0;
-    display: none;
+/* ═══════════════════════════════════════════════════════════
+   PAGINADOR — Componente compartido (global, no scoped)
+   ═══════════════════════════════════════════════════════════ */
+.paginador-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    padding: var(--space-3) var(--space-5);
+    background: var(--bg-muted);
+    border-top: 1px solid var(--border-soft);
+    flex-wrap: wrap;
+    font-size: var(--fs-sm);
 }
 
-.table-responsive {
-    scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none; /* IE/Edge legacy */
+.paginador-info {
+    color: var(--text-muted);
 }
+
+    .paginador-info strong {
+        color: var(--text-primary);
+        font-weight: var(--fw-semibold);
+    }
+
+.paginador-controles {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+}
+
+.pg-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 1px solid var(--border-soft);
+    background: var(--bg-surface);
+    border-radius: var(--radius-sm);
+    color: var(--brand);
+    cursor: pointer;
+    transition: all var(--t-fast);
+    font-size: 0.85rem;
+    font-family: inherit;
+}
+
+    .pg-btn:hover:not(:disabled) {
+        background: var(--brand-soft);
+        border-color: var(--brand-border);
+        color: var(--brand-hover);
+        transform: translateY(-1px);
+        box-shadow: 0 2px 6px rgba(79, 70, 229, 0.15);
+    }
+
+    .pg-btn:active:not(:disabled) {
+        transform: translateY(0) scale(0.96);
+    }
+
+    .pg-btn:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+        color: var(--text-disabled);
+        background: var(--bg-surface);
+    }
+
+    .pg-btn i {
+        font-size: 0.9rem;
+        line-height: 1;
+    }
+
+.pg-page {
+    padding: 0 var(--space-3);
+    color: var(--text-secondary);
+    font-size: var(--fs-sm);
+}
+
+    .pg-page strong {
+        color: var(--text-primary);
+        font-weight: var(--fw-semibold);
+    }
+
+.paginador-size {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--text-muted);
+    font-size: var(--fs-sm);
+}
+
+    .paginador-size label {
+        margin: 0;
+        font-size: var(--fs-sm);
+        color: var(--text-muted);
+    }
+
+    .paginador-size select {
+        padding: 0.35rem 0.55rem;
+        border: 1.5px solid var(--border-soft);
+        border-radius: var(--radius-sm);
+        background: var(--bg-surface);
+        font-size: var(--fs-sm);
+        cursor: pointer;
+        color: var(--text-primary);
+        font-family: inherit;
+        transition: border-color var(--t-fast), box-shadow var(--t-fast);
+    }
+
+        .paginador-size select:hover {
+            border-color: var(--border-strong);
+        }
+
+        .paginador-size select:focus {
+            outline: none;
+            border-color: var(--brand);
+            box-shadow: var(--shadow-focus);
+        }
+
+@media (max-width: 767.98px) {
+    .paginador-container {
+        flex-direction: column;
+        gap: var(--space-2);
+        text-align: center;
+    }
+
+    .paginador-controles {
+        justify-content: center;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   INPUTS DE FECHA — estilo uniforme
+   ═══════════════════════════════════════════════════════════ */
+input[type="date"] {
+    padding: 0.5rem 0.75rem;
+    background: #ffffff;
+    border: 1.5px solid var(--border-soft);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: var(--fs-sm);
+    cursor: pointer;
+    transition: border-color var(--t-fast), box-shadow var(--t-fast), background var(--t-fast);
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+    input[type="date"]:hover {
+        border-color: var(--border-strong);
+        background: var(--bg-muted);
+    }
+
+    input[type="date"]:focus {
+        outline: none;
+        border-color: var(--brand);
+        box-shadow: var(--shadow-focus);
+        background: var(--bg-surface);
+    }
+
+    input[type="date"]::-webkit-calendar-picker-indicator {
+        cursor: pointer;
+        opacity: 0.55;
+        transition: opacity var(--t-fast), transform var(--t-fast);
+        margin-left: 0.25rem;
+    }
+
+        input[type="date"]::-webkit-calendar-picker-indicator:hover {
+            opacity: 1;
+            transform: scale(1.1);
+        }
+
+    input[type="date"]::-webkit-datetime-edit {
+        padding: 0;
+        color: var(--text-primary);
+    }
+
+.filtro-select input[type="date"] {
+    padding-left: 2.3rem;
+    width: 100%;
+}
+
+.filtro-field input[type="date"] {
+    width: 100%;
+    padding: 0.5rem 0.7rem;
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius);
+    font-size: var(--fs-sm);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    transition: all var(--t-fast);
+    font-family: inherit;
+}
+
+    .filtro-field input[type="date"]:focus {
+        outline: none;
+        border-color: var(--brand);
+        box-shadow: var(--shadow-focus);
+    }

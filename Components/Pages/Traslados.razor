@@ -24,7 +24,6 @@
 
 <div class="page-container page-crud">
 
-    @* ═══════════════ PAGE HEADER (oculto cuando el form está abierto) ═══════════════ *@
     @if (!_mostrarFormulario)
     {
         <div class="page-header">
@@ -44,7 +43,6 @@
         </div>
     }
 
-    @* ═══════════════ FORM COLAPSABLE ═══════════════ *@
     @if (_mostrarFormulario)
     {
         <div class="card-form">
@@ -53,7 +51,6 @@
                     <i class="bi bi-@(editando ? "eye-fill" : "plus-circle")"></i>
                     <span>@(editando ? "Ver Traslado" : "Nuevo Traslado")</span>
                 </div>
-
                 <div class="form-header-center">
                     <i class="bi bi-arrow-left-right"></i>
                     <div>
@@ -61,7 +58,6 @@
                         <div class="form-header-subtitle">Movimientos internos de bienes</div>
                     </div>
                 </div>
-
                 <button class="btn-cerrar-form" @onclick="Cancelar" title="Cerrar">
                     <i class="bi bi-x-lg"></i>
                 </button>
@@ -79,9 +75,7 @@
                 <DataAnnotationsValidator />
 
                 <div class="form-section">
-                    <h4 class="form-section-title">
-                        <i class="bi bi-card-list"></i> Datos del Traslado
-                    </h4>
+                    <h4 class="form-section-title"><i class="bi bi-card-list"></i> Datos del Traslado</h4>
                     <div class="form-grid-3">
 
                         <div class="form-group">
@@ -186,12 +180,9 @@
         </div>
     }
 
-    @* ═══════════════ CARD TABLE ═══════════════ *@
     <div class="card-table">
 
-        @* Barra de filtros *@
         <div class="filtros-toolbar">
-
             <div class="filtro-busqueda-principal">
                 <i class="bi bi-search"></i>
                 <input type="text"
@@ -208,32 +199,44 @@
             </div>
 
             <div class="filtros-toolbar-actions">
-                <button class="btn-filtros @(_mostrarFiltrosAvanzados ? "active" : "")"
-                        @onclick="ToggleFiltrosAvanzados">
+                <button class="btn-filtros @(_mostrarFiltros ? "active" : "")"
+                        @onclick="ToggleFiltros">
                     <i class="bi bi-sliders"></i>
                     <span>Filtros</span>
-                    @if (_filtroAvanzado.HayFiltros)
+                    @if (_hayFiltrosAvanzados)
                     {
                         <span class="filtros-badge"></span>
                     }
-                    <i class="bi @(_mostrarFiltrosAvanzados ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                    <i class="bi @(_mostrarFiltros ? "bi-chevron-up" : "bi-chevron-down")"></i>
                 </button>
             </div>
         </div>
 
-        @* Filtros avanzados (colapsables) *@
-        @if (_mostrarFiltrosAvanzados)
+        @if (_mostrarFiltros)
         {
             <div class="panel-filtros">
-                <FiltrosMovimiento Filtro="_filtroAvanzado"
-                                   OnCambio="AplicarFiltrosAvanzados" />
+                <div class="filtros-grid">
+                    <div class="filtro-select">
+                        <i class="bi bi-calendar"></i>
+                        <input type="date" @bind="_filtroFechaDesde" @bind:after="AplicarFiltrosAvanzados" />
+                    </div>
+
+                    <div class="filtro-select">
+                        <i class="bi bi-calendar"></i>
+                        <input type="date" @bind="_filtroFechaHasta" @bind:after="AplicarFiltrosAvanzados" />
+                    </div>
+                </div>
 
                 <div class="filtros-acciones">
                     <span class="badge-total">
                         <i class="bi bi-arrow-left-right"></i>
                         <strong>@(_pagina?.TotalRegistros ?? 0)</strong> traslados
+                        @if (_hayFiltrosActivos)
+                        {
+                            <span class="filtro-activo-tag">· Filtrado</span>
+                        }
                     </span>
-                    @if (_filtroAvanzado.HayFiltros)
+                    @if (_hayFiltrosAvanzados)
                     {
                         <button class="btn-limpiar-filtros" @onclick="LimpiarTodosLosFiltros">
                             <i class="bi bi-arrow-counterclockwise"></i>
@@ -261,15 +264,11 @@
                 <tbody>
                     @if (_pagina is null)
                     {
-                        <tr>
-                            <td colspan="8" class="text-center py-4 text-muted">Cargando traslados…</td>
-                        </tr>
+                        <tr><td colspan="8" class="text-center py-4 text-muted">Cargando traslados…</td></tr>
                     }
                     else if (!_pagina.Items.Any())
                     {
-                        <tr>
-                            <td colspan="8" class="text-center py-4 text-muted">Sin traslados registrados.</td>
-                        </tr>
+                        <tr><td colspan="8" class="text-center py-4 text-muted">Sin traslados registrados.</td></tr>
                     }
                     else
                     {
@@ -309,16 +308,7 @@
                                         <span class="text-muted">—</span>
                                     }
                                 </td>
-                                <td>
-                                    @if (!string.IsNullOrEmpty(t.FuncionarioNuevoNombre))
-                                    {
-                                        <span>@t.FuncionarioNuevoNombre</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="text-muted">—</span>
-                                    }
-                                </td>
+                                <td>@(t.FuncionarioNuevoNombre ?? "—")</td>
                                 <td>
                                     @if (!string.IsNullOrWhiteSpace(t.Motivo))
                                     {
@@ -368,7 +358,7 @@
     private bool editando = false;
     private int trasladoEditandoId;
     private bool _mostrarFormulario = false;
-    private bool _mostrarFiltrosAvanzados = false;
+    private bool _mostrarFiltros = false;
 
     private string _aulaOrigenNombre = "— Sin ubicación previa —";
     private string _funcionarioAnteriorNombre = "— Sin responsable previo —";
@@ -376,13 +366,22 @@
     private int _paginaActual = 1;
     private int _tamanoPagina = 25;
     private string _filtroTexto = string.Empty;
+    private DateTime? _filtroFechaDesde;
+    private DateTime? _filtroFechaHasta;
     private CancellationTokenSource? _debounceCts;
 
     private bool puedeCrear;
     private bool puedeEditar;
     private bool puedeEliminar;
 
-    private FiltroMovimientoDTO _filtroAvanzado = new();
+    private bool _hayFiltrosActivos =>
+        !string.IsNullOrEmpty(_filtroTexto) ||
+        _filtroFechaDesde.HasValue ||
+        _filtroFechaHasta.HasValue;
+
+    private bool _hayFiltrosAvanzados =>
+        _filtroFechaDesde.HasValue ||
+        _filtroFechaHasta.HasValue;
 
     protected override async Task OnInitializedAsync()
     {
@@ -405,10 +404,17 @@
 
     private async Task Cargar()
     {
-        if (_filtroAvanzado.HayFiltros)
+        var filtro = new FiltroMovimientoDTO
+        {
+            Texto = string.IsNullOrWhiteSpace(_filtroTexto) ? null : _filtroTexto,
+            FechaDesde = _filtroFechaDesde,
+            FechaHasta = _filtroFechaHasta
+        };
+
+        if (filtro.HayFiltros)
         {
             _pagina = await TrasladoRepo.ObtenerPaginadoConFiltrosAsync(
-                _filtroAvanzado, _paginaActual, _tamanoPagina);
+                filtro, _paginaActual, _tamanoPagina);
         }
         else
         {
@@ -426,7 +432,7 @@
         _aulaOrigenNombre = "— Sin ubicación previa —";
         _funcionarioAnteriorNombre = "— Sin responsable previo —";
         _mostrarFormulario = true;
-        _mostrarFiltrosAvanzados = false;
+        _mostrarFiltros = false;
     }
 
     private void Cancelar()
@@ -441,7 +447,7 @@
         StateHasChanged();
     }
 
-    private void ToggleFiltrosAvanzados()
+    private void ToggleFiltros()
     {
         if (_mostrarFormulario)
         {
@@ -452,8 +458,7 @@
             _aulaOrigenNombre = "— Sin ubicación previa —";
             _funcionarioAnteriorNombre = "— Sin responsable previo —";
         }
-
-        _mostrarFiltrosAvanzados = !_mostrarFiltrosAvanzados;
+        _mostrarFiltros = !_mostrarFiltros;
     }
 
     private async Task CambioPagina(int nuevaPagina)
@@ -480,8 +485,9 @@
 
     private async Task LimpiarTodosLosFiltros()
     {
-        _filtroAvanzado = new FiltroMovimientoDTO();
         _filtroTexto = string.Empty;
+        _filtroFechaDesde = null;
+        _filtroFechaHasta = null;
         _paginaActual = 1;
         await Cargar();
         StateHasChanged();
@@ -497,7 +503,6 @@
         {
             await Task.Delay(350, token);
             if (token.IsCancellationRequested) return;
-
             _paginaActual = 1;
             await Cargar();
             StateHasChanged();
@@ -549,23 +554,9 @@
 
     private async Task Guardar()
     {
-        if (!puedeCrear)
-        {
-            Toast.Error("No tiene permiso para registrar traslados.");
-            return;
-        }
-
-        if (trasladoDTO.BienId <= 0)
-        {
-            Toast.Error("Debe seleccionar un bien.");
-            return;
-        }
-
-        if (trasladoDTO.AulaDestinoId <= 0)
-        {
-            Toast.Error("Debe seleccionar un aula destino.");
-            return;
-        }
+        if (!puedeCrear) { Toast.Error("No tiene permiso para registrar traslados."); return; }
+        if (trasladoDTO.BienId <= 0) { Toast.Error("Debe seleccionar un bien."); return; }
+        if (trasladoDTO.AulaDestinoId <= 0) { Toast.Error("Debe seleccionar un aula destino."); return; }
 
         if (trasladoDTO.AulaOrigenId == trasladoDTO.AulaDestinoId &&
             trasladoDTO.FuncionarioAnteriorId == trasladoDTO.FuncionarioNuevoId)
@@ -577,7 +568,6 @@
         try
         {
             await TrasladoRepo.CrearAsync(trasladoDTO);
-
             await TrasladoRepo.ActualizarUbicacionBienAsync(
                 trasladoDTO.BienId,
                 trasladoDTO.AulaDestinoId,
@@ -587,20 +577,12 @@
             Cancelar();
             await Cargar();
         }
-        catch (Exception ex)
-        {
-            Toast.Error($"Error: {ex.Message}");
-        }
+        catch (Exception ex) { Toast.Error($"Error: {ex.Message}"); }
     }
 
     private async Task Eliminar(TrasladoDTO t)
     {
-        if (!puedeEliminar)
-        {
-            Toast.Error("No tiene permiso para eliminar traslados.");
-            return;
-        }
-
+        if (!puedeEliminar) { Toast.Error("No tiene permiso para eliminar traslados."); return; }
         var ok = await Confirm.Peligroso(
             "¿Eliminar este traslado del histórico? El bien NO se revertirá automáticamente.");
         if (!ok) return;
@@ -611,9 +593,6 @@
             Toast.Exito("Traslado eliminado del histórico.");
             await Cargar();
         }
-        catch (Exception ex)
-        {
-            Toast.Error($"Error: {ex.Message}");
-        }
+        catch (Exception ex) { Toast.Error($"Error: {ex.Message}"); }
     }
 }
