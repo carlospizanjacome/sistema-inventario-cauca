@@ -21,30 +21,63 @@
 
 <PageTitle>Salidas · Almacén</PageTitle>
 
-<div class="usuarios-page usuarios-fullscreen">
+<div class="page-container page-crud">
 
-    <div class="modern-card panel-formulario">
+    @* ═══════════════ PAGE HEADER (oculto cuando el form está abierto) ═══════════════ *@
+    @if (!_mostrarFormulario)
+    {
+        <div class="page-header">
+            <div>
+                <h1><i class="bi bi-box-arrow-up"></i> Salidas / Bajas</h1>
+                <p class="subtitle">Retiro definitivo de bienes del inventario (obsolescencia, daño, hurto)</p>
+            </div>
 
-        <div class="card-top-compact d-flex align-items-center gap-2 mb-2 pb-2 border-bottom">
-            <div class="card-icon-small-inline">
-                <i class="bi @(editando ? "bi-pencil-square" : "bi-box-arrow-up")" style="color: #dc2626; font-size: 1.1rem;"></i>
-            </div>
-            <div class="d-flex align-items-baseline gap-2">
-                <h5 class="m-0 fw-bold text-dark" style="font-size: 1rem;">@(editando ? "Editar Salida" : "Nueva Salida / Baja")</h5>
-                <span class="text-muted d-none d-sm-inline" style="font-size: 0.75rem;">| Retiro definitivo de bienes del inventario</span>
-            </div>
+            @if (puedeCrear)
+            {
+                <div class="header-actions">
+                    <button class="btn-nuevo btn-nuevo-danger" @onclick="AbrirFormulario">
+                        <i class="bi bi-plus-lg"></i> Nueva Salida / Baja
+                    </button>
+                </div>
+            }
         </div>
+    }
 
-        <EditForm @key="salidaEditandoId" Model="salidaDTO" OnValidSubmit="Guardar">
-            <DataAnnotationsValidator />
+    @* ═══════════════ FORM COLAPSABLE ═══════════════ *@
+    @if (_mostrarFormulario)
+    {
+        <div class="card-form">
+            <div class="form-header">
+                <div class="form-header-left">
+                    <i class="bi bi-@(editando ? "pencil-square" : "plus-circle")"></i>
+                    <span>@(editando ? "Editar Salida" : "Nueva Salida / Baja")</span>
+                </div>
 
-            <div class="container-fluid p-0">
+                <div class="form-header-center">
+                    <i class="bi bi-box-arrow-up"></i>
+                    <div>
+                        <div class="form-header-title">Salidas / Bajas</div>
+                        <div class="form-header-subtitle">Retiro definitivo del inventario</div>
+                    </div>
+                </div>
 
-                <div class="row g-2 mb-2">
-                    <div class="col-md-5">
-                        <div class="modern-group">
+                <button class="btn-cerrar-form" @onclick="Cancelar" title="Cerrar">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <EditForm @key="salidaEditandoId" Model="salidaDTO" OnValidSubmit="Guardar">
+                <DataAnnotationsValidator />
+
+                <div class="form-section">
+                    <h4 class="form-section-title">
+                        <i class="bi bi-card-list"></i> Identificación
+                    </h4>
+                    <div class="form-grid-3">
+
+                        <div class="form-group" style="grid-column: span 2;">
                             <label>Bien *</label>
-                            <div class="input-modern">
+                            <div class="input-icon">
                                 <i class="bi bi-box-seam"></i>
                                 <InputSelect class="form-select" @bind-Value="salidaDTO.BienId">
                                     <option value="0">— Seleccione bien —</option>
@@ -54,14 +87,12 @@
                                     }
                                 </InputSelect>
                             </div>
-                            <ValidationMessage For="() => salidaDTO.BienId" />
+                            <ValidationMessage For="() => salidaDTO.BienId" class="form-error" />
                         </div>
-                    </div>
 
-                    <div class="col-md-4">
-                        <div class="modern-group">
+                        <div class="form-group">
                             <label>Tipo de Baja *</label>
-                            <div class="input-modern">
+                            <div class="input-icon">
                                 <i class="bi bi-x-circle"></i>
                                 <InputSelect class="form-select" @bind-Value="salidaDTO.TipoBaja">
                                     <option value="Obsolescencia">Obsolescencia</option>
@@ -73,57 +104,45 @@
                                 </InputSelect>
                             </div>
                         </div>
-                    </div>
 
-                    <div class="col-md-3">
-                        <div class="modern-group">
+                        <div class="form-group">
                             <label>Fecha Salida *</label>
-                            <div class="input-modern">
+                            <div class="input-icon">
                                 <i class="bi bi-calendar-x"></i>
                                 <InputDate class="form-control" @bind-Value="salidaDTO.FechaSalida" />
                             </div>
-                            <ValidationMessage For="() => salidaDTO.FechaSalida" />
+                            <ValidationMessage For="() => salidaDTO.FechaSalida" class="form-error" />
                         </div>
-                    </div>
-                </div>
 
-                <div class="row g-2 mb-2">
-                    <div class="col-md-4">
-                        <div class="modern-group">
+                        <div class="form-group">
                             <label>N° Acta Comité</label>
-                            <div class="input-modern">
+                            <div class="input-icon">
                                 <i class="bi bi-file-earmark-text"></i>
-                                <InputText class="form-control" @bind-Value="salidaDTO.NumeroActaComite" placeholder="Acta 001-2026" />
+                                <InputText class="form-control" @bind-Value="salidaDTO.NumeroActaComite"
+                                           placeholder="Acta 001-2026" />
                             </div>
                         </div>
-                    </div>
 
-                    <div class="col-md-4">
-                        <div class="modern-group">
+                        <div class="form-group">
                             <label>N° Radicado Denuncia</label>
-                            <div class="input-modern">
+                            <div class="input-icon">
                                 <i class="bi bi-shield-exclamation"></i>
-                                <InputText class="form-control" @bind-Value="salidaDTO.NumeroDenuncia" placeholder="Solo si es hurto" />
+                                <InputText class="form-control" @bind-Value="salidaDTO.NumeroDenuncia"
+                                           placeholder="Solo si es hurto" />
                             </div>
                         </div>
-                    </div>
 
-                    <div class="col-md-4">
-                        <div class="modern-group">
+                        <div class="form-group">
                             <label>Valor de Salida</label>
-                            <div class="input-modern">
+                            <div class="input-icon">
                                 <i class="bi bi-currency-dollar"></i>
-                                <InputNumber class="form-control" @bind-Value="salidaDTO.ValorSalida" />
+                                <InputNumber class="form-control" @bind-Value="salidaDTO.ValorSalida" min="0" />
                             </div>
                         </div>
-                    </div>
-                </div>
 
-                <div class="row g-2 mb-2">
-                    <div class="col-md-4">
-                        <div class="modern-group">
+                        <div class="form-group">
                             <label>Aprueba (Funcionario)</label>
-                            <div class="input-modern">
+                            <div class="input-icon">
                                 <i class="bi bi-person-check"></i>
                                 <InputSelect class="form-select" @bind-Value="salidaDTO.FuncionarioApruebaId">
                                     <option value="">— Sin asignar —</option>
@@ -134,56 +153,59 @@
                                 </InputSelect>
                             </div>
                         </div>
-                    </div>
 
-                    <div class="col-md-8">
-                        <div class="modern-group">
+                        <div class="form-group" style="grid-column: span 2;">
                             <label>Motivo *</label>
-                            <div class="input-modern">
+                            <div class="input-icon">
                                 <i class="bi bi-chat-left-text"></i>
-                                <InputText class="form-control" @bind-Value="salidaDTO.Motivo" placeholder="Descripción del motivo de la baja" />
+                                <InputText class="form-control" @bind-Value="salidaDTO.Motivo"
+                                           placeholder="Descripción del motivo de la baja" />
                             </div>
-                            <ValidationMessage For="() => salidaDTO.Motivo" />
+                            <ValidationMessage For="() => salidaDTO.Motivo" class="form-error" />
                         </div>
-                    </div>
-                </div>
 
-                <div class="row g-2 mb-2">
-                    <div class="col-md-12">
-                        <div class="modern-group">
+                        <div class="form-group form-group-full">
                             <label>Observaciones</label>
-                            <InputTextArea class="form-control" rows="2" @bind-Value="salidaDTO.Observaciones" />
+                            <div class="input-icon">
+                                <i class="bi bi-chat-left-text textarea-icon"></i>
+                                <InputTextArea class="form-control" rows="2" @bind-Value="salidaDTO.Observaciones"
+                                               placeholder="Observaciones adicionales sobre la baja" />
+                            </div>
                         </div>
+
                     </div>
                 </div>
 
-            </div>
-
-            <div class="d-flex gap-2 mt-3 justify-content-end">
-                @if (editando)
+                @if (editando && salidaEditandoId > 0)
                 {
-                    <button type="button" class="btn btn-cancel px-4" @onclick="Cancelar">
-                        <i class="bi bi-x-circle me-2"></i> Cancelar
-                    </button>
+                    <div class="form-section">
+                        <h4 class="form-section-title">
+                            <i class="bi bi-paperclip"></i> Soportes
+                        </h4>
+                        <AdjuntosUploader EntidadTipo="salida" EntidadId="salidaEditandoId" />
+                    </div>
                 }
-                <button type="submit" class="btn btn-save px-4" style="background:#dc2626;">
-                    <i class="bi @(editando ? "bi-check-circle-fill" : "bi-box-arrow-up") me-2"></i>
-                    @(editando ? "Actualizar Salida" : "Registrar Salida")
-                </button>
-            </div>
-        </EditForm>
-    </div>
 
-    <!-- ═══════════ TABLA CON FILTROS + PAGINACIÓN ═══════════ -->
-    <div class="modern-card panel-tabla-elastic position-relative">
+                <div class="form-actions">
+                    <button type="button" class="btn btn-cancel" @onclick="Cancelar">
+                        <i class="bi bi-x-lg"></i> Cerrar
+                    </button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi @(editando ? "bi-check-circle-fill" : "bi-box-arrow-up")"></i>
+                        @(editando ? "Actualizar" : "Registrar Baja")
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    }
 
-        <FiltrosMovimiento Filtro="_filtroAvanzado"
-                           OnCambio="AplicarFiltrosAvanzados"
-                           EtiquetaTipo="Tipo de Baja"
-                           OpcionesTipo="@TiposBaja" />
+    @* ═══════════════ CARD TABLE ═══════════════ *@
+    <div class="card-table">
 
-        <div class="filtros-tabla">
-            <div class="filtro-busqueda">
+        @* Barra de filtros *@
+        <div class="filtros-toolbar">
+
+            <div class="filtro-busqueda-principal">
                 <i class="bi bi-search"></i>
                 <input type="text"
                        placeholder="Buscar por bien, motivo o acta…"
@@ -197,16 +219,48 @@
                     </button>
                 }
             </div>
-            <div class="filtro-info">
-                <span class="badge-total">
-                    <i class="bi bi-arrow-up-circle"></i>
-                    <strong>@(_pagina?.TotalRegistros ?? 0)</strong> salidas
-                </span>
+
+            <div class="filtros-toolbar-actions">
+                <button class="btn-filtros @(_mostrarFiltrosAvanzados ? "active" : "")"
+                        @onclick="ToggleFiltrosAvanzados">
+                    <i class="bi bi-sliders"></i>
+                    <span>Filtros</span>
+                    @if (_filtroAvanzado.HayFiltros)
+                    {
+                        <span class="filtros-badge"></span>
+                    }
+                    <i class="bi @(_mostrarFiltrosAvanzados ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                </button>
             </div>
         </div>
 
-        <div class="table-responsive style-scrollbar">
-            <table class="table modern-table align-middle m-0">
+        @* Filtros avanzados (colapsables) *@
+        @if (_mostrarFiltrosAvanzados)
+        {
+            <div class="panel-filtros">
+                <FiltrosMovimiento Filtro="_filtroAvanzado"
+                                   OnCambio="AplicarFiltrosAvanzados"
+                                   EtiquetaTipo="Tipo de Baja"
+                                   OpcionesTipo="@TiposBaja" />
+
+                <div class="filtros-acciones">
+                    <span class="badge-total">
+                        <i class="bi bi-box-arrow-up"></i>
+                        <strong>@(_pagina?.TotalRegistros ?? 0)</strong> salidas
+                    </span>
+                    @if (_filtroAvanzado.HayFiltros)
+                    {
+                        <button class="btn-limpiar-filtros" @onclick="LimpiarTodosLosFiltros">
+                            <i class="bi bi-arrow-counterclockwise"></i>
+                            Limpiar filtros
+                        </button>
+                    }
+                </div>
+            </div>
+        }
+
+        <div class="table-responsive">
+            <table class="table modern-table">
                 <thead>
                     <tr>
                         <th>Fecha</th>
@@ -217,51 +271,75 @@
                         <th>Denuncia</th>
                         <th class="text-end">Valor</th>
                         <th>Aprueba</th>
-                        <th class="text-center">Acciones</th>
+                        <th class="text-center" style="width: 110px;">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
                     @if (_pagina is null)
                     {
                         <tr>
-                            <td colspan="9" class="text-center py-3 text-muted">
-                                <div class="spinner-border spinner-border-sm me-2" role="status"></div>
-                                Cargando...
-                            </td>
+                            <td colspan="9" class="text-center py-4 text-muted">Cargando salidas…</td>
                         </tr>
                     }
                     else if (!_pagina.Items.Any())
                     {
-                        <tr><td colspan="9" class="text-center py-3 text-muted">Sin salidas registradas.</td></tr>
+                        <tr>
+                            <td colspan="9" class="text-center py-4 text-muted">Sin salidas registradas.</td>
+                        </tr>
                     }
                     else
                     {
                         @foreach (var s in _pagina.Items)
                         {
                             <tr class="table-row-hover">
-                                <td>@s.FechaSalida?.ToString("dd/MM/yyyy")</td>
-                                <td><code>@s.BienCodigo</code> @s.BienNombre</td>
+                                <td class="text-mono">@s.FechaSalida?.ToString("dd/MM/yyyy")</td>
                                 <td>
-                                    <span class="badge bg-danger">@s.TipoBaja</span>
+                                    <div class="table-cell-primary">
+                                        <strong>@s.BienNombre</strong>
+                                        <small>@s.BienCodigo</small>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge @GetClaseBadgeTipoBaja(s.TipoBaja)">
+                                        @s.TipoBaja
+                                    </span>
                                 </td>
                                 <td>@s.Motivo</td>
-                                <td>@s.NumeroActaComite</td>
-                                <td>@s.NumeroDenuncia</td>
-                                <td class="text-end">@s.ValorSalida.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("es-CO"))</td>
+                                <td class="text-mono">@s.NumeroActaComite</td>
+                                <td class="text-mono">
+                                    @if (!string.IsNullOrEmpty(s.NumeroDenuncia))
+                                    {
+                                        <span class="text-danger">
+                                            <i class="bi bi-shield-exclamation"></i>
+                                            @s.NumeroDenuncia
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                </td>
+                                <td class="text-end num">@s.ValorSalida.ToString("C0", CulturaCOP)</td>
                                 <td>@(s.FuncionarioNombre ?? "—")</td>
                                 <td class="text-center">
-                                    @if (puedeEditar)
-                                    {
-                                        <button class="btn-icon me-1" @onclick="() => Editar(s)">
-                                            <i class="bi bi-pencil-fill"></i>
-                                        </button>
-                                    }
-                                    @if (puedeEliminar)
-                                    {
-                                        <button class="btn-icon danger" @onclick="() => Eliminar(s)">
-                                            <i class="bi bi-trash-fill"></i>
-                                        </button>
-                                    }
+                                    <div class="action-buttons">
+                                        @if (puedeEditar)
+                                        {
+                                            <button class="btn-action btn-action-edit"
+                                                    @onclick="() => Editar(s)"
+                                                    title="Editar / Adjuntos">
+                                                <i class="bi bi-pencil-fill"></i>
+                                            </button>
+                                        }
+                                        @if (puedeEliminar)
+                                        {
+                                            <button class="btn-action btn-action-delete"
+                                                    @onclick="() => Eliminar(s)"
+                                                    title="Eliminar / Reactivar bien">
+                                                <i class="bi bi-trash-fill"></i>
+                                            </button>
+                                        }
+                                    </div>
                                 </td>
                             </tr>
                         }
@@ -281,6 +359,9 @@
 </div>
 
 @code {
+    private static readonly System.Globalization.CultureInfo CulturaCOP =
+        System.Globalization.CultureInfo.GetCultureInfo("es-CO");
+
     private ResultadoPaginado<SalidaDTO>? _pagina;
     private IEnumerable<Bien> bienes = [];
     private IEnumerable<FuncionarioDTO> funcionarios = [];
@@ -288,6 +369,8 @@
     private SalidaDTO salidaDTO = new();
     private bool editando = false;
     private int salidaEditandoId;
+    private bool _mostrarFormulario = false;
+    private bool _mostrarFiltrosAvanzados = false;
 
     private int _paginaActual = 1;
     private int _tamanoPagina = 25;
@@ -338,6 +421,50 @@
         }
     }
 
+    private void AbrirFormulario()
+    {
+        salidaDTO = new SalidaDTO
+        {
+            FechaSalida = DateTime.Today,
+            TipoBaja = "Obsolescencia"
+        };
+        editando = false;
+        salidaEditandoId = 0;
+        _mostrarFormulario = true;
+        _mostrarFiltrosAvanzados = false;
+    }
+
+    private void Cancelar()
+    {
+        _mostrarFormulario = false;
+        salidaDTO = new SalidaDTO
+        {
+            FechaSalida = DateTime.Today,
+            TipoBaja = "Obsolescencia"
+        };
+        editando = false;
+        salidaEditandoId = 0;
+        _filtroTexto = string.Empty;
+        StateHasChanged();
+    }
+
+    private void ToggleFiltrosAvanzados()
+    {
+        if (_mostrarFormulario)
+        {
+            _mostrarFormulario = false;
+            salidaDTO = new SalidaDTO
+            {
+                FechaSalida = DateTime.Today,
+                TipoBaja = "Obsolescencia"
+            };
+            editando = false;
+            salidaEditandoId = 0;
+        }
+
+        _mostrarFiltrosAvanzados = !_mostrarFiltrosAvanzados;
+    }
+
     private async Task CambioPagina(int nuevaPagina)
     {
         _paginaActual = nuevaPagina;
@@ -355,6 +482,15 @@
 
     private async Task AplicarFiltrosAvanzados()
     {
+        _paginaActual = 1;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task LimpiarTodosLosFiltros()
+    {
+        _filtroAvanzado = new FiltroMovimientoDTO();
+        _filtroTexto = string.Empty;
         _paginaActual = 1;
         await Cargar();
         StateHasChanged();
@@ -418,6 +554,10 @@
             {
                 await SalidaRepo.ActualizarAsync(salidaDTO);
                 Toast.Exito("Salida actualizada correctamente");
+
+                _filtroTexto = string.Empty;
+                await Cargar();
+                StateHasChanged();
             }
             else
             {
@@ -431,10 +571,10 @@
                 await SalidaRepo.DesactivarBienAsync(salidaDTO.BienId);
 
                 Toast.Exito("Salida registrada. El bien fue dado de baja.");
-            }
 
-            Cancelar();
-            await Cargar();
+                Cancelar();
+                await Cargar();
+            }
         }
         catch (Exception ex)
         {
@@ -448,6 +588,8 @@
 
         editando = true;
         salidaEditandoId = s.Id;
+        _mostrarFormulario = true;
+        _mostrarFiltrosAvanzados = false;
 
         salidaDTO.Id = s.Id;
         salidaDTO.BienId = s.BienId;
@@ -460,6 +602,7 @@
         salidaDTO.FuncionarioApruebaId = s.FuncionarioApruebaId;
         salidaDTO.Observaciones = s.Observaciones;
 
+        _filtroTexto = string.Empty;
         StateHasChanged();
     }
 
@@ -488,15 +631,16 @@
         }
     }
 
-    private void Cancelar()
+    private static string GetClaseBadgeTipoBaja(string? tipo)
     {
-        salidaDTO = new SalidaDTO
+        return tipo switch
         {
-            FechaSalida = DateTime.Today,
-            TipoBaja = "Obsolescencia"
+            "Hurto"           => "badge-danger",
+            "Daño"            => "badge-warn",
+            "Obsolescencia"   => "badge-neutral",
+            "Donacion"        => "badge-info",
+            "Transferencia"   => "badge-info",
+            _                 => "badge-neutral"
         };
-        editando = false;
-        salidaEditandoId = 0;
-        StateHasChanged();
     }
 }

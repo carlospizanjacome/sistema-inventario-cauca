@@ -12,9 +12,7 @@
 @inject SeguridadService Seguridad
 @inject NavigationManager Navigation
 @inject ToastService Toast
-
 @inject ConfirmService Confirm
-
 @inject ExcelExportService ExcelService
 @inject UsuarioSesionService Sesion
 @inject IInstitucionRepository InstRepo
@@ -23,41 +21,41 @@
 
 <div class="page-container">
 
-    <!-- ═══════════ HEADER ═══════════ -->
+    @* ═══════════ HEADER ═══════════ *@
     <div class="page-header">
         <div>
             <h1><i class="bi bi-graph-down-arrow"></i> Depreciación NICSP</h1>
             <p class="subtitle">Cálculo de depreciación lineal según Resolución 533/2015 (Contaduría General)</p>
         </div>
         <div class="header-actions">
-
             <button class="btn-export-cgn" @onclick="ExportarExcel" disabled="@_exportando">
                 <i class="bi @(_exportando ? "bi-hourglass-split" : "bi-file-earmark-excel")"></i>
-                @(_exportando ? "Generando..." : "Exportar CGN")
+                @(_exportando ? "Generando…" : "Exportar CGN")
             </button>
 
             @if (puedeCalcular)
             {
                 <button class="btn-calculate" @onclick="EjecutarCalculo" disabled="@_calculando">
                     <i class="bi @(_calculando ? "bi-hourglass-split" : "bi-calculator-fill")"></i>
-                    @(_calculando ? "Calculando..." : "Ejecutar Cálculo")
+                    @(_calculando ? "Calculando…" : "Ejecutar Cálculo")
                 </button>
             }
         </div>
     </div>
 
-    <!-- ═══════════ KPIs ═══════════ -->
+    @* ═══════════ CONTENIDO ═══════════ *@
     @if (_cargando)
     {
         <div class="loading">
             <div class="spinner"></div>
-            <p>Cargando depreciaciones...</p>
+            <p>Cargando depreciaciones…</p>
         </div>
     }
     else if (bienes != null)
     {
-        <section class="kpi-grid">
-            <div class="kpi-card kpi-indigo">
+        @* ─── KPIs compactos ─── *@
+        <section class="kpi-grid kpi-grid-compact">
+            <div class="kpi-card kpi-card-compact kpi-indigo">
                 <div class="kpi-icon"><i class="bi bi-box-seam"></i></div>
                 <div class="kpi-body">
                     <span class="kpi-label">Bienes depreciables</span>
@@ -65,78 +63,96 @@
                 </div>
             </div>
 
-            <div class="kpi-card kpi-blue">
+            <div class="kpi-card kpi-card-compact kpi-blue">
                 <div class="kpi-icon"><i class="bi bi-currency-dollar"></i></div>
                 <div class="kpi-body">
                     <span class="kpi-label">Valor histórico total</span>
-                    <span class="kpi-value">@TotalValorInicial.ToString("C0", CulturaCOP)</span>
+                    <span class="kpi-value" title="@TotalValorInicial.ToString("C0", CulturaCOP)">
+                        @FormatoValor(TotalValorInicial)
+                    </span>
                 </div>
             </div>
 
-            <div class="kpi-card kpi-orange">
+            <div class="kpi-card kpi-card-compact kpi-orange">
                 <div class="kpi-icon"><i class="bi bi-graph-down-arrow"></i></div>
                 <div class="kpi-body">
                     <span class="kpi-label">Depreciación acumulada</span>
-                    <span class="kpi-value">@TotalDepreciacion.ToString("C0", CulturaCOP)</span>
+                    <span class="kpi-value" title="@TotalDepreciacion.ToString("C0", CulturaCOP)">
+                        @FormatoValor(TotalDepreciacion)
+                    </span>
                 </div>
             </div>
 
-            <div class="kpi-card kpi-green">
+            <div class="kpi-card kpi-card-compact kpi-green">
                 <div class="kpi-icon"><i class="bi bi-piggy-bank"></i></div>
                 <div class="kpi-body">
                     <span class="kpi-label">Valor neto en libros</span>
-                    <span class="kpi-value">@TotalValorNeto.ToString("C0", CulturaCOP)</span>
+                    <span class="kpi-value" title="@TotalValorNeto.ToString("C0", CulturaCOP)">
+                        @FormatoValor(TotalValorNeto)
+                    </span>
                 </div>
             </div>
         </section>
 
-        <!-- ═══════════ FILTROS ═══════════ -->
-        <div class="filters-bar">
-            <div class="filter-group">
-                <i class="bi bi-search"></i>
-                <input type="text"
-                       placeholder="Buscar por código o nombre..."
-                       @bind="_filtroTexto"
-                       @bind:event="oninput" />
+        @* ─── CARD TABLE ─── *@
+        <div class="card-table card-table-fija">
+            <div class="filtros-tabla">
+                <div class="filtro-busqueda">
+                    <i class="bi bi-search"></i>
+                    <input type="text"
+                           placeholder="Buscar por código o nombre…"
+                           @bind="_filtroTexto"
+                           @bind:event="oninput" />
+                    @if (!string.IsNullOrEmpty(_filtroTexto))
+                    {
+                        <button class="filtro-clear" @onclick="LimpiarFiltroTexto" title="Limpiar">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    }
+                </div>
+
+                <div class="filtro-info">
+                    <div class="filtro-select-inline">
+                        <i class="bi bi-funnel"></i>
+                        <select @bind="_filtroEstado">
+                            <option value="">Todos los estados</option>
+                            <option value="activos">Sin depreciar</option>
+                            <option value="parcial">Parcialmente depreciados</option>
+                            <option value="completos">Completamente depreciados</option>
+                        </select>
+                    </div>
+
+                    <span class="badge-total">
+                        <i class="bi bi-list-ul"></i>
+                        <strong>@BienesFiltrados.Count()</strong> de @bienes.Count
+                    </span>
+                </div>
             </div>
 
-            <div class="filter-select">
-                <i class="bi bi-funnel"></i>
-                <select @bind="_filtroEstado">
-                    <option value="">Todos los estados</option>
-                    <option value="activos">Sin depreciar</option>
-                    <option value="parcial">Parcialmente depreciados</option>
-                    <option value="completos">Completamente depreciados</option>
-                </select>
-            </div>
-
-            <div class="filter-count">
-                Mostrando <strong>@BienesFiltrados.Count()</strong> de @bienes.Count
-            </div>
-        </div>
-
-        <!-- ═══════════ TABLA ═══════════ -->
-        <div class="modern-card">
             <div class="table-responsive">
-                <table class="table modern-table align-middle m-0">
+                <table class="table modern-table">
                     <thead>
                         <tr>
                             <th>Código</th>
                             <th>Bien</th>
                             <th>Categoría</th>
-                            <th>Vida Útil</th>
+                            <th class="text-center">Vida Útil</th>
                             <th class="text-end">Valor Histórico</th>
                             <th class="text-end">Deprec. Mes</th>
                             <th class="text-end">Deprec. Acum.</th>
                             <th class="text-end">Valor Neto</th>
                             <th class="text-center">%</th>
-                            <th class="text-center">Acciones</th>
+                            <th class="text-center" style="width: 90px;">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         @if (!BienesFiltrados.Any())
                         {
-                            <tr><td colspan="10" class="text-center py-4 text-muted">Sin bienes para mostrar.</td></tr>
+                            <tr>
+                                <td colspan="10" class="text-center py-4 text-muted">
+                                    Sin bienes para mostrar.
+                                </td>
+                            </tr>
                         }
                         else
                         {
@@ -145,7 +161,7 @@
                                 <tr class="table-row-hover">
                                     <td><code>@b.Codigo</code></td>
                                     <td>
-                                        <div class="bien-cell">
+                                        <div class="table-cell-primary">
                                             <strong>@b.Nombre</strong>
                                             @if (b.FechaAdquisicion.HasValue)
                                             {
@@ -154,29 +170,35 @@
                                         </div>
                                     </td>
                                     <td>@b.CategoriaNombre</td>
-                                    <td>
+                                    <td class="text-center">
                                         @if (b.VidaUtilMeses.HasValue)
                                         {
-                                            <span>@b.VidaUtilMeses.Value meses</span>
+                                            <span class="text-mono">@b.VidaUtilMeses.Value m</span>
                                         }
                                         else
                                         {
                                             <span class="text-danger">Sin asignar</span>
                                         }
                                     </td>
-                                    <td class="text-end">@b.ValorInicial.ToString("C0", CulturaCOP)</td>
-                                    <td class="text-end text-warning">@b.DepreciacionMensual.ToString("C0", CulturaCOP)</td>
-                                    <td class="text-end text-orange">@b.DepreciacionAcumulada.ToString("C0", CulturaCOP)</td>
-                                    <td class="text-end text-success"><strong>@b.ValorNeto.ToString("C0", CulturaCOP)</strong></td>
+                                    <td class="text-end num">@b.ValorInicial.ToString("C0", CulturaCOP)</td>
+                                    <td class="text-end num text-warning">@b.DepreciacionMensual.ToString("C0", CulturaCOP)</td>
+                                    <td class="text-end num text-warning">@b.DepreciacionAcumulada.ToString("C0", CulturaCOP)</td>
+                                    <td class="text-end num text-success">
+                                        <strong>@b.ValorNeto.ToString("C0", CulturaCOP)</strong>
+                                    </td>
                                     <td class="text-center">
-                                        <span class="porcentaje-badge @GetClasePorcentaje(b)">
+                                        <span class="badge @GetClaseBadgePorcentaje(b)">
                                             @b.PorcentajeDepreciado.ToString("N1")%
                                         </span>
                                     </td>
                                     <td class="text-center">
-                                        <button class="btn-icon" @onclick="() => VerHistorico(b)" title="Ver histórico">
-                                            <i class="bi bi-clock-history"></i>
-                                        </button>
+                                        <div class="action-buttons">
+                                            <button class="btn-action btn-action-edit"
+                                                    @onclick="() => VerHistorico(b)"
+                                                    title="Ver histórico">
+                                                <i class="bi bi-clock-history"></i>
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             }
@@ -187,12 +209,12 @@
         </div>
     }
 
-    <!-- ═══════════ MODAL HISTÓRICO ═══════════ -->
+    @* ═══════════ MODAL HISTÓRICO ═══════════ *@
     @if (_modalAbierto)
     {
-        <div class="modal-backdrop" @onclick="CerrarModal">
-            <div class="modal-content" @onclick:stopPropagation="true">
-                <div class="modal-header">
+        <div class="modal-backdrop-custom" @onclick="CerrarModal">
+            <div class="modal-content-custom" @onclick:stopPropagation="true">
+                <div class="modal-header-custom">
                     <div>
                         <h4><i class="bi bi-clock-history"></i> Histórico de Depreciación</h4>
                         @if (_bienSeleccionado != null)
@@ -202,31 +224,31 @@
                             </p>
                         }
                     </div>
-                    <button class="modal-close" @onclick="CerrarModal">
+                    <button class="modal-close-custom" @onclick="CerrarModal" title="Cerrar">
                         <i class="bi bi-x-lg"></i>
                     </button>
                 </div>
 
-                <div class="modal-body">
+                <div class="modal-body-custom">
                     @if (_cargandoHistorico)
                     {
-                        <div class="loading-small">
-                            <div class="spinner-small"></div>
-                            <p>Cargando histórico...</p>
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            <p>Cargando histórico…</p>
                         </div>
                     }
                     else if (!_historico.Any())
                     {
-                        <div class="empty-historico">
+                        <div class="empty-state">
                             <i class="bi bi-inbox"></i>
-                            <p>Sin histórico de depreciación.</p>
-                            <small>Ejecuta el cálculo para generar los registros.</small>
+                            <h4>Sin histórico de depreciación</h4>
+                            <p>Ejecuta el cálculo para generar los registros mensuales.</p>
                         </div>
                     }
                     else
                     {
-                        <div class="historico-scroll">
-                            <table class="table modal-table">
+                        <div class="table-responsive" style="max-height: 60vh;">
+                            <table class="table modern-table table-compact">
                                 <thead>
                                     <tr>
                                         <th>Periodo</th>
@@ -238,13 +260,19 @@
                                 <tbody>
                                     @foreach (var h in _historico)
                                     {
-                                        <tr>
+                                        <tr class="table-row-hover">
                                             <td>
                                                 <strong>@h.PeriodoMes.ToString("00")/@h.PeriodoAnio</strong>
                                             </td>
-                                            <td class="text-end text-warning">@h.DepreciacionMes.ToString("C0", CulturaCOP)</td>
-                                            <td class="text-end">@h.DepreciacionAcumulada.ToString("C0", CulturaCOP)</td>
-                                            <td class="text-end text-success">@h.ValorNeto.ToString("C0", CulturaCOP)</td>
+                                            <td class="text-end num text-warning">
+                                                @h.DepreciacionMes.ToString("C0", CulturaCOP)
+                                            </td>
+                                            <td class="text-end num">
+                                                @h.DepreciacionAcumulada.ToString("C0", CulturaCOP)
+                                            </td>
+                                            <td class="text-end num text-success">
+                                                @h.ValorNeto.ToString("C0", CulturaCOP)
+                                            </td>
                                         </tr>
                                     }
                                 </tbody>
@@ -265,13 +293,13 @@
     private string _filtroTexto = string.Empty;
     private string _filtroEstado = string.Empty;
 
-    // Modal
     private bool _modalAbierto = false;
     private bool _cargandoHistorico = false;
     private BienDepreciacionDTO? _bienSeleccionado;
     private List<DepreciacionDTO> _historico = new();
 
     private bool puedeCalcular;
+    private bool _exportando = false;
 
     private static readonly System.Globalization.CultureInfo CulturaCOP =
         System.Globalization.CultureInfo.GetCultureInfo("es-CO");
@@ -317,7 +345,6 @@
         }
 
         puedeCalcular = await Seguridad.TienePermisoAsync("depreciacion.calcular");
-
         await Cargar();
     }
 
@@ -326,6 +353,20 @@
         _cargando = true;
         bienes = (await DepRepo.ObtenerResumenBienesAsync()).ToList();
         _cargando = false;
+    }
+
+    private static string FormatoValor(decimal valor)
+    {
+        if (valor >= 1_000_000_000)
+            return (valor / 1_000_000_000m).ToString("0.0", CulturaCOP) + "B";
+
+        if (valor >= 1_000_000)
+            return (valor / 1_000_000m).ToString("0.0", CulturaCOP) + "M";
+
+        if (valor >= 1_000)
+            return (valor / 1_000m).ToString("0", CulturaCOP) + "K";
+
+        return valor.ToString("C0", CulturaCOP);
     }
 
     private async Task EjecutarCalculo()
@@ -356,13 +397,6 @@
             else
             {
                 Toast.Info("No había bienes pendientes de cálculo.");
-            }
-
-            if (resultado.Advertencias.Any())
-            {
-                Console.WriteLine("═══ ADVERTENCIAS DEPRECIACIÓN ═══");
-                foreach (var a in resultado.Advertencias.Take(10))
-                    Console.WriteLine($"  · {a}");
             }
 
             await Cargar();
@@ -407,70 +441,72 @@
         _historico.Clear();
     }
 
-    private static string GetClasePorcentaje(BienDepreciacionDTO b)
+    private void LimpiarFiltroTexto()
     {
-        if (b.CompletamenteDepreciado) return "pct-completo";
-        if (b.DepreciacionAcumulada > 0) return "pct-parcial";
-        return "pct-nuevo";
+        _filtroTexto = string.Empty;
     }
 
-    private bool _exportando = false;
-
-private async Task ExportarExcel()
-{
-    _exportando = true;
-    StateHasChanged();
-
-    try
+    private static string GetClaseBadgePorcentaje(BienDepreciacionDTO b)
     {
-        var todos = (await DepRepo.ObtenerResumenBienesAsync()).ToList();
-        if (!todos.Any())
-        {
-            Toast.Warning("No hay bienes depreciables para exportar.");
-            return;
-        }
-
-        var institucion = await InstRepo.ObtenerPorIdAsync(Sesion.InstitucionId);
-        var nombreInst = institucion?.Nombre ?? "Institución no identificada";
-
-        // Mapear a Bien para reutilizar el servicio
-        var bienes = todos.Select(b => new Almacen.Models.Bien
-        {
-            Id = b.BienId,
-            Codigo = b.Codigo,
-            Nombre = b.Nombre,
-            CategoriaNombre = b.CategoriaNombre,
-            ValorAdquisicion = b.ValorInicial,
-            FechaAdquisicion = b.FechaAdquisicion,
-            ValorResidual = b.ValorResidual,
-            DepreciacionAcumulada = b.DepreciacionAcumulada,
-            ValorNeto = b.ValorNeto,
-            Cantidad = 1,
-            Activo = true
-        }).ToList();
-
-        var bytes = ExcelService.ExportarInventarioCGN(
-            nombreInst,
-            Sesion.UsuarioActual?.NombreCompleto ?? "N/A",
-            bienes);
-
-        var nombreArchivo = $"DepreciacionCGN_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
-
-        await JS.InvokeVoidAsync("descargarArchivo",
-            Convert.ToBase64String(bytes),
-            nombreArchivo,
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-
-        Toast.Exito($"Excel generado con {bienes.Count} bienes depreciables");
+        if (b.CompletamenteDepreciado) return "badge-ok";
+        if (b.DepreciacionAcumulada > 0) return "badge-warn";
+        return "badge-info";
     }
-    catch (Exception ex)
+
+    private async Task ExportarExcel()
     {
-        Toast.Error($"Error al exportar: {ex.Message}");
-    }
-    finally
-    {
-        _exportando = false;
+        _exportando = true;
         StateHasChanged();
+
+        try
+        {
+            var todos = (await DepRepo.ObtenerResumenBienesAsync()).ToList();
+            if (!todos.Any())
+            {
+                Toast.Warning("No hay bienes depreciables para exportar.");
+                return;
+            }
+
+            var institucion = await InstRepo.ObtenerPorIdAsync(Sesion.InstitucionId);
+            var nombreInst = institucion?.Nombre ?? "Institución no identificada";
+
+            var bienesExp = todos.Select(b => new Almacen.Models.Bien
+            {
+                Id = b.BienId,
+                Codigo = b.Codigo,
+                Nombre = b.Nombre,
+                CategoriaNombre = b.CategoriaNombre,
+                ValorAdquisicion = b.ValorInicial,
+                FechaAdquisicion = b.FechaAdquisicion,
+                ValorResidual = b.ValorResidual,
+                DepreciacionAcumulada = b.DepreciacionAcumulada,
+                ValorNeto = b.ValorNeto,
+                Cantidad = 1,
+                Activo = true
+            }).ToList();
+
+            var bytes = ExcelService.ExportarInventarioCGN(
+                nombreInst,
+                Sesion.UsuarioActual?.NombreCompleto ?? "N/A",
+                bienesExp);
+
+            var nombreArchivo = $"DepreciacionCGN_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+
+            await JS.InvokeVoidAsync("descargarArchivo",
+                Convert.ToBase64String(bytes),
+                nombreArchivo,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+
+            Toast.Exito($"Excel generado con {bienesExp.Count} bienes depreciables");
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error al exportar: {ex.Message}");
+        }
+        finally
+        {
+            _exportando = false;
+            StateHasChanged();
+        }
     }
-}
 }

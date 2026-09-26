@@ -25,15 +25,33 @@
             <p>Control de entradas, salidas y saldos por bien</p>
         </div>
         <div class="header-actions-custom">
-            <select class="select-bien" value="@_bienIdSeleccionado" @onchange="CambioBienSeleccionado">
-                <option value="0">— Seleccione un bien —</option>
-                @foreach (var b in _bienes)
+            <div class="buscador-bien">
+                <i class="bi bi-search"></i>
+                <input type="text"
+                       list="lista-bienes"
+                       placeholder="Buscar bien por código o nombre…"
+                       value="@_textoBusquedaBien"
+                       @oninput="FiltrarBienes"
+                       @onchange="SeleccionarBienDesdeInput" />
+
+                <datalist id="lista-bienes">
+                    @foreach (var b in _bienesFiltrados)
+                    {
+                        <option value="@b.Codigo — @b.Nombre">
+                            Stock: @b.StockActual.ToString("N2") @b.UnidadMedida
+                        </option>
+                    }
+                </datalist>
+
+                @if (_bienSeleccionado != null)
                 {
-                    <option value="@b.Id">
-                        @b.Codigo — @b.Nombre (Stock: @b.StockActual.ToString("N2"))
-                    </option>
+                    <button class="btn-limpiar-bien"
+                            @onclick="LimpiarSeleccionBien"
+                            title="Limpiar selección">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
                 }
-            </select>
+            </div>
         </div>
     </div>
 
@@ -144,6 +162,15 @@
             </EditForm>
         </div>
 
+        <!-- ═══ BANNER INFORMATIVO — LIBRO CONTABLE INMUTABLE ═══ -->
+        <div class="kardex-info-banner">
+            <i class="bi bi-info-circle-fill"></i>
+            <span>
+                Este es un <strong>libro auxiliar contable</strong>. Los movimientos no se editan ni eliminan.
+                Para corregir un movimiento, registra un <strong>ajuste</strong> con el tipo contrario.
+            </span>
+        </div>
+
         <!-- ═══ TABLA KÁRDEX ═══ -->
         <div class="modern-card">
             <div class="card-top-compact">
@@ -213,12 +240,14 @@
     public int? BienIdQuery { get; set; }
 
     private List<BienConsumoDTO> _bienes = new();
+    private List<BienConsumoDTO> _bienesFiltrados = new();
     private List<MovimientoConsumoDTO>? _movimientos;
     private List<ProveedorDTO> _proveedores = new();
     private List<FuncionarioDTO> _funcionarios = new();
 
     private int _bienIdSeleccionado = 0;
     private BienConsumoDTO? _bienSeleccionado;
+    private string _textoBusquedaBien = string.Empty;
 
     private MovimientoConsumoDTO _movDTO = new();
 
@@ -236,6 +265,9 @@
         _proveedores = (await ProveedorRepo.ObtenerTodosAsync()).ToList();
         _funcionarios = (await FuncRepo.ObtenerTodosAsync()).ToList();
 
+        // Inicializar lista de bienes para el datalist
+        _bienesFiltrados = _bienes.ToList();
+
         if (BienIdQuery.HasValue && BienIdQuery.Value > 0)
         {
             _bienIdSeleccionado = BienIdQuery.Value;
@@ -243,16 +275,72 @@
         }
     }
 
-    private async Task CambioBienSeleccionado(ChangeEventArgs e)
+    private void FiltrarBienes(ChangeEventArgs e)
     {
-        _bienIdSeleccionado = Convert.ToInt32(e.Value);
-        await CargarBienSeleccionado();
+        _textoBusquedaBien = e.Value?.ToString() ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(_textoBusquedaBien))
+        {
+            _bienesFiltrados = _bienes.ToList();
+        }
+        else
+        {
+            var filtro = _textoBusquedaBien.ToLower().Trim();
+            _bienesFiltrados = _bienes
+                .Where(b =>
+                    b.Codigo.ToLower().Contains(filtro) ||
+                    b.Nombre.ToLower().Contains(filtro))
+                .ToList();
+        }
+    }
+
+    private async Task SeleccionarBienDesdeInput(ChangeEventArgs e)
+    {
+        var valor = e.Value?.ToString() ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(valor))
+        {
+            await LimpiarSeleccionBien();
+            return;
+        }
+
+        // El valor viene como "CONS-003 — Jabón líquido manos"
+        // Extraemos el código (todo antes del primer " — ")
+        var codigoBuscado = valor.Split('—')[0].Trim();
+
+        var bienEncontrado = _bienes.FirstOrDefault(b =>
+            b.Codigo.Equals(codigoBuscado, StringComparison.OrdinalIgnoreCase));
+
+        if (bienEncontrado != null)
+        {
+            _bienIdSeleccionado = bienEncontrado.Id;
+            _textoBusquedaBien = $"{bienEncontrado.Codigo} — {bienEncontrado.Nombre}";
+            await CargarBienSeleccionado();
+            StateHasChanged();
+        }
+    }
+
+    private async Task LimpiarSeleccionBien()
+    {
+        _textoBusquedaBien = string.Empty;
+        _bienIdSeleccionado = 0;
+        _bienSeleccionado = null;
+        _movimientos = null;
+        _bienesFiltrados = _bienes.ToList();
+        await Task.CompletedTask;
+        StateHasChanged();
     }
 
     private async Task CargarBienSeleccionado()
     {
         _bienSeleccionado = await KardexRepo.ObtenerBienConsumoPorIdAsync(_bienIdSeleccionado);
         _movimientos = (await KardexRepo.ObtenerKardexAsync(_bienIdSeleccionado)).ToList();
+
+        // Sincronizar el texto del input con el bien seleccionado
+        if (_bienSeleccionado != null)
+        {
+            _textoBusquedaBien = $"{_bienSeleccionado.Codigo} — {_bienSeleccionado.Nombre}";
+        }
 
         _movDTO = new MovimientoConsumoDTO
         {
@@ -281,6 +369,7 @@
 
             // Recargar bien + kárdex + lista
             _bienes = (await KardexRepo.ObtenerBienesConsumoAsync()).ToList();
+            _bienesFiltrados = _bienes.ToList();
             await CargarBienSeleccionado();
         }
         catch (Exception ex)

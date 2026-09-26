@@ -18,132 +18,146 @@
 
 <PageTitle>Consumo · Almacén</PageTitle>
 
-<div class="usuarios-page usuarios-fullscreen">
+<div class="page-container page-crud">
 
-    <div class="modern-card panel-formulario">
-
-        <div class="card-top-compact d-flex align-items-center gap-2 mb-2 pb-2 border-bottom">
-            <div class="card-icon-small-inline">
-                <i class="bi @(editando ? "bi-pencil-square" : "bi-boxes")" style="color: #0891b2; font-size: 1.1rem;"></i>
-            </div>
-            <div class="d-flex align-items-baseline gap-2">
-                <h5 class="m-0 fw-bold text-dark" style="font-size: 1rem;">@(editando ? "Editar Bien de Consumo" : "Nuevo Bien de Consumo")</h5>
-                <span class="text-muted d-none d-sm-inline" style="font-size: 0.75rem;">| Papelería, tintas, aseo y demás consumibles</span>
-            </div>
-        </div>
-
-        <EditForm @key="bienEditandoId" Model="bienDTO" OnValidSubmit="Guardar">
-            <DataAnnotationsValidator />
-
-            <div class="container-fluid p-0">
-
-                <div class="row g-2 mb-2">
-                    <div class="col-md-3">
-                        <div class="modern-group">
-                            <label>Código *</label>
-                            <div class="input-modern">
-                                <i class="bi bi-upc"></i>
-                                <InputText class="form-control" @bind-Value="bienDTO.Codigo" placeholder="Ej: CONS-001" />
-                            </div>
-                            <ValidationMessage For="() => bienDTO.Codigo" />
-                        </div>
-                    </div>
-
-                    <div class="col-md-5">
-                        <div class="modern-group">
-                            <label>Nombre *</label>
-                            <div class="input-modern">
-                                <i class="bi bi-tag"></i>
-                                <InputText class="form-control" @bind-Value="bienDTO.Nombre" placeholder="Papel bond carta" />
-                            </div>
-                            <ValidationMessage For="() => bienDTO.Nombre" />
-                        </div>
-                    </div>
-
-                    <div class="col-md-4">
-                        <div class="modern-group">
-                            <label>Categoría</label>
-                            <div class="input-modern">
-                                <i class="bi bi-tags"></i>
-                                <InputSelect class="form-select" @bind-Value="bienDTO.CategoriaId">
-                                    <option value="">— Sin categoría —</option>
-                                    @foreach (var c in categorias)
-                                    {
-                                        <option value="@c.Id">@c.Nombre</option>
-                                    }
-                                </InputSelect>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row g-2 mb-2">
-                    <div class="col-md-3">
-                        <div class="modern-group">
-                            <label>Unidad de medida *</label>
-                            <div class="input-modern">
-                                <i class="bi bi-rulers"></i>
-                                <InputSelect class="form-select" @bind-Value="bienDTO.UnidadMedida">
-                                    <option value="Unidad">Unidad</option>
-                                    <option value="Caja">Caja</option>
-                                    <option value="Paquete">Paquete</option>
-                                    <option value="Resma">Resma</option>
-                                    <option value="Litro">Litro</option>
-                                    <option value="Kilo">Kilo</option>
-                                    <option value="Metro">Metro</option>
-                                </InputSelect>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-md-3">
-                        <div class="modern-group">
-                            <label>Stock mínimo</label>
-                            <div class="input-modern">
-                                <i class="bi bi-exclamation-triangle"></i>
-                                <InputNumber class="form-control" @bind-Value="bienDTO.StockMinimo" min="0" />
-                            </div>
-                            <small class="text-muted" style="font-size:0.7rem;">Alerta cuando baje de este valor</small>
-                        </div>
-                    </div>
-
-                    <div class="col-md-4">
-                        <div class="modern-group">
-                            <label>Descripción</label>
-                            <div class="input-modern">
-                                <i class="bi bi-card-text"></i>
-                                <InputText class="form-control" @bind-Value="bienDTO.Descripcion" />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-md-2 d-flex align-items-end pb-2">
-                        <div class="form-check">
-                            <InputCheckbox class="form-check-input" @bind-Value="bienDTO.Activo" id="chkActivoConsumo" />
-                            <label class="form-check-label" for="chkActivoConsumo">Activo</label>
-                        </div>
-                    </div>
-                </div>
-
+    @* ═══════════════ PAGE HEADER (oculto cuando el form está abierto) ═══════════════ *@
+    @if (!_mostrarFormulario)
+    {
+        <div class="page-header">
+            <div>
+                <h1><i class="bi bi-boxes"></i> Consumo</h1>
+                <p class="subtitle">Papelería, tintas, aseo y demás consumibles</p>
             </div>
 
-            <div class="d-flex gap-2 mt-3 justify-content-end">
-                @if (editando)
-                {
-                    <button type="button" class="btn btn-cancel px-4" @onclick="Cancelar">
-                        <i class="bi bi-x-circle me-2"></i> Cancelar
+            @if (puedeCrear)
+            {
+                <div class="header-actions">
+                    <button class="btn-nuevo" @onclick="AbrirFormulario">
+                        <i class="bi bi-plus-lg"></i> Nuevo Bien de Consumo
                     </button>
-                }
-                <button type="submit" class="btn btn-save px-4">
-                    <i class="bi @(editando ? "bi-check-circle-fill" : "bi-save-fill") me-2"></i>
-                    @(editando ? "Actualizar" : "Guardar")
+                </div>
+            }
+        </div>
+    }
+
+    @* ═══════════════ FORM COLAPSABLE ═══════════════ *@
+    @if (_mostrarFormulario)
+    {
+        <div class="card-form">
+            <div class="form-header">
+                <div class="form-header-left">
+                    <i class="bi bi-@(editando ? "pencil-square" : "plus-circle")"></i>
+                    <span>@(editando ? "Editar Bien de Consumo" : "Nuevo Bien de Consumo")</span>
+                </div>
+
+                <div class="form-header-center">
+                    <i class="bi bi-boxes"></i>
+                    <div>
+                        <div class="form-header-title">Consumo</div>
+                        <div class="form-header-subtitle">Papelería, tintas, aseo y demás consumibles</div>
+                    </div>
+                </div>
+
+                <button class="btn-cerrar-form" @onclick="Cancelar" title="Cerrar">
+                    <i class="bi bi-x-lg"></i>
                 </button>
             </div>
-        </EditForm>
-    </div>
 
-    <!-- ═══ ALERTAS DE STOCK BAJO ═══ -->
-    @if (_bajoStock.Any())
+            <EditForm @key="bienEditandoId" Model="bienDTO" OnValidSubmit="Guardar">
+                <DataAnnotationsValidator />
+
+                <div class="form-grid-3">
+
+                    <div class="form-group">
+                        <label>Código *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-upc"></i>
+                            <InputText class="form-control" @bind-Value="bienDTO.Codigo" placeholder="Ej: CONS-001" />
+                        </div>
+                        <ValidationMessage For="() => bienDTO.Codigo" class="form-error" />
+                    </div>
+
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label>Nombre *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-tag"></i>
+                            <InputText class="form-control" @bind-Value="bienDTO.Nombre" placeholder="Papel bond carta" />
+                        </div>
+                        <ValidationMessage For="() => bienDTO.Nombre" class="form-error" />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Categoría</label>
+                        <div class="input-icon">
+                            <i class="bi bi-tags"></i>
+                            <InputSelect class="form-select" @bind-Value="bienDTO.CategoriaId">
+                                <option value="">— Sin categoría —</option>
+                                @foreach (var c in categorias)
+                                {
+                                    <option value="@c.Id">@c.Nombre</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Unidad de medida *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-rulers"></i>
+                            <InputSelect class="form-select" @bind-Value="bienDTO.UnidadMedida">
+                                <option value="Unidad">Unidad</option>
+                                <option value="Caja">Caja</option>
+                                <option value="Paquete">Paquete</option>
+                                <option value="Resma">Resma</option>
+                                <option value="Litro">Litro</option>
+                                <option value="Kilo">Kilo</option>
+                                <option value="Metro">Metro</option>
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Stock mínimo</label>
+                        <div class="input-icon">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <InputNumber class="form-control" @bind-Value="bienDTO.StockMinimo" min="0" />
+                        </div>
+                        <small class="form-hint">Alerta cuando baje de este valor</small>
+                    </div>
+
+                    <div class="form-group form-group-full">
+                        <label>Descripción</label>
+                        <div class="input-icon">
+                            <i class="bi bi-card-text"></i>
+                            <InputText class="form-control" @bind-Value="bienDTO.Descripcion"
+                                       placeholder="Descripción del consumible" />
+                        </div>
+                    </div>
+
+                    <div class="form-group checkbox-group">
+                        <label>
+                            <InputCheckbox @bind-Value="bienDTO.Activo" />
+                            Bien Activo
+                        </label>
+                    </div>
+
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-cancel" @onclick="Cancelar">
+                        <i class="bi bi-x-lg"></i> Cerrar
+                    </button>
+                    <button type="submit" class="btn btn-save">
+                        <i class="bi @(editando ? "bi-check-circle-fill" : "bi-save-fill")"></i>
+                        @(editando ? "Actualizar" : "Guardar")
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    }
+
+    @* ═══════════════ ALERTA DE STOCK BAJO ═══════════════ *@
+    @if (_bajoStock.Any() && !_mostrarFormulario)
     {
         <div class="alert-stock">
             <i class="bi bi-exclamation-triangle-fill"></i>
@@ -154,8 +168,8 @@
         </div>
     }
 
-    <!-- ═══ TABLA ═══ -->
-    <div class="modern-card panel-tabla-elastic position-relative">
+    @* ═══════════════ CARD TABLE ═══════════════ *@
+    <div class="card-table">
 
         <div class="filtros-tabla">
             <div class="filtro-busqueda">
@@ -166,7 +180,7 @@
                        @bind:event="oninput" />
                 @if (!string.IsNullOrEmpty(_filtroTexto))
                 {
-                    <button class="filtro-clear" @onclick="() => _filtroTexto = string.Empty">
+                    <button class="filtro-clear" @onclick="LimpiarFiltro" title="Limpiar">
                         <i class="bi bi-x-lg"></i>
                     </button>
                 }
@@ -179,8 +193,8 @@
             </div>
         </div>
 
-        <div class="table-responsive style-scrollbar">
-            <table class="table modern-table align-middle m-0">
+        <div class="table-responsive">
+            <table class="table modern-table">
                 <thead>
                     <tr>
                         <th>Código</th>
@@ -191,13 +205,13 @@
                         <th class="text-end">CPP</th>
                         <th class="text-end">Valor total</th>
                         <th class="text-center">Estado</th>
-                        <th class="text-center">Acciones</th>
+                        <th class="text-center" style="width: 130px;">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
                     @if (bienes is null)
                     {
-                        <tr><td colspan="9" class="text-center py-3 text-muted">Cargando...</td></tr>
+                        <tr><td colspan="9" class="text-center py-3 text-muted">Cargando bienes de consumo…</td></tr>
                     }
                     else if (!BienesFiltrados.Any())
                     {
@@ -209,38 +223,66 @@
                         {
                             <tr class="table-row-hover @(b.BajoStockMinimo ? "row-warning" : "")">
                                 <td><code>@b.Codigo</code></td>
-                                <td><strong>@b.Nombre</strong></td>
-                                <td>@b.UnidadMedida</td>
-                                <td class="text-end"><strong>@b.StockActual.ToString("N2")</strong></td>
-                                <td class="text-end text-muted">@b.StockMinimo.ToString("N2")</td>
-                                <td class="text-end">@b.CppActual.ToString("C2", System.Globalization.CultureInfo.GetCultureInfo("es-CO"))</td>
-                                <td class="text-end">@b.ValorStock.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("es-CO"))</td>
+                                <td>
+                                    <div class="table-cell-primary">
+                                        <strong>@b.Nombre</strong>
+                                        @if (!string.IsNullOrWhiteSpace(b.Descripcion))
+                                        {
+                                            <small>@b.Descripcion</small>
+                                        }
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge badge-neutral">@b.UnidadMedida</span>
+                                </td>
+                                <td class="text-end num"><strong>@b.StockActual.ToString("N2")</strong></td>
+                                <td class="text-end num text-muted">@b.StockMinimo.ToString("N2")</td>
+                                <td class="text-end num">@b.CppActual.ToString("C2", CulturaCOP)</td>
+                                <td class="text-end num">@b.ValorStock.ToString("C0", CulturaCOP)</td>
                                 <td class="text-center">
                                     @if (b.BajoStockMinimo)
                                     {
                                         <span class="badge badge-warn">
-                                            <i class="bi bi-exclamation-triangle-fill"></i> Stock bajo
+                                            <i class="bi bi-exclamation-triangle-fill"></i> Bajo stock
                                         </span>
                                     }
                                     else if (b.Activo)
                                     {
-                                        <span class="badge badge-ok">Activo</span>
+                                        <span class="badge badge-ok">
+                                            <i class="bi bi-check-circle-fill"></i> Activo
+                                        </span>
                                     }
                                     else
                                     {
-                                        <span class="badge badge-off">Inactivo</span>
+                                        <span class="badge badge-off">
+                                            <i class="bi bi-x-circle-fill"></i> Inactivo
+                                        </span>
                                     }
                                 </td>
                                 <td class="text-center">
-                                    <button class="btn-icon me-1" @onclick="() => VerKardex(b)" title="Ver kárdex">
-                                        <i class="bi bi-clock-history"></i>
-                                    </button>
-                                    <button class="btn-icon me-1" @onclick="() => Editar(b)" title="Editar">
-                                        <i class="bi bi-pencil-fill"></i>
-                                    </button>
-                                    <button class="btn-icon danger" @onclick="() => Eliminar(b)" title="Eliminar">
-                                        <i class="bi bi-trash-fill"></i>
-                                    </button>
+                                    <div class="action-buttons">
+                                        <button class="btn-action btn-action-edit"
+                                                @onclick="() => VerKardex(b)"
+                                                title="Ver kárdex">
+                                            <i class="bi bi-clock-history"></i>
+                                        </button>
+                                        @if (puedeEditar)
+                                        {
+                                            <button class="btn-action btn-action-edit"
+                                                    @onclick="() => Editar(b)"
+                                                    title="Editar">
+                                                <i class="bi bi-pencil-fill"></i>
+                                            </button>
+                                        }
+                                        @if (puedeEliminar)
+                                        {
+                                            <button class="btn-action btn-action-delete"
+                                                    @onclick="() => Eliminar(b)"
+                                                    title="Eliminar">
+                                                <i class="bi bi-trash-fill"></i>
+                                            </button>
+                                        }
+                                    </div>
                                 </td>
                             </tr>
                         }
@@ -259,11 +301,15 @@
     private BienConsumoDTO bienDTO = new();
     private bool editando = false;
     private int bienEditandoId;
+    private bool _mostrarFormulario = false;
     private string _filtroTexto = string.Empty;
 
     private bool puedeCrear;
     private bool puedeEditar;
     private bool puedeEliminar;
+
+    private static readonly System.Globalization.CultureInfo CulturaCOP =
+        System.Globalization.CultureInfo.GetCultureInfo("es-CO");
 
     private IEnumerable<BienConsumoDTO> BienesFiltrados
     {
@@ -301,6 +347,20 @@
         _bajoStock = (await KardexRepo.ObtenerBajoStockMinimoAsync()).ToList();
     }
 
+    private void AbrirFormulario()
+    {
+        bienDTO = new BienConsumoDTO
+        {
+            Activo = true,
+            UnidadMedida = "Unidad",
+            StockMinimo = 0
+        };
+        editando = false;
+        bienEditandoId = 0;
+        _mostrarFormulario = true;
+        _filtroTexto = string.Empty;
+    }
+
     private async Task Guardar()
     {
         if (!editando && !puedeCrear)
@@ -325,15 +385,36 @@
             if (editando)
             {
                 await KardexRepo.ActualizarBienConsumoAsync(bienDTO);
-                Toast.Exito("Bien de consumo actualizado");
+                Toast.Exito($"Bien '{bienDTO.Nombre}' actualizado.");
             }
             else
             {
                 await KardexRepo.CrearBienConsumoAsync(bienDTO);
-                Toast.Exito("Bien de consumo creado");
+                Toast.Exito($"Bien '{bienDTO.Nombre}' creado. Puede continuar registrando.");
+
+                // Mantener unidad y categoría al seguir registrando
+                var unidadActual = bienDTO.UnidadMedida;
+                var categoriaActual = bienDTO.CategoriaId;
+
+                bienDTO = new BienConsumoDTO
+                {
+                    Activo = true,
+                    UnidadMedida = unidadActual,
+                    CategoriaId = categoriaActual,
+                    StockMinimo = 0
+                };
+
+                try
+                {
+                    await JS.InvokeVoidAsync("eval",
+                        "setTimeout(() => { const el = document.querySelector('.card-form input'); if (el) el.focus(); }, 100);");
+                }
+                catch { /* silencioso */ }
             }
-            Cancelar();
+
+            _filtroTexto = string.Empty;
             await Cargar();
+            StateHasChanged();
         }
         catch (Exception ex)
         {
@@ -347,6 +428,7 @@
 
         editando = true;
         bienEditandoId = b.Id;
+        _mostrarFormulario = true;
 
         bienDTO.Id = b.Id;
         bienDTO.Codigo = b.Codigo;
@@ -357,6 +439,7 @@
         bienDTO.StockMinimo = b.StockMinimo;
         bienDTO.Activo = b.Activo;
 
+        _filtroTexto = string.Empty;
         StateHasChanged();
     }
 
@@ -394,11 +477,19 @@
         Navigation.NavigateTo($"/kardex?bienId={b.Id}");
     }
 
+    private void LimpiarFiltro()
+    {
+        _filtroTexto = string.Empty;
+        StateHasChanged();
+    }
+
     private void Cancelar()
     {
+        _mostrarFormulario = false;
         bienDTO = new BienConsumoDTO();
         editando = false;
         bienEditandoId = 0;
+        _filtroTexto = string.Empty;
         StateHasChanged();
     }
 }

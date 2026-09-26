@@ -19,146 +19,158 @@
 
 <PageTitle>Funcionarios · Almacén</PageTitle>
 
-<div class="usuarios-page usuarios-fullscreen">
+<div class="page-container page-crud">
 
-    <div class="modern-card panel-formulario">
-
-        <div class="card-top-compact d-flex align-items-center gap-2 mb-2 pb-2 border-bottom">
-            <div class="card-icon-small-inline">
-                <i class="bi @(editando ? "bi-pencil-square" : "bi-person-badge-fill")" style="color: #4f46e5; font-size: 1.1rem;"></i>
-            </div>
-            <div class="d-flex align-items-baseline gap-2">
-                <h5 class="m-0 fw-bold text-dark" style="font-size: 1rem;">@(editando ? "Editar Funcionario" : "Nuevo Funcionario")</h5>
-                <span class="text-muted d-none d-sm-inline" style="font-size: 0.75rem;">| Cuentandantes y personal con responsabilidad sobre bienes</span>
-            </div>
-        </div>
-
-        <EditForm @key="funcionarioEditandoId" Model="funcionarioDTO" OnValidSubmit="Guardar">
-            <DataAnnotationsValidator />
-
-            <div class="container-fluid p-0">
-
-                <div class="row g-2 mb-2">
-                    <div class="col-md-3">
-                        <div class="modern-group">
-                            <label>Cédula *</label>
-                            <div class="input-modern">
-                                <i class="bi bi-person-vcard"></i>
-                                <InputText class="form-control" @bind-Value="funcionarioDTO.Cedula" placeholder="Ej: 1061123456" />
-                            </div>
-                            <ValidationMessage For="() => funcionarioDTO.Cedula" />
-                        </div>
-                    </div>
-                    <div class="col-md-5">
-                        <div class="modern-group">
-                            <label>Nombre Completo *</label>
-                            <div class="input-modern">
-                                <i class="bi bi-person-fill"></i>
-                                <InputText class="form-control" @bind-Value="funcionarioDTO.NombreCompleto" />
-                            </div>
-                            <ValidationMessage For="() => funcionarioDTO.NombreCompleto" />
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="modern-group">
-                            <label>Cargo</label>
-                            <div class="input-modern">
-                                <i class="bi bi-briefcase"></i>
-                                <InputText class="form-control" @bind-Value="funcionarioDTO.Cargo" placeholder="Ej: Docente" />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row g-2 mb-2">
-                    <div class="col-md-3">
-                        <div class="modern-group">
-                            <label>Tipo Vinculación</label>
-                            <div class="input-modern">
-                                <i class="bi bi-file-earmark-text"></i>
-                                <InputSelect class="form-select" @bind-Value="funcionarioDTO.TipoVinculacion">
-                                    <option value="">— Seleccione —</option>
-                                    <option value="Planta">Planta</option>
-                                    <option value="Provisional">Provisional</option>
-                                    <option value="Contratista">Contratista</option>
-                                    <option value="Temporal">Temporal</option>
-                                </InputSelect>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="modern-group">
-                            <label>Email</label>
-                            <div class="input-modern">
-                                <i class="bi bi-envelope"></i>
-                                <InputText class="form-control" type="email" @bind-Value="funcionarioDTO.Email" />
-                            </div>
-                            <ValidationMessage For="() => funcionarioDTO.Email" />
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="modern-group">
-                            <label>Teléfono</label>
-                            <div class="input-modern">
-                                <i class="bi bi-telephone"></i>
-                                <InputText class="form-control" @bind-Value="funcionarioDTO.Telefono" />
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-2 d-flex align-items-end pb-2">
-                        <div class="form-check">
-                            <InputCheckbox class="form-check-input" @bind-Value="funcionarioDTO.Activo" id="chkActivo" />
-                            <label class="form-check-label" for="chkActivo">Activo</label>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row g-2 mb-2">
-                    <div class="col-md-6">
-                        <div class="modern-group">
-                            <label>Sede</label>
-                            <div class="input-modern">
-                                <i class="bi bi-building"></i>
-                                <InputSelect class="form-select" @bind-Value="funcionarioDTO.SedeId">
-                                    <option value="">— Sin sede asignada —</option>
-                                    @foreach (var s in sedes)
-                                    {
-                                        <option value="@s.Id">@s.InstitucionNombre — @s.Nombre</option>
-                                    }
-                                </InputSelect>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
+    @* ═══════════════ PAGE HEADER (oculto si form abierto) ═══════════════ *@
+    @if (!_mostrarFormulario)
+    {
+        <div class="page-header">
+            <div>
+                <h1><i class="bi bi-person-badge"></i> Funcionarios</h1>
+                <p class="subtitle">Cuentandantes y personal con responsabilidad sobre bienes</p>
             </div>
 
-            <div class="d-flex gap-2 mt-3 justify-content-end">
-                @if (editando)
+            <div class="header-actions">
+                @if (puedeCrear)
                 {
-                    <button type="button" class="btn btn-cancel px-4" @onclick="Cancelar">
-                        <i class="bi bi-x-circle me-2"></i> Cancelar
+                    <button class="btn-nuevo" @onclick="AbrirFormulario">
+                        <i class="bi bi-plus-lg"></i> Nuevo Funcionario
                     </button>
                 }
-                <button type="submit" class="btn btn-save px-4">
-                    <i class="bi @(editando ? "bi-check-circle-fill" : "bi-save-fill") me-2"></i>
-                    @(editando ? "Actualizar Funcionario" : "Guardar Funcionario")
+            </div>
+        </div>
+    }
+
+    @* ═══════════════ FORM COLAPSABLE ═══════════════ *@
+    @if (_mostrarFormulario)
+    {
+        <div class="card-form">
+            <div class="form-header">
+                <div class="form-header-left">
+                    <i class="bi bi-@(editando ? "pencil-square" : "plus-circle")"></i>
+                    <span>@(editando ? "Editar Funcionario" : "Nuevo Funcionario")</span>
+                </div>
+
+                <div class="form-header-center">
+                    <i class="bi bi-person-badge"></i>
+                    <div>
+                        <div class="form-header-title">Funcionarios</div>
+                        <div class="form-header-subtitle">Cuentandantes y personal con responsabilidad sobre bienes</div>
+                    </div>
+                </div>
+
+                <button class="btn-cerrar-form" @onclick="() => CerrarFormulario()" title="Cerrar">
+                    <i class="bi bi-x-lg"></i>
                 </button>
             </div>
-        </EditForm>
-    </div>
 
-    <!-- ═══════════ TABLA CON PAGINACIÓN ═══════════ -->
-    <div class="modern-card panel-tabla-elastic position-relative">
+            <EditForm @key="funcionarioEditandoId" Model="funcionarioDTO" OnValidSubmit="Guardar">
+                <DataAnnotationsValidator />
 
+                <div class="form-grid-3">
+                    <div class="form-group">
+                        <label>Cédula *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-person-vcard"></i>
+                            <InputText class="form-control" @bind-Value="funcionarioDTO.Cedula" placeholder="Ej: 1061123456" />
+                        </div>
+                        <ValidationMessage For="() => funcionarioDTO.Cedula" />
+                    </div>
+
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label>Nombre Completo *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-person-fill"></i>
+                            <InputText class="form-control" @bind-Value="funcionarioDTO.NombreCompleto" placeholder="Ej: Juan Pérez Rodríguez" />
+                        </div>
+                        <ValidationMessage For="() => funcionarioDTO.NombreCompleto" />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Cargo</label>
+                        <div class="input-icon">
+                            <i class="bi bi-briefcase"></i>
+                            <InputText class="form-control" @bind-Value="funcionarioDTO.Cargo" placeholder="Ej: Docente" />
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Tipo Vinculación</label>
+                        <div class="input-icon">
+                            <i class="bi bi-file-earmark-text"></i>
+                            <InputSelect class="form-control" @bind-Value="funcionarioDTO.TipoVinculacion">
+                                <option value="">— Seleccione —</option>
+                                <option value="Planta">Planta</option>
+                                <option value="Provisional">Provisional</option>
+                                <option value="Contratista">Contratista</option>
+                                <option value="Temporal">Temporal</option>
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Sede</label>
+                        <div class="input-icon">
+                            <i class="bi bi-building"></i>
+                            <InputSelect class="form-control" @bind-Value="funcionarioDTO.SedeId">
+                                <option value="">— Sin sede asignada —</option>
+                                @foreach (var s in sedes)
+                                {
+                                    <option value="@s.Id">@s.InstitucionNombre — @s.Nombre</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Email</label>
+                        <div class="input-icon">
+                            <i class="bi bi-envelope"></i>
+                            <InputText class="form-control" type="email" @bind-Value="funcionarioDTO.Email" placeholder="correo@ejemplo.com" />
+                        </div>
+                        <ValidationMessage For="() => funcionarioDTO.Email" />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Teléfono</label>
+                        <div class="input-icon">
+                            <i class="bi bi-telephone"></i>
+                            <InputText class="form-control" @bind-Value="funcionarioDTO.Telefono" placeholder="Ej: 3001234567" />
+                        </div>
+                    </div>
+
+                    <div class="form-group checkbox-group">
+                        <label>
+                            <InputCheckbox @bind-Value="funcionarioDTO.Activo" />
+                            Activo
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-cancel" @onclick="() => CerrarFormulario()">
+                        <i class="bi bi-x-lg"></i> Cerrar
+                    </button>
+                    <button type="submit" class="btn btn-save">
+                        <i class="bi @(editando ? "bi-check-circle-fill" : "bi-save-fill")"></i>
+                        @(editando ? "Actualizar" : "Guardar")
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    }
+
+    @* ═══════════════ CARD TABLE ═══════════════ *@
+    <div class="card-table">
+
+        @* Barra de búsqueda SIEMPRE visible *@
         <div class="filtros-tabla">
             <div class="filtro-busqueda">
                 <i class="bi bi-search"></i>
                 <input type="text"
                        placeholder="Buscar por cédula, nombre o email…"
-                       @bind="_filtroTexto"
-                       @bind:event="oninput"
-                       @bind:after="BuscarConDebounce" />
+                       value="@_filtroTexto"
+                       @oninput="OnFiltroInput" />
                 @if (!string.IsNullOrEmpty(_filtroTexto))
                 {
                     <button class="filtro-clear" @onclick="LimpiarFiltro" title="Limpiar">
@@ -174,8 +186,8 @@
             </div>
         </div>
 
-        <div class="table-responsive style-scrollbar">
-            <table class="table modern-table align-middle m-0">
+        <div class="table-responsive">
+            <table class="table modern-table">
                 <thead>
                     <tr>
                         <th>Cédula</th>
@@ -190,10 +202,7 @@
                 <tbody>
                     @if (_pagina is null)
                     {
-                        <tr><td colspan="7" class="text-center py-3 text-muted">
-                            <div class="spinner-border spinner-border-sm me-2" role="status"></div>
-                            Cargando...
-                        </td></tr>
+                        <tr><td colspan="7" class="text-center py-3 text-muted">Cargando...</td></tr>
                     }
                     else if (!_pagina.Items.Any())
                     {
@@ -228,13 +237,13 @@
                                 <td class="text-center">
                                     @if (puedeEditar)
                                     {
-                                        <button class="btn-icon me-1" @onclick="() => Editar(f)">
+                                        <button class="btn-icon me-1" @onclick="() => Editar(f)" title="Editar">
                                             <i class="bi bi-pencil-fill"></i>
                                         </button>
                                     }
                                     @if (puedeEliminar)
                                     {
-                                        <button class="btn-icon danger" @onclick="() => Eliminar(f)">
+                                        <button class="btn-icon danger" @onclick="() => Eliminar(f)" title="Eliminar">
                                             <i class="bi bi-trash-fill"></i>
                                         </button>
                                     }
@@ -262,6 +271,7 @@
 
     private FuncionarioDTO funcionarioDTO = new();
     private bool editando = false;
+    private bool _mostrarFormulario = false;
     private int funcionarioEditandoId;
 
     private int _paginaActual = 1;
@@ -298,19 +308,11 @@
             string.IsNullOrWhiteSpace(_filtroTexto) ? null : _filtroTexto);
     }
 
-    private async Task CambioPagina(int nuevaPagina)
+    // ═══════════ INPUT BÚSQUEDA ═══════════
+    private void OnFiltroInput(ChangeEventArgs e)
     {
-        _paginaActual = nuevaPagina;
-        await Cargar();
-        StateHasChanged();
-    }
-
-    private async Task CambioTamano(int nuevoTamano)
-    {
-        _tamanoPagina = nuevoTamano;
-        _paginaActual = 1;
-        await Cargar();
-        StateHasChanged();
+        _filtroTexto = e.Value?.ToString() ?? string.Empty;
+        _ = BuscarConDebounce();
     }
 
     private async Task BuscarConDebounce()
@@ -339,6 +341,49 @@
         StateHasChanged();
     }
 
+    private async Task CambioPagina(int nuevaPagina)
+    {
+        _paginaActual = nuevaPagina;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task CambioTamano(int nuevoTamano)
+    {
+        _tamanoPagina = nuevoTamano;
+        _paginaActual = 1;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    // ═══════════ ABRIR / CERRAR FORM ═══════════
+    private void AbrirFormulario()
+    {
+        funcionarioDTO = new FuncionarioDTO { Activo = true };
+        editando = false;
+        funcionarioEditandoId = 0;
+        _mostrarFormulario = true;
+
+        // Limpiar filtro y recargar la tabla
+        _filtroTexto = string.Empty;
+        _paginaActual = 1;
+    }
+
+    private async Task CerrarFormulario()
+    {
+        _mostrarFormulario = false;
+        funcionarioDTO = new FuncionarioDTO();
+        editando = false;
+        funcionarioEditandoId = 0;
+
+        // Limpiar filtro y recargar la tabla
+        _filtroTexto = string.Empty;
+        _paginaActual = 1;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    // ═══════════ GUARDAR ═══════════
     private async Task Guardar()
     {
         if (!editando && !puedeCrear)
@@ -362,17 +407,43 @@
         {
             if (editando)
             {
+                // ── EDICIÓN: guardar y MANTENER ABIERTO con los datos ──
                 await FuncRepo.ActualizarAsync(funcionarioDTO);
-                Toast.Exito("Funcionario actualizado correctamente");
+                Toast.Exito($"Funcionario '{funcionarioDTO.NombreCompleto}' actualizado. Puede seguir editando.");
             }
             else
             {
+                // ── CREACIÓN: guardar y MANTENER ABIERTO, limpiar form ──
                 await FuncRepo.CrearAsync(funcionarioDTO);
-                Toast.Exito("Funcionario creado correctamente");
+                Toast.Exito($"Funcionario '{funcionarioDTO.NombreCompleto}' creado. Puede continuar registrando.");
+
+                // Mantener cargo, tipo vinculación y sede para registros masivos
+                var cargoActual = funcionarioDTO.Cargo;
+                var tipoActual = funcionarioDTO.TipoVinculacion;
+                var sedeActual = funcionarioDTO.SedeId;
+
+                funcionarioDTO = new FuncionarioDTO
+                {
+                    Activo = true,
+                    Cargo = cargoActual,
+                    TipoVinculacion = tipoActual,
+                    SedeId = sedeActual
+                };
+
+                // Enfocar el primer campo (Cédula)
+                try
+                {
+                    await JS.InvokeVoidAsync("eval",
+                        "setTimeout(() => { const el = document.querySelector('.card-form input'); if (el) el.focus(); }, 100);");
+                }
+                catch { /* silencioso */ }
             }
 
-            Cancelar();
+            // Limpiar filtro y recargar la tabla
+            _filtroTexto = string.Empty;
+            _paginaActual = 1;
             await Cargar();
+            StateHasChanged();
         }
         catch (Exception ex)
         {
@@ -380,12 +451,14 @@
         }
     }
 
+    // ═══════════ EDITAR ═══════════
     private void Editar(FuncionarioDTO f)
     {
         if (!puedeEditar) return;
 
         editando = true;
         funcionarioEditandoId = f.Id;
+        _mostrarFormulario = true;
 
         funcionarioDTO.Id = f.Id;
         funcionarioDTO.Cedula = f.Cedula;
@@ -398,9 +471,14 @@
         funcionarioDTO.UsuarioId = f.UsuarioId;
         funcionarioDTO.Activo = f.Activo;
 
+        // Limpiar filtro al entrar en modo edición
+        _filtroTexto = string.Empty;
+        _paginaActual = 1;
+
         StateHasChanged();
     }
 
+    // ═══════════ ELIMINAR ═══════════
     private async Task Eliminar(FuncionarioDTO f)
     {
         if (!puedeEliminar)
@@ -410,7 +488,7 @@
         }
 
         var ok = await Confirm.Peligroso(
-            $"¿Eliminar a '{f.NombreCompleto}'?");
+            $"¿Eliminar a '{f.NombreCompleto}'? Esta acción no se puede deshacer.");
         if (!ok) return;
 
         if (await FuncRepo.TieneBienesAsync(f.Id))
@@ -429,13 +507,5 @@
         {
             Toast.Error($"Error: {ex.Message}");
         }
-    }
-
-    private void Cancelar()
-    {
-        funcionarioDTO = new FuncionarioDTO();
-        editando = false;
-        funcionarioEditandoId = 0;
-        StateHasChanged();
     }
 }

@@ -1,6 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   KARDEX — estilos específicos
-   (Base global en app.css)
+   KÁRDEX — estilos específicos
    ═══════════════════════════════════════════════════════════ */
 
 .select-bien {
@@ -21,7 +20,79 @@
         box-shadow: var(--shadow-focus);
     }
 
-/* Resumen del bien — 4 KPIs superiores */
+/* ═══════════════════════════════════════════════════════════
+   BUSCADOR DE BIEN — combobox con datalist
+   ═══════════════════════════════════════════════════════════ */
+
+.buscador-bien {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 420px;
+    max-width: 100%;
+}
+
+    .buscador-bien > i.bi-search {
+        position: absolute;
+        left: 12px;
+        color: var(--text-disabled);
+        font-size: 0.95rem;
+        pointer-events: none;
+        z-index: 2;
+    }
+
+    .buscador-bien input {
+        width: 100%;
+        padding: 0.55rem 2.4rem 0.55rem 2.4rem;
+        border: 1.5px solid #94a3b8;
+        border-radius: var(--radius);
+        font-size: var(--fs-base);
+        font-family: inherit;
+        background: #fff;
+        color: var(--text-primary);
+        transition: all var(--t-fast);
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    }
+
+        .buscador-bien input:hover {
+            border-color: #64748b;
+        }
+
+        .buscador-bien input:focus {
+            outline: none;
+            border-color: var(--brand);
+            border-width: 2px;
+            box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.15);
+        }
+
+        .buscador-bien input::placeholder {
+            color: var(--text-disabled);
+        }
+
+.btn-limpiar-bien {
+    position: absolute;
+    right: 8px;
+    background: transparent;
+    border: none;
+    color: var(--text-disabled);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    font-size: 0.85rem;
+    transition: all var(--t-fast);
+}
+
+    .btn-limpiar-bien:hover {
+        color: var(--danger);
+        background: var(--danger-soft);
+    }
+
+/* ═══════════════════════════════════════════════════════════
+   RESUMEN DEL BIEN (4 KPIs)
+   ═══════════════════════════════════════════════════════════ */
+
 .resumen-bien {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -68,6 +139,10 @@
         color: var(--warning-hover);
     }
 
+/* ═══════════════════════════════════════════════════════════
+   MINI LABEL + BADGES TIPO MOVIMIENTO
+   ═══════════════════════════════════════════════════════════ */
+
 .mini-label {
     font-size: var(--fs-xs);
     font-weight: var(--fw-semibold);
@@ -78,7 +153,6 @@
     display: block;
 }
 
-/* Badges de tipo de movimiento */
 .tipo-badge {
     display: inline-block;
     padding: 0.25rem 0.7rem;
@@ -98,4 +172,74 @@
 .tipo-ajuste_neg {
     background: var(--danger-soft);
     color: var(--danger-text);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BANNER INFORMATIVO — Kárdex inmutable
+   ═══════════════════════════════════════════════════════════ */
+
+.kardex-info-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    background: #eff6ff;
+    border-left: 4px solid #3b82f6;
+    border-radius: var(--radius);
+    margin-bottom: var(--space-3);
+    color: #1e40af;
+    font-size: var(--fs-sm);
+    line-height: 1.5;
+    animation: bannerFadeIn var(--t-base);
+}
+
+    .kardex-info-banner i {
+        color: #3b82f6;
+        font-size: 1.2rem;
+        flex-shrink: 0;
+        margin-top: 1px;
+    }
+
+    .kardex-info-banner span {
+        flex: 1;
+    }
+
+    .kardex-info-banner strong {
+        color: #1e3a8a;
+        font-weight: 700;
+    }
+
+@keyframes bannerFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════════════ */
+
+@media (max-width: 767.98px) {
+    .buscador-bien {
+        width: 100%;
+    }
+
+    .kardex-info-banner {
+        padding: var(--space-2) var(--space-3);
+        font-size: var(--fs-xs);
+    }
+
+        .kardex-info-banner i {
+            font-size: 1rem;
+        }
+
+    .resumen-valor {
+        font-size: var(--fs-xl);
+    }
 }

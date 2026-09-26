@@ -300,3 +300,26 @@
         padding: 0.4rem;
     }
 }
+/* Cuando una página reclama toda la altura, quitar el padding del app-content */
+.app-content:has(.page-container:has(.card-table-fija)) {
+    padding: 0;
+}
+
+/* Cuando la página quiere ocupar todo el alto, quitar padding del app-content */
+.app-content:has(.card-table-fija) {
+    padding: 0;
+    overflow: hidden;
+}
+
+/* Cuando la página usa card-table-fija y el form está cerrado,
+   quitar el padding del app-content para que no sobre espacio */
+.app-content:has(.card-table-fija) {
+    padding: 0;
+    overflow: hidden;
+}
+
+/* Cuando la página usa card-table-fija, quitar el padding del app-content */
+.app-content:has(.card-table-fija) {
+    padding: 0;
+    overflow: hidden;
+}

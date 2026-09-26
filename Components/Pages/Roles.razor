@@ -14,136 +14,193 @@
 @inject SeguridadService Seguridad
 @inject NavigationManager Navigation
 @inject ToastService Toast
+@inject ConfirmService Confirm
 
-<PageTitle>Roles</PageTitle>
+<PageTitle>Roles · Almacén</PageTitle>
 
-<div class="usuarios-page usuarios-fullscreen">
+<div class="page-container page-crud">
 
-    <div class="modern-card mb-4">
-        <div class="card-top">
-            <div class="card-icon">
-                <i class="bi @(editando ? "bi-pencil-square" : "bi-person-badge-fill")"></i>
-            </div>
+    @* ═══════════════ PAGE HEADER (oculto cuando el form está abierto) ═══════════════ *@
+    @if (!_mostrarFormulario)
+    {
+        <div class="page-header">
             <div>
-                <h4 class="card-title">@(editando ? "Editar Rol" : "Nuevo Rol")</h4>
-                <div class="card-subtitle">
-                    @(editando ? "Actualización de información" : "Registro de roles del sistema")
+                <h1><i class="bi bi-shield-fill"></i> Gestión de Roles</h1>
+                <p class="subtitle">Administración de roles y permisos del sistema</p>
+            </div>
+
+            @if (puedeCrear)
+            {
+                <div class="header-actions">
+                    <button class="btn-nuevo" @onclick="AbrirFormularioNuevo">
+                        <i class="bi bi-plus-lg"></i> Nuevo Rol
+                    </button>
                 </div>
+            }
+        </div>
+    }
+
+    @* ═══════════════ FORM ═══════════════ *@
+    @if (_mostrarFormulario)
+    {
+        <div class="card-form">
+            <div class="form-header">
+                <div class="form-header-left">
+                    <i class="bi bi-@(editando ? "pencil-square" : "plus-circle")"></i>
+                    <span>@(editando ? "Editar Rol" : "Nuevo Rol")</span>
+                </div>
+
+                <div class="form-header-center">
+                    <i class="bi bi-shield-fill"></i>
+                    <div>
+                        <div class="form-header-title">Roles</div>
+                        <div class="form-header-subtitle">Registro de roles del sistema</div>
+                    </div>
+                </div>
+
+                <button class="btn-cerrar-form" @onclick="CerrarFormulario" title="Cerrar">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <EditForm @key="rolEditandoId" Model="rolDTO" OnValidSubmit="GuardarRol">
+                <DataAnnotationsValidator />
+
+                <div class="form-grid-3">
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label>Nombre del Rol *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-person-badge-fill"></i>
+                            <InputText class="form-control" @bind-Value="rolDTO.Nombre" placeholder="Ej: Administrador" />
+                        </div>
+                        <ValidationMessage For="@(() => rolDTO.Nombre)" />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Estado</label>
+                        <div class="input-icon">
+                            <i class="bi bi-check-circle-fill"></i>
+                            <InputSelect class="form-control" @bind-Value="estadoString">
+                                <option value="true">Activo</option>
+                                <option value="false">Inactivo</option>
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="grid-column: 1 / -1;">
+                        <label>Descripción</label>
+                        <div class="input-icon">
+                            <i class="bi bi-chat-left-text"></i>
+                            <InputTextArea class="form-control" rows="3" @bind-Value="rolDTO.Descripcion"
+                                           placeholder="Descripción del rol y sus responsabilidades" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-cancel" @onclick="CerrarFormulario">
+                        <i class="bi bi-x-lg"></i> Cerrar
+                    </button>
+                    <button type="submit" class="btn btn-save">
+                        <i class="bi @(editando ? "bi-check-circle-fill" : "bi-save-fill")"></i>
+                        @(editando ? "Actualizar" : "Guardar")
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    }
+
+    @* ═══════════════ CARD TABLE ═══════════════ *@
+    <div class="card-table">
+
+        @* Barra de búsqueda *@
+        <div class="filtros-tabla">
+            <div class="filtro-busqueda">
+                <i class="bi bi-search"></i>
+                <input type="text"
+                       placeholder="Buscar por nombre o descripción…"
+                       value="@_filtroTexto"
+                       @oninput="OnFiltroInput" />
+                @if (!string.IsNullOrEmpty(_filtroTexto))
+                {
+                    <button class="filtro-clear" @onclick="LimpiarFiltro" title="Limpiar">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                }
+            </div>
+            <div class="filtro-info">
+                <span class="badge-total">
+                    <i class="bi bi-shield-fill"></i>
+                    <strong>@(_rolesFiltrados?.Count() ?? 0)</strong> roles
+                </span>
             </div>
         </div>
 
-        <EditForm @key="rolEditandoId" Model="rolDTO" OnValidSubmit="GuardarRol">
-            <DataAnnotationsValidator />
-            <div class="container-fluid p-0">
-                <div class="row g-2 mb-3">
-                    <div class="col-12 col-md-6">
-                        <div class="modern-group">
-                            <label>Nombre del Rol</label>
-                            <div class="input-modern">
-                                <i class="bi bi-person-badge-fill"></i>
-                                <InputText class="form-control" @bind-Value="rolDTO.Nombre" />
-                            </div>
-                            <ValidationMessage For="@(() => rolDTO.Nombre)" class="validation-message" />
-                        </div>
-                    </div>
-
-                    <div class="col-12 col-md-6">
-                        <div class="modern-group">
-                            <label>Estado</label>
-                            <div class="input-modern">
-                                <i class="bi bi-check-circle-fill"></i>
-                                <InputSelect class="form-select" @bind-Value="estadoString">
-                                    <option value="true">Activo</option>
-                                    <option value="false">Inactivo</option>
-                                </InputSelect>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row g-2 mb-3">
-                    <div class="col-12">
-                        <div class="modern-group">
-                            <label>Descripción</label>
-                            <InputTextArea class="form-control" rows="3" @bind-Value="rolDTO.Descripcion" />
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="d-flex gap-3 mt-4">
-                @if ((editando && puedeEditar) || (!editando && puedeCrear))
-                {
-                    <button type="submit" class="btn btn-save px-4">
-                        <i class="bi @(editando ? "bi-check-circle-fill" : "bi-save-fill") me-2"></i>
-                        @(editando ? "Actualizar Rol" : "Guardar Rol")
-                    </button>
-                }
-
-                @if (editando && puedeEditar)
-                {
-                    <button type="button" class="btn btn-cancel px-4" @onclick="CancelarEdicion">
-                        <i class="bi bi-x-circle me-2"></i> Cancelar
-                    </button>
-                }
-            </div>
-        </EditForm>
-    </div>
-
-    <div class="modern-card">
         <div class="table-responsive">
-            <table class="table modern-table align-middle">
+            <table class="table modern-table">
                 <thead>
                     <tr>
+                        <th style="width: 56px;"></th>
                         <th>Rol</th>
                         <th>Descripción</th>
-                        <th>Estado</th>
-                        <th class="text-center">Acciones</th>
+                        <th class="text-center">Estado</th>
+                        <th class="text-center" style="width: 120px;">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
                     @if (roles == null)
                     {
-                        <tr><td colspan="4" class="text-center py-5">Cargando roles...</td></tr>
+                        <tr><td colspan="5" class="text-center py-3 text-muted">Cargando roles…</td></tr>
                     }
                     else if (!roles.Any())
                     {
-                        <tr><td colspan="4" class="text-center py-5">No existen roles registrados</td></tr>
+                        <tr><td colspan="5" class="text-center py-3 text-muted">No existen roles registrados.</td></tr>
+                    }
+                    else if (!_rolesFiltrados!.Any())
+                    {
+                        <tr><td colspan="5" class="text-center py-3 text-muted">Sin resultados para "@_filtroTexto".</td></tr>
                     }
                     else
                     {
-                        @foreach (var rol in roles)
+                        @foreach (var rol in _rolesFiltrados!)
                         {
-                            <tr>
-                                <td><strong>@rol.Nombre</strong></td>
-                                <td>@rol.Descripcion</td>
+                            <tr class="table-row-hover">
                                 <td>
-                                    @if (rol.Activo)
-                                    {
-                                        <span class="status-active">
-                                            <i class="bi bi-check-circle-fill me-1"></i> Activo
-                                        </span>
-                                    }
-                                    else
-                                    {
-                                        <span class="status-inactive">
-                                            <i class="bi bi-x-circle-fill me-1"></i> Inactivo
-                                        </span>
-                                    }
+                                    <div class="role-avatar-circle">
+                                        @ObtenerIniciales(rol.Nombre)
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="role-cell-info">
+                                        <strong>@rol.Nombre</strong>
+                                        <small>System ID: @rol.Id</small>
+                                    </div>
+                                </td>
+                                <td>@rol.Descripcion</td>
+                                <td class="text-center">
+                                    <span class="badge @(rol.Activo ? "badge-ok" : "badge-off")">
+                                        @(rol.Activo ? "Activo" : "Inactivo")
+                                    </span>
                                 </td>
                                 <td class="text-center">
-                                    @if (puedeEditar)
-                                    {
-                                        <button type="button" class="btn-action-edit me-2" @onclick="() => EditarRol(rol)">
-                                            <i class="bi bi-pencil-fill"></i>
-                                        </button>
-                                    }
-                                    @if (puedeEliminar)
-                                    {
-                                        <button type="button" class="btn-action-delete" @onclick="() => ConfirmarEliminar(rol.Id)">
-                                            <i class="bi bi-trash-fill"></i>
-                                        </button>
-                                    }
+                                    <div class="action-buttons">
+                                        @if (puedeEditar)
+                                        {
+                                            <button class="btn-action btn-action-edit"
+                                                    @onclick="() => EditarRol(rol)"
+                                                    title="Editar rol">
+                                                <i class="bi bi-pencil-fill"></i>
+                                            </button>
+                                        }
+                                        @if (puedeEliminar)
+                                        {
+                                            <button class="btn-action btn-action-delete"
+                                                    @onclick="() => ConfirmarEliminar(rol.Id, rol.Nombre)"
+                                                    title="Eliminar rol">
+                                                <i class="bi bi-trash-fill"></i>
+                                            </button>
+                                        }
+                                    </div>
                                 </td>
                             </tr>
                         }
@@ -159,10 +216,14 @@
     private RolDTO rolDTO = new();
     private bool editando = false;
     private int rolEditandoId;
+    private bool _mostrarFormulario = false;
 
     private bool puedeCrear;
     private bool puedeEditar;
     private bool puedeEliminar;
+
+    private string _filtroTexto = string.Empty;
+    private IEnumerable<Rol>? _rolesFiltrados;
 
     private string estadoString
     {
@@ -188,8 +249,65 @@
     private async Task CargarRoles()
     {
         roles = await RolRepository.ObtenerTodosAsync();
+        AplicarFiltro();
     }
 
+    // ═══════════ FILTRO ═══════════
+    private void AplicarFiltro()
+    {
+        if (roles == null)
+        {
+            _rolesFiltrados = null;
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_filtroTexto))
+        {
+            _rolesFiltrados = roles;
+        }
+        else
+        {
+            var f = _filtroTexto.ToLower().Trim();
+            _rolesFiltrados = roles.Where(r =>
+                (r.Nombre?.ToLower().Contains(f) ?? false) ||
+                (r.Descripcion?.ToLower().Contains(f) ?? false)
+            );
+        }
+    }
+
+    private void OnFiltroInput(ChangeEventArgs e)
+    {
+        _filtroTexto = e.Value?.ToString() ?? string.Empty;
+        AplicarFiltro();
+    }
+
+    private void LimpiarFiltro()
+    {
+        _filtroTexto = string.Empty;
+        AplicarFiltro();
+    }
+
+    // ═══════════ ABRIR / CERRAR FORM ═══════════
+    private void AbrirFormularioNuevo()
+    {
+        LimpiarFormulario();
+        _mostrarFormulario = true;
+
+        _filtroTexto = string.Empty;
+        AplicarFiltro();
+    }
+
+    private void CerrarFormulario()
+    {
+        _mostrarFormulario = false;
+        LimpiarFormulario();
+
+        _filtroTexto = string.Empty;
+        AplicarFiltro();
+        StateHasChanged();
+    }
+
+    // ═══════════ GUARDAR ═══════════
     private async Task GuardarRol()
     {
         if (!editando && !puedeCrear)
@@ -215,7 +333,11 @@
                     Descripcion = rolDTO.Descripcion,
                     Activo = rolDTO.Activo
                 });
-                Toast.Exito("Rol actualizado correctamente");
+                Toast.Exito($"Rol '{rolDTO.Nombre}' actualizado. Puede seguir editando.");
+
+                _filtroTexto = string.Empty;
+                await CargarRoles();
+                StateHasChanged();
             }
             else
             {
@@ -225,11 +347,24 @@
                     Descripcion = rolDTO.Descripcion,
                     Activo = rolDTO.Activo
                 });
-                Toast.Exito("Rol creado correctamente");
-            }
+                Toast.Exito($"Rol '{rolDTO.Nombre}' creado. Puede continuar registrando.");
 
-            LimpiarFormulario();
-            await CargarRoles();
+                rolDTO.Id = 0;
+                rolDTO.Nombre = string.Empty;
+                rolDTO.Descripcion = string.Empty;
+                rolDTO.Activo = true;
+
+                try
+                {
+                    await JS.InvokeVoidAsync("eval",
+                        "setTimeout(() => { const el = document.querySelector('.card-form input'); if (el) el.focus(); }, 100);");
+                }
+                catch { /* silencioso */ }
+
+                _filtroTexto = string.Empty;
+                await CargarRoles();
+                StateHasChanged();
+            }
         }
         catch (Exception ex)
         {
@@ -237,28 +372,34 @@
         }
     }
 
+    // ═══════════ EDITAR ═══════════
     private void EditarRol(Rol rol)
     {
         if (!puedeEditar) return;
 
         editando = true;
         rolEditandoId = rol.Id;
+        _mostrarFormulario = true;
 
-        // Mutar propiedades (NO reemplazar el objeto)
         rolDTO.Id = rol.Id;
         rolDTO.Nombre = rol.Nombre;
         rolDTO.Descripcion = rol.Descripcion;
         rolDTO.Activo = rol.Activo;
 
+        _filtroTexto = string.Empty;
+        AplicarFiltro();
+
         StateHasChanged();
     }
 
-    private async Task ConfirmarEliminar(int id)
+    // ═══════════ ELIMINAR ═══════════
+    private async Task ConfirmarEliminar(int id, string nombre)
     {
         if (!puedeEliminar) return;
 
-        bool confirmar = await JS.InvokeAsync<bool>("confirm", "¿Desea eliminar este rol?");
-        if (!confirmar) return;
+        var ok = await Confirm.Peligroso(
+            $"¿Eliminar el rol '{nombre}'? Esta acción no se puede deshacer.");
+        if (!ok) return;
 
         try
         {
@@ -275,11 +416,9 @@
         }
     }
 
-    private void CancelarEdicion() => LimpiarFormulario();
-
+    // ═══════════ LIMPIAR ═══════════
     private void LimpiarFormulario()
     {
-        // Mutar propiedades (NO reemplazar el objeto)
         rolDTO.Id = 0;
         rolDTO.Nombre = string.Empty;
         rolDTO.Descripcion = string.Empty;
@@ -289,5 +428,17 @@
         rolEditandoId = 0;
 
         StateHasChanged();
+    }
+
+    // ═══════════ UTILIDADES ═══════════
+    private string ObtenerIniciales(string? nombreCompleto)
+    {
+        if (string.IsNullOrWhiteSpace(nombreCompleto)) return "?";
+
+        var partes = nombreCompleto.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (partes.Length == 0) return "?";
+        if (partes.Length == 1) return partes[0].Substring(0, 1).ToUpper();
+
+        return (partes[0].Substring(0, 1) + partes[1].Substring(0, 1)).ToUpper();
     }
 }

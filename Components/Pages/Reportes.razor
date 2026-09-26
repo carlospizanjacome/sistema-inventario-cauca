@@ -17,6 +17,7 @@
 
 <div class="page-container">
 
+    @* ═══════════════ HEADER ═══════════════ *@
     <div class="page-header">
         <div>
             <h1><i class="bi bi-file-earmark-bar-graph"></i> Reportes Consolidados</h1>
@@ -28,11 +29,12 @@
     {
         <div class="loading">
             <div class="spinner"></div>
-            <p>Cargando reportes...</p>
+            <p>Cargando reportes…</p>
         </div>
     }
     else if (_global is not null)
     {
+        @* ═══════════════ KPIs ═══════════════ *@
         <section class="kpi-grid">
             <div class="kpi-card kpi-indigo">
                 <div class="kpi-icon"><i class="bi bi-building"></i></div>
@@ -62,7 +64,9 @@
                 <div class="kpi-icon"><i class="bi bi-cash-stack"></i></div>
                 <div class="kpi-body">
                     <span class="kpi-label">Valor histórico</span>
-                    <span class="kpi-value">@_global.ValorAdquisicion.ToString("C0", CulturaCOP)</span>
+                    <span class="kpi-value" title="@_global.ValorAdquisicion.ToString("C0", CulturaCOP)">
+                        @FormatoValor(_global.ValorAdquisicion)
+                    </span>
                 </div>
             </div>
 
@@ -70,7 +74,9 @@
                 <div class="kpi-icon"><i class="bi bi-graph-down-arrow"></i></div>
                 <div class="kpi-body">
                     <span class="kpi-label">Depreciación acum.</span>
-                    <span class="kpi-value">@_global.DepreciacionAcumulada.ToString("C0", CulturaCOP)</span>
+                    <span class="kpi-value" title="@_global.DepreciacionAcumulada.ToString("C0", CulturaCOP)">
+                        @FormatoValor(_global.DepreciacionAcumulada)
+                    </span>
                 </div>
             </div>
 
@@ -83,19 +89,32 @@
             </div>
         </section>
 
+        @* ═══════════════ TABLA CONSOLIDADO ═══════════════ *@
         @if (_instituciones is not null && _instituciones.Any())
         {
-            <div class="modern-card">
-                <div class="panel-header">
-                    <h2><i class="bi bi-building"></i> Consolidado por institución</h2>
-                    <button class="btn-export" @onclick="ExportarConsolidado" disabled="@_exportando">
-                        <i class="bi @(_exportando ? "bi-hourglass-split" : "bi-file-earmark-excel")"></i>
-                        @(_exportando ? "Generando..." : "Exportar a Excel")
-                    </button>
+            <div class="card-table">
+
+                <div class="filtros-tabla">
+                    <div class="filtros-titulo">
+                        <i class="bi bi-building"></i>
+                        <span>Consolidado por institución</span>
+                    </div>
+
+                    <div class="filtro-info">
+                        <span class="badge-total">
+                            <i class="bi bi-list-ul"></i>
+                            <strong>@_instituciones.Count</strong> instituciones
+                        </span>
+
+                        <button class="btn-export-cgn" @onclick="ExportarConsolidado" disabled="@_exportando">
+                            <i class="bi @(_exportando ? "bi-hourglass-split" : "bi-file-earmark-excel")"></i>
+                            <span>@(_exportando ? "Generando…" : "Exportar a Excel")</span>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="table-responsive">
-                    <table class="table modern-table m-0">
+                    <table class="table modern-table">
                         <thead>
                             <tr>
                                 <th>Institución</th>
@@ -112,23 +131,38 @@
                         <tbody>
                             @foreach (var i in _instituciones)
                             {
-                                <tr>
-                                    <td><strong>@i.InstitucionNombre</strong></td>
-                                    <td>@i.InstitucionNit</td>
-                                    <td class="text-end">@i.TotalBienes</td>
-                                    <td class="text-end">@i.TotalConsumo</td>
-                                    <td class="text-end">@i.TotalFuncionarios</td>
-                                    <td class="text-end">@i.ValorAdquisicion.ToString("C0", CulturaCOP)</td>
-                                    <td class="text-end text-warning">@i.DepreciacionAcumulada.ToString("C0", CulturaCOP)</td>
-                                    <td class="text-end text-success"><strong>@i.ValorNeto.ToString("C0", CulturaCOP)</strong></td>
+                                <tr class="table-row-hover">
+                                    <td>
+                                        <div class="table-cell-primary">
+                                            <strong>@i.InstitucionNombre</strong>
+                                            @if (!string.IsNullOrWhiteSpace(i.CodigoDane))
+                                            {
+                                                <small>DANE: @i.CodigoDane</small>
+                                            }
+                                        </div>
+                                    </td>
+                                    <td class="text-mono">@i.InstitucionNit</td>
+                                    <td class="text-end num">@i.TotalBienes.ToString("N0")</td>
+                                    <td class="text-end num">@i.TotalConsumo.ToString("N0")</td>
+                                    <td class="text-end num">@i.TotalFuncionarios.ToString("N0")</td>
+                                    <td class="text-end num">@i.ValorAdquisicion.ToString("C0", CulturaCOP)</td>
+                                    <td class="text-end num text-warning">@i.DepreciacionAcumulada.ToString("C0", CulturaCOP)</td>
+                                    <td class="text-end num text-success">
+                                        <strong>@i.ValorNeto.ToString("C0", CulturaCOP)</strong>
+                                    </td>
                                     <td class="text-center">
                                         @if (i.BienesBajoStock > 0)
                                         {
-                                            <span class="badge-warn">@i.BienesBajoStock</span>
+                                            <span class="badge-warn">
+                                                <i class="bi bi-exclamation-triangle-fill"></i>
+                                                @i.BienesBajoStock
+                                            </span>
                                         }
                                         else
                                         {
-                                            <span class="badge-ok">✓</span>
+                                            <span class="badge-ok">
+                                                <i class="bi bi-check-lg"></i>
+                                            </span>
                                         }
                                     </td>
                                 </tr>
@@ -138,10 +172,26 @@
                 </div>
             </div>
         }
+        else
+        {
+            <div class="card-table">
+                <div class="empty-state">
+                    <i class="bi bi-file-earmark-bar-graph"></i>
+                    <h4>Sin datos consolidados</h4>
+                    <p>No hay instituciones registradas para generar el reporte.</p>
+                </div>
+            </div>
+        }
     }
     else
     {
-        <div class="empty">No se pudieron cargar los reportes.</div>
+        <div class="card-table">
+            <div class="empty-state">
+                <i class="bi bi-exclamation-triangle"></i>
+                <h4>No se pudieron cargar los reportes</h4>
+                <p>Intenta recargar la página. Si persiste, contacta al administrador.</p>
+            </div>
+        </div>
     }
 </div>
 
@@ -175,6 +225,21 @@
         {
             _cargando = false;
         }
+    }
+
+    // Formato abreviado para KPIs (M = millones, B = billones, K = miles)
+    private static string FormatoValor(decimal valor)
+    {
+        if (valor >= 1_000_000_000)
+            return (valor / 1_000_000_000m).ToString("0.0", CulturaCOP) + "B";
+
+        if (valor >= 1_000_000)
+            return (valor / 1_000_000m).ToString("0.0", CulturaCOP) + "M";
+
+        if (valor >= 1_000)
+            return (valor / 1_000m).ToString("0", CulturaCOP) + "K";
+
+        return valor.ToString("C0", CulturaCOP);
     }
 
     private async Task ExportarConsolidado()

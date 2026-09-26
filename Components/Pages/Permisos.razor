@@ -14,179 +14,221 @@
 @inject SeguridadService Seguridad
 @inject NavigationManager Navigation
 @inject ToastService Toast
+@inject ConfirmService Confirm
 
-<PageTitle>Permisos</PageTitle>
+<PageTitle>Permisos · Almacén</PageTitle>
 
-<div class="usuarios-page usuarios-fullscreen">
+<div class="page-container page-crud">
 
-    <div class="modern-card mb-4">
-        <div class="card-top">
-            <div class="card-icon">
-                <i class="bi @(editando ? "bi-pencil-square" : "bi-shield-lock-fill")"></i>
-            </div>
+    @* ═══════════════ PAGE HEADER (oculto cuando el form está abierto) ═══════════════ *@
+    @if (!_mostrarFormulario)
+    {
+        <div class="page-header">
             <div>
-                <h4 class="card-title">@(editando ? "Editar Permiso" : "Nuevo Permiso")</h4>
-                <div class="card-subtitle">
-                    @(editando ? "Actualización de información" : "Registro de permisos del sistema")
-                </div>
+                <h1><i class="bi bi-shield-lock-fill"></i> Gestión de Permisos</h1>
+                <p class="subtitle">Administración de permisos y módulos del sistema</p>
             </div>
+
+            @if (puedeCrear)
+            {
+                <div class="header-actions">
+                    <button class="btn-nuevo" @onclick="AbrirFormularioNuevo">
+                        <i class="bi bi-plus-lg"></i> Nuevo Permiso
+                    </button>
+                </div>
+            }
         </div>
+    }
 
-        <EditForm @key="permisoEditandoId" Model="permisoDTO" OnValidSubmit="GuardarPermiso">
-            <DataAnnotationsValidator />
-            <div class="container-fluid p-0">
+    @* ═══════════════ FORM ═══════════════ *@
+    @if (_mostrarFormulario)
+    {
+        <div class="card-form">
+            <div class="form-header">
+                <div class="form-header-left">
+                    <i class="bi bi-@(editando ? "pencil-square" : "plus-circle")"></i>
+                    <span>@(editando ? "Editar Permiso" : "Nuevo Permiso")</span>
+                </div>
 
-                <div class="row g-2 mb-3">
-                    <div class="col-12 col-md-6">
-                        <div class="modern-group">
-                            <label>Código</label>
-                            <div class="input-modern">
-                                <i class="bi bi-key-fill"></i>
-                                <InputText class="form-control" @bind-Value="permisoDTO.Codigo" placeholder="Ej: bienes.ver" />
-                            </div>
-                            <ValidationMessage For="@(() => permisoDTO.Codigo)" class="validation-message" />
+                <div class="form-header-center">
+                    <i class="bi bi-shield-lock-fill"></i>
+                    <div>
+                        <div class="form-header-title">Permisos</div>
+                        <div class="form-header-subtitle">Registro de permisos del sistema</div>
+                    </div>
+                </div>
+
+                <button class="btn-cerrar-form" @onclick="CerrarFormulario" title="Cerrar">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <EditForm @key="permisoEditandoId" Model="permisoDTO" OnValidSubmit="GuardarPermiso">
+                <DataAnnotationsValidator />
+
+                <div class="form-grid-3">
+
+                    <div class="form-group">
+                        <label>Código *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-key-fill"></i>
+                            <InputText class="form-control" @bind-Value="permisoDTO.Codigo" placeholder="Ej: bienes.ver" />
                         </div>
+                        <ValidationMessage For="@(() => permisoDTO.Codigo)" class="form-error" />
                     </div>
 
-                    <div class="col-12 col-md-6">
-                        <div class="modern-group">
-                            <label>Módulo</label>
-                            <div class="input-modern">
-                                <i class="bi bi-grid-fill"></i>
-                                @if (nuevoModulo)
-                                {
-                                    <InputText class="form-control" @bind-Value="permisoDTO.Modulo" placeholder="Ej: Reportes" />
-                                }
-                                else
-                                {
-                                    <select class="form-select" value="@permisoDTO.Modulo" @onchange="CambioModulo">
-                                        <option value="">— Seleccione módulo —</option>
-                                        @foreach (var m in modulosDisponibles)
-                                        {
-                                            <option value="@m">@m</option>
-                                        }
-                                        <option value="__NUEVO__">➕ Crear nuevo módulo…</option>
-                                    </select>
-                                }
-                            </div>
-                            <ValidationMessage For="@(() => permisoDTO.Modulo)" class="validation-message" />
-
-                            @if (!nuevoModulo)
+                    <div class="form-group">
+                        <label>Módulo *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-grid-fill"></i>
+                            @if (nuevoModulo)
                             {
-                                <small class="text-muted" style="font-size:0.75rem; margin-top:4px;">
-                                    ¿Falta un módulo? Selecciona "Crear nuevo módulo…"
-                                </small>
+                                <InputText class="form-control" @bind-Value="permisoDTO.Modulo" placeholder="Ej: Reportes" />
                             }
                             else
                             {
-                                <small class="text-primary" style="font-size:0.75rem; margin-top:4px; cursor:pointer;"
-                                       @onclick="VolverAlListado">
-                                    ← Volver al listado
-                                </small>
+                                <select class="form-select" value="@permisoDTO.Modulo" @onchange="CambioModulo">
+                                    <option value="">— Seleccione módulo —</option>
+                                    @foreach (var m in modulosDisponibles)
+                                    {
+                                        <option value="@m">@m</option>
+                                    }
+                                    <option value="__NUEVO__">➕ Crear nuevo módulo…</option>
+                                </select>
                             }
                         </div>
+                        <ValidationMessage For="@(() => permisoDTO.Modulo)" class="form-error" />
+                        @if (!nuevoModulo)
+                        {
+                            <small class="form-hint">¿Falta un módulo? Selecciona "Crear nuevo módulo…"</small>
+                        }
+                        else
+                        {
+                            <small class="form-hint text-brand" style="cursor:pointer;" @onclick="VolverAlListado">
+                                ← Volver al listado
+                            </small>
+                        }
                     </div>
-                </div>
 
-                <div class="row g-2 mb-3">
-                    <div class="col-12 col-md-8">
-                        <div class="modern-group">
-                            <label>Descripción</label>
-                            <InputTextArea class="form-control" rows="3" @bind-Value="permisoDTO.Descripcion" />
+                    <div class="form-group">
+                        <label>Estado</label>
+                        <div class="input-icon">
+                            <i class="bi bi-check-circle-fill"></i>
+                            <InputSelect class="form-select" @bind-Value="estadoString">
+                                <option value="true">Activo</option>
+                                <option value="false">Inactivo</option>
+                            </InputSelect>
                         </div>
                     </div>
 
-                    <div class="col-12 col-md-4">
-                        <div class="modern-group">
-                            <label>Estado</label>
-                            <div class="input-modern">
-                                <i class="bi bi-check-circle-fill"></i>
-                                <InputSelect class="form-select" @bind-Value="estadoString">
-                                    <option value="true">Activo</option>
-                                    <option value="false">Inactivo</option>
-                                </InputSelect>
-                            </div>
+                    <div class="form-group form-group-full">
+                        <label>Descripción</label>
+                        <div class="input-icon">
+                            <i class="bi bi-chat-left-text"></i>
+                            <InputTextArea class="form-control" rows="3" @bind-Value="permisoDTO.Descripcion"
+                                           placeholder="Descripción del permiso y su alcance" />
                         </div>
                     </div>
+
                 </div>
 
-            </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-cancel" @onclick="CerrarFormulario">
+                        <i class="bi bi-x-lg"></i> Cerrar
+                    </button>
+                    @if ((!editando && puedeCrear) || (editando && puedeEditar))
+                    {
+                        <button type="submit" class="btn btn-save">
+                            <i class="bi @(editando ? "bi-check-circle-fill" : "bi-save-fill")"></i>
+                            @(editando ? "Actualizar" : "Guardar")
+                        </button>
+                    }
+                </div>
+            </EditForm>
+        </div>
+    }
 
-            <div class="d-flex gap-3 mt-4">
-                @if ((!editando && puedeCrear) || (editando && puedeEditar))
+    @* ═══════════════ CARD TABLE ═══════════════ *@
+    <div class="card-table">
+
+        <div class="filtros-tabla">
+            <div class="filtro-busqueda">
+                <i class="bi bi-search"></i>
+                <input type="text"
+                       placeholder="Buscar por código, módulo o descripción…"
+                       value="@_filtroTexto"
+                       @oninput="OnFiltroInput" />
+                @if (!string.IsNullOrEmpty(_filtroTexto))
                 {
-                    <button type="submit" class="btn btn-save px-4">
-                        <i class="bi @(editando ? "bi-check-circle-fill" : "bi-save-fill") me-2"></i>
-                        @(editando ? "Actualizar Permiso" : "Guardar Permiso")
+                    <button class="filtro-clear" @onclick="LimpiarFiltro" title="Limpiar">
+                        <i class="bi bi-x-lg"></i>
                     </button>
                 }
-
-                @if (editando && puedeEditar)
-                {
-                    <button type="button" class="btn btn-cancel px-4" @onclick="CancelarEdicion">
-                        <i class="bi bi-x-circle me-2"></i> Cancelar
-                    </button>
-                }
             </div>
-        </EditForm>
-    </div>
+            <div class="filtro-info">
+                <span class="badge-total">
+                    <i class="bi bi-shield-lock-fill"></i>
+                    <strong>@(_permisosFiltrados?.Count() ?? 0)</strong> permisos
+                </span>
+            </div>
+        </div>
 
-    <div class="modern-card">
         <div class="table-responsive">
-            <table class="table modern-table align-middle">
+            <table class="table modern-table">
                 <thead>
                     <tr>
                         <th>Código</th>
                         <th>Módulo</th>
                         <th>Descripción</th>
-                        <th>Estado</th>
-                        <th class="text-center">Acciones</th>
+                        <th class="text-center">Estado</th>
+                        <th class="text-center" style="width: 120px;">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
                     @if (permisos == null)
                     {
-                        <tr><td colspan="5" class="text-center py-5">Cargando permisos...</td></tr>
+                        <tr><td colspan="5" class="text-center py-3 text-muted">Cargando permisos…</td></tr>
                     }
                     else if (!permisos.Any())
                     {
-                        <tr><td colspan="5" class="text-center py-5">No existen permisos registrados</td></tr>
+                        <tr><td colspan="5" class="text-center py-3 text-muted">No existen permisos registrados.</td></tr>
+                    }
+                    else if (!_permisosFiltrados!.Any())
+                    {
+                        <tr><td colspan="5" class="text-center py-3 text-muted">Sin resultados para "@_filtroTexto".</td></tr>
                     }
                     else
                     {
-                        @foreach (var permiso in permisos)
+                        @foreach (var permiso in _permisosFiltrados!)
                         {
-                            <tr>
-                                <td><strong>@permiso.Codigo</strong></td>
-                                <td>@permiso.Modulo</td>
+                            <tr class="table-row-hover">
+                                <td><code>@permiso.Codigo</code></td>
+                                <td><span class="badge badge-neutral">@permiso.Modulo</span></td>
                                 <td>@permiso.Descripcion</td>
-                                <td>
-                                    @if (permiso.Activo)
-                                    {
-                                        <span class="status-active">
-                                            <i class="bi bi-check-circle-fill me-1"></i> Activo
-                                        </span>
-                                    }
-                                    else
-                                    {
-                                        <span class="status-inactive">
-                                            <i class="bi bi-x-circle-fill me-1"></i> Inactivo
-                                        </span>
-                                    }
+                                <td class="text-center">
+                                    <span class="badge @(permiso.Activo ? "badge-ok" : "badge-off")">
+                                        @(permiso.Activo ? "Activo" : "Inactivo")
+                                    </span>
                                 </td>
                                 <td class="text-center">
-                                    @if (puedeEditar)
-                                    {
-                                        <button type="button" class="btn-action-edit me-2" @onclick="() => EditarPermiso(permiso)">
-                                            <i class="bi bi-pencil-fill"></i>
-                                        </button>
-                                    }
-                                    @if (puedeEliminar)
-                                    {
-                                        <button type="button" class="btn-action-delete" @onclick="() => ConfirmarEliminar(permiso.Id)">
-                                            <i class="bi bi-trash-fill"></i>
-                                        </button>
-                                    }
+                                    <div class="action-buttons">
+                                        @if (puedeEditar)
+                                        {
+                                            <button class="btn-action btn-action-edit"
+                                                    @onclick="() => EditarPermiso(permiso)"
+                                                    title="Editar permiso">
+                                                <i class="bi bi-pencil-fill"></i>
+                                            </button>
+                                        }
+                                        @if (puedeEliminar)
+                                        {
+                                            <button class="btn-action btn-action-delete"
+                                                    @onclick="() => ConfirmarEliminar(permiso.Id, permiso.Codigo)"
+                                                    title="Eliminar permiso">
+                                                <i class="bi bi-trash-fill"></i>
+                                            </button>
+                                        }
+                                    </div>
                                 </td>
                             </tr>
                         }
@@ -202,6 +244,7 @@
     private PermisoDTO permisoDTO = new();
     private bool editando = false;
     private int permisoEditandoId;
+    private bool _mostrarFormulario = false;
 
     private bool puedeCrear;
     private bool puedeEditar;
@@ -209,6 +252,9 @@
 
     private List<string> modulosDisponibles = new();
     private bool nuevoModulo = false;
+
+    private string _filtroTexto = string.Empty;
+    private IEnumerable<Permiso>? _permisosFiltrados;
 
     private string estadoString
     {
@@ -241,8 +287,61 @@
             .Distinct()
             .OrderBy(m => m)
             .ToList();
+
+        AplicarFiltro();
     }
 
+    // ═══════════ FILTRO ═══════════
+    private void AplicarFiltro()
+    {
+        if (permisos == null) { _permisosFiltrados = null; return; }
+
+        if (string.IsNullOrWhiteSpace(_filtroTexto))
+        {
+            _permisosFiltrados = permisos;
+        }
+        else
+        {
+            var f = _filtroTexto.ToLower().Trim();
+            _permisosFiltrados = permisos.Where(p =>
+                (p.Codigo?.ToLower().Contains(f) ?? false) ||
+                (p.Modulo?.ToLower().Contains(f) ?? false) ||
+                (p.Descripcion?.ToLower().Contains(f) ?? false)
+            );
+        }
+    }
+
+    private void OnFiltroInput(ChangeEventArgs e)
+    {
+        _filtroTexto = e.Value?.ToString() ?? string.Empty;
+        AplicarFiltro();
+    }
+
+    private void LimpiarFiltro()
+    {
+        _filtroTexto = string.Empty;
+        AplicarFiltro();
+    }
+
+    // ═══════════ ABRIR / CERRAR FORM ═══════════
+    private void AbrirFormularioNuevo()
+    {
+        LimpiarFormulario();
+        _mostrarFormulario = true;
+        _filtroTexto = string.Empty;
+        AplicarFiltro();
+    }
+
+    private void CerrarFormulario()
+    {
+        _mostrarFormulario = false;
+        LimpiarFormulario();
+        _filtroTexto = string.Empty;
+        AplicarFiltro();
+        StateHasChanged();
+    }
+
+    // ═══════════ MÓDULOS ═══════════
     private void CambioModulo(ChangeEventArgs e)
     {
         var valor = e.Value?.ToString() ?? string.Empty;
@@ -265,6 +364,7 @@
         permisoDTO.Modulo = string.Empty;
     }
 
+    // ═══════════ GUARDAR ═══════════
     private async Task GuardarPermiso()
     {
         if (!editando && !puedeCrear)
@@ -291,7 +391,7 @@
                     Modulo = permisoDTO.Modulo,
                     Activo = permisoDTO.Activo
                 });
-                Toast.Exito("Permiso actualizado correctamente");
+                Toast.Exito($"Permiso '{permisoDTO.Codigo}' actualizado.");
             }
             else
             {
@@ -302,11 +402,23 @@
                     Modulo = permisoDTO.Modulo,
                     Activo = permisoDTO.Activo
                 });
-                Toast.Exito("Permiso creado correctamente");
+                Toast.Exito($"Permiso '{permisoDTO.Codigo}' creado. Puede continuar registrando.");
+
+                // Mantener módulo seleccionado si no estamos creando uno nuevo
+                var moduloActual = nuevoModulo ? string.Empty : permisoDTO.Modulo;
+                permisoDTO = new PermisoDTO { Activo = true, Modulo = moduloActual };
+
+                try
+                {
+                    await JS.InvokeVoidAsync("eval",
+                        "setTimeout(() => { const el = document.querySelector('.card-form input'); if (el) el.focus(); }, 100);");
+                }
+                catch { /* silencioso */ }
             }
 
-            LimpiarFormulario();
+            _filtroTexto = string.Empty;
             await CargarPermisos();
+            StateHasChanged();
         }
         catch (Exception ex)
         {
@@ -314,12 +426,14 @@
         }
     }
 
+    // ═══════════ EDITAR ═══════════
     private void EditarPermiso(Permiso permiso)
     {
         if (!puedeEditar) return;
 
         editando = true;
         permisoEditandoId = permiso.Id;
+        _mostrarFormulario = true;
 
         permisoDTO.Id = permiso.Id;
         permisoDTO.Codigo = permiso.Codigo;
@@ -329,10 +443,14 @@
 
         nuevoModulo = false;
 
+        _filtroTexto = string.Empty;
+        AplicarFiltro();
+
         StateHasChanged();
     }
 
-    private async Task ConfirmarEliminar(int id)
+    // ═══════════ ELIMINAR ═══════════
+    private async Task ConfirmarEliminar(int id, string codigo)
     {
         if (!puedeEliminar)
         {
@@ -340,8 +458,9 @@
             return;
         }
 
-        bool confirmar = await JS.InvokeAsync<bool>("confirm", "¿Desea eliminar este permiso?");
-        if (!confirmar) return;
+        var ok = await Confirm.Peligroso(
+            $"¿Eliminar el permiso '{codigo}'? Esta acción no se puede deshacer.");
+        if (!ok) return;
 
         try
         {
@@ -358,8 +477,7 @@
         }
     }
 
-    private void CancelarEdicion() => LimpiarFormulario();
-
+    // ═══════════ LIMPIAR ═══════════
     private void LimpiarFormulario()
     {
         permisoDTO.Id = 0;

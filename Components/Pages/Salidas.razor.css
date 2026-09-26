@@ -1,5 +1,6 @@
+/* CSS for Salidas component */
 /* ═══════════════════════════════════════════════════════════
-   TRASLADOS — Layout blindado idéntico a Bienes/Entradas/Salidas
+   SALIDAS — Layout blindado idéntico a Bienes/Entradas
    ═══════════════════════════════════════════════════════════ */
 
 .page-crud {
@@ -18,19 +19,19 @@
         margin-bottom: 0 !important;
     }
 
-    /* Botón "Nuevo Traslado" en violeta */
-    .page-crud .btn-nuevo-traslado {
-        background: #7c3aed;
-        box-shadow: 0 1px 2px rgba(124, 58, 237, 0.2);
+    /* Botón "Nueva Salida" en rojo (baja) */
+    .page-crud .btn-nuevo-danger {
+        background: var(--danger);
+        box-shadow: 0 1px 2px rgba(220, 38, 38, 0.2);
     }
 
-        .page-crud .btn-nuevo-traslado:hover:not(:disabled) {
-            background: #6d28d9;
-            box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+        .page-crud .btn-nuevo-danger:hover:not(:disabled) {
+            background: var(--danger-hover);
+            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
         }
 
-        .page-crud .btn-nuevo-traslado:active:not(:disabled) {
-            background: #5b21b6;
+        .page-crud .btn-nuevo-danger:active:not(:disabled) {
+            background: #991b1b;
         }
 
     /* FORM */
@@ -84,7 +85,7 @@
         }
 
             .page-crud > .card-form .form-header-left i {
-                color: #7c3aed !important;
+                color: #b91c1c !important;
                 font-size: 1.15rem !important;
             }
 
@@ -99,7 +100,7 @@
 
             .page-crud > .card-form .form-header-center > i {
                 font-size: 1.5rem !important;
-                color: #7c3aed !important;
+                color: #b91c1c !important;
                 flex-shrink: 0 !important;
             }
 
@@ -156,7 +157,7 @@
         .page-crud > .card-form .form-section-title {
             font-size: 0.68rem !important;
             font-weight: 700 !important;
-            color: #7c3aed !important;
+            color: #4f46e5 !important;
             text-transform: uppercase !important;
             letter-spacing: 1px !important;
             margin-bottom: 6px !important;
@@ -195,72 +196,6 @@
                 padding: 0.4rem 0.9rem !important;
                 font-size: 0.82rem !important;
             }
-
-    /* Botón Guardar en violeta */
-    .page-crud .btn-save-traslado {
-        background: #7c3aed;
-        box-shadow: 0 1px 2px rgba(124, 58, 237, 0.2);
-    }
-
-        .page-crud .btn-save-traslado:hover:not(:disabled) {
-            background: #6d28d9;
-            box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
-        }
-
-        .page-crud .btn-save-traslado:active:not(:disabled) {
-            background: #5b21b6;
-        }
-
-    /* Banner informativo del form (solo cuando no está editando) */
-    .page-crud > .card-form .info-banner {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 12px;
-        background: #eff6ff;
-        border-left: 3px solid #3b82f6;
-        border-radius: 6px;
-        color: #1e40af;
-        font-size: 0.82rem;
-        margin-bottom: 10px;
-    }
-
-        .page-crud > .card-form .info-banner i {
-            font-size: 1rem;
-            color: #3b82f6;
-            flex-shrink: 0;
-        }
-
-    /* Input readonly (aula origen / funcionario anterior) */
-    .page-crud > .card-form .input-icon-readonly {
-        position: relative;
-        display: flex;
-        align-items: center;
-        width: 100%;
-        padding: 0.42rem 0.65rem 0.42rem 2.5rem;
-        border: 1.5px solid #e2e8f0;
-        border-radius: 8px;
-        background: #f8fafc;
-        font-size: 0.85rem;
-        color: #64748b;
-        min-height: 34px;
-    }
-
-        .page-crud > .card-form .input-icon-readonly > i {
-            position: absolute;
-            left: 0.85rem;
-            color: #94a3b8;
-            font-size: 1rem;
-            pointer-events: none;
-        }
-
-        .page-crud > .card-form .input-icon-readonly .readonly-value {
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            color: #475569;
-            font-weight: 500;
-        }
 
     /* CARD TABLE */
     .page-crud > .card-table {
@@ -311,10 +246,34 @@
         box-shadow: 0 1px 0 #e2e8f0 !important;
     }
 
-    /* Badge de Aula Destino (con flechita) */
-    .page-crud .badge-traslado-destino {
-        background: #ede9fe;
-        color: #6d28d9;
-        display: inline-flex;
-        align-items: center;
-        gap:
+/* Responsive */
+@media (max-width: 767.98px) {
+    .page-crud {
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+        display: block !important;
+        padding: 16px !important;
+    }
+
+        .page-crud > .card-form {
+            max-height: none !important;
+            margin-bottom: 16px !important;
+        }
+
+            .page-crud > .card-form .form-header-center {
+                display: none !important;
+            }
+
+            .page-crud > .card-form .form-grid-3 {
+                grid-template-columns: 1fr !important;
+            }
+
+        .page-crud > .card-table {
+            display: block !important;
+        }
+
+            .page-crud > .card-table > .table-responsive {
+                max-height: 60vh !important;
+            }
+}

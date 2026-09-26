@@ -4,8 +4,6 @@
    ========================================================= */
 
 @import url("css/tokens.css");
-
-@import url("css/tokens.css");
 @import url("css/modules/crud.css");
 @import url("css/modules/forms.css");
 @import url("css/modules/filtros.css");
@@ -2012,4 +2010,106 @@ code, kbd, samp, pre {
     to {
         transform: rotate(360deg);
     }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FORM-HEADER BLINDADO — todas las páginas CRUD
+   Aplica a Funcionarios, Usuarios, y cualquier otra sin .razor.css
+   ═══════════════════════════════════════════════════════════ */
+
+.card-form .form-header {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 16px !important;
+    margin-bottom: 12px !important;
+    padding-bottom: 10px !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    min-height: 48px !important;
+    flex-wrap: nowrap !important;
+}
+
+.card-form .form-header-left {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    font-size: 1rem !important;
+    font-weight: 700 !important;
+    color: #1e3a8a !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+}
+
+    .card-form .form-header-left i {
+        color: #b91c1c !important;
+        font-size: 1.15rem !important;
+    }
+
+.card-form .form-header-center {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    flex: 1 !important;
+    justify-content: flex-end !important;
+    min-width: 0 !important;
+}
+
+    .card-form .form-header-center > i {
+        font-size: 1.5rem !important;
+        color: #b91c1c !important;
+        flex-shrink: 0 !important;
+    }
+
+.card-form .form-header-title {
+    font-size: 1rem !important;
+    font-weight: 700 !important;
+    color: #1e3a8a !important;
+    line-height: 1.1 !important;
+}
+
+.card-form .form-header-subtitle {
+    font-size: 0.72rem !important;
+    color: #64748b !important;
+    line-height: 1.1 !important;
+    margin-top: 2px !important;
+}
+
+.card-form .btn-cerrar-form {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 32px !important;
+    height: 32px !important;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 8px !important;
+    color: #94a3b8 !important;
+    cursor: pointer !important;
+    transition: all 0.12s ease !important;
+    font-size: 1.1rem !important;
+    flex-shrink: 0 !important;
+}
+
+    .card-form .btn-cerrar-form:hover {
+        background: #fee2e2 !important;
+        color: #dc2626 !important;
+    }
+
+/* Responsive: en móvil se oculta el centro */
+@media (max-width: 767.98px) {
+    .card-form .form-header-center {
+        display: none !important;
+    }
+}
+
+/* ═══ Ocultar barra de scroll — mantiene el scroll funcional ═══ */
+.table-responsive::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+}
+
+.table-responsive {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge legacy */
 }

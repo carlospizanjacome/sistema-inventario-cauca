@@ -14,147 +14,151 @@
 @inject NavigationManager Navigation
 @inject ToastService Toast
 
-<PageTitle>Asignar Permisos</PageTitle>
+<PageTitle>Asignar Permisos · Almacén</PageTitle>
 
-<div class="container-fluid px-0 py-2">
+<div class="page-container">
 
-    <div class="card shadow-sm border-0 mb-4 rounded-3">
-        <div class="card-body p-4">
-            <div class="d-flex align-items-center mb-4">
-                <div class="bg-primary bg-opacity-10 text-primary p-3 rounded-circle me-3 d-flex align-items-center justify-content-center" style="width: 54px; height: 54px;">
-                    <i class="bi bi-shield-lock-fill fs-3"></i>
-                </div>
-                <div>
-                    <h4 class="card-title fw-bold mb-1 text-dark" style="letter-spacing: -0.02em;">Asignación de Permisos</h4>
-                    <p class="text-muted small mb-0">Administración de accesos por rol dentro del sistema</p>
+    @* ═══════════════ HEADER ═══════════════ *@
+    <div class="page-header">
+        <div>
+            <h1><i class="bi bi-shield-lock-fill"></i> Asignación de Permisos</h1>
+            <p class="subtitle">Administración de accesos por rol dentro del sistema</p>
+        </div>
+    </div>
+
+    @* ═══════════════ SELECTOR DE ROL + BOTÓN GUARDAR ═══════════════ *@
+    <div class="modern-card mb-4" style="padding: var(--space-5);">
+        <div class="form-grid-2" style="align-items: end;">
+            <div class="form-group">
+                <label>Seleccione un Rol</label>
+                <div class="input-icon">
+                    <i class="bi bi-person-badge-fill"></i>
+                    <select class="form-select" @onchange="RolSeleccionadoCambio">
+                        <option value="0">Seleccione un rol…</option>
+                        @foreach (var rol in roles)
+                        {
+                            <option value="@rol.Id">@rol.Nombre</option>
+                        }
+                    </select>
                 </div>
             </div>
 
-            <div class="row align-items-end">
-                <div class="col-md-6 col-lg-4 mb-3 mb-md-0">
-                    <div class="form-group">
-                        <label class="form-label text-secondary fw-bold small mb-2 text-uppercase tracking-wider" style="font-size: 0.75rem;">Seleccione un Rol</label>
-                        <div class="input-group shadow-sm rounded">
-                            <span class="input-group-text bg-white border-end-0 text-muted px-3">
-                                <i class="bi bi-person-badge-fill"></i>
-                            </span>
-                            <select class="form-select border-start-0 bg-white py-2" @onchange="RolSeleccionadoCambio">
-                                <option value="0">Seleccione un rol...</option>
-                                @foreach (var rol in roles)
-                                {
-                                    <option value="@rol.Id">@rol.Nombre</option>
-                                }
-                            </select>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-6 col-lg-4">
-                    @if (rolSeleccionadoId > 0 && puedeAsignarPermisos)
-                    {
-                        <button type="button" class="btn btn-primary btn-lg w-100 py-2 shadow-sm border-0 rounded fw-bold" @onclick="Guardar" style="height: 42px; font-size: 0.95rem;">
-                            <i class="bi bi-save-fill me-2"></i>
-                            Guardar Cambios
-                        </button>
-                    }
-                </div>
+            <div class="form-group" style="align-items: end; display: flex;">
+                @if (rolSeleccionadoId > 0 && puedeAsignarPermisos)
+                {
+                    <button type="button" class="btn btn-save" @onclick="Guardar">
+                        <i class="bi bi-save-fill"></i>
+                        Guardar Cambios
+                    </button>
+                }
             </div>
         </div>
     </div>
 
+    @* ═══════════════ MATRIZ DE PERMISOS ═══════════════ *@
     @if (rolSeleccionadoId > 0)
     {
-        <div style="max-height: 480px; overflow-y: auto; overflow-x: hidden; padding-right: 5px; border-radius: 8px;">
-            @foreach (var grupo in permisosPantalla.GroupBy(x => x.Modulo))
-            {
-                <div class="card shadow-sm border-0 mb-4 rounded-3 overflow-hidden bg-white">
-                    <div class="card-header bg-light border-0 py-3 px-4 d-flex align-items-center">
-                        <i class="bi bi-folder-fill text-warning me-2 fs-5"></i>
-                        <span class="fw-bold text-dark text-uppercase tracking-wide" style="font-size: 0.85rem;">@grupo.Key</span>
-                    </div>
-
-                    <div class="table-responsive w-100">
-                        <table class="table table-hover align-middle mb-0" style="min-width: 600px;">
-                            <thead class="table-light text-secondary text-uppercase font-monospace" style="font-size: 0.75rem;">
-                                <tr>
-                                    <th class="ps-4" style="width: 40%;">Objeto / Componente</th>
-                                    <th class="text-center" style="width: 15%;">Ver</th>
-                                    <th class="text-center" style="width: 15%;">Crear</th>
-                                    <th class="text-center" style="width: 15%;">Editar</th>
-                                    <th class="text-center" style="width: 15%;">Eliminar</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var objetoGrupo in grupo.GroupBy(p => p.Codigo.Contains('.') ? p.Codigo.Substring(0, p.Codigo.IndexOf('.')) : p.Codigo))
-                                {
-                                    var nombreComponente = objetoGrupo.Key;
-                                    var permisoVer = objetoGrupo.FirstOrDefault(p => p.Codigo.EndsWith(".ver") || p.Codigo == nombreComponente);
-                                    var permisoCrear = objetoGrupo.FirstOrDefault(p => p.Codigo.EndsWith(".crear"));
-                                    var permisoEditar = objetoGrupo.FirstOrDefault(p => p.Codigo.EndsWith(".editar") || p.Codigo.EndsWith(".actualizar"));
-                                    var permisoEliminar = objetoGrupo.FirstOrDefault(p => p.Codigo.EndsWith(".eliminar") || p.Codigo.EndsWith(".borrar"));
-
-                                    <tr>
-                                        <td class="ps-4">
-                                            <span class="text-dark fw-bold text-capitalize" style="font-size: 0.95rem;">@nombreComponente</span>
-                                            <div class="text-muted small" style="font-size: 0.78rem;">
-                                                Gestión de @nombreComponente
-                                            </div>
-                                        </td>
-                                        <td class="text-center">
-                                            @if (permisoVer != null)
-                                            {
-                                                <div class="form-check form-switch d-inline-block">
-                                                    <InputCheckbox class="form-check-input" @bind-Value="permisoVer.Asignado" style="transform: scale(1.2); cursor: pointer;" />
-                                                </div>
-                                            }
-                                            else
-                                            {
-                                                <span class="text-muted small">-</span>
-                                            }
-                                        </td>
-                                        <td class="text-center">
-                                            @if (permisoCrear != null)
-                                            {
-                                                <div class="form-check form-switch d-inline-block">
-                                                    <InputCheckbox class="form-check-input" @bind-Value="permisoCrear.Asignado" style="transform: scale(1.2); cursor: pointer;" />
-                                                </div>
-                                            }
-                                            else
-                                            {
-                                                <span class="text-muted small">-</span>
-                                            }
-                                        </td>
-                                        <td class="text-center">
-                                            @if (permisoEditar != null)
-                                            {
-                                                <div class="form-check form-switch d-inline-block">
-                                                    <InputCheckbox class="form-check-input" @bind-Value="permisoEditar.Asignado" style="transform: scale(1.2); cursor: pointer;" />
-                                                </div>
-                                            }
-                                            else
-                                            {
-                                                <span class="text-muted small">-</span>
-                                            }
-                                        </td>
-                                        <td class="text-center">
-                                            @if (permisoEliminar != null)
-                                            {
-                                                <div class="form-check form-switch d-inline-block">
-                                                    <InputCheckbox class="form-check-input" @bind-Value="permisoEliminar.Asignado" style="transform: scale(1.2); cursor: pointer;" />
-                                                </div>
-                                            }
-                                            else
-                                            {
-                                                <span class="text-muted small">-</span>
-                                            }
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
+        @foreach (var grupo in permisosPantalla.GroupBy(x => x.Modulo))
+        {
+            <div class="card-table mb-4">
+                <div class="filtros-tabla" style="background: var(--bg-muted);">
+                    <div class="filtros-titulo" style="display: flex; align-items: center; gap: var(--space-2); font-weight: var(--fw-bold); color: var(--text-primary); text-transform: uppercase; letter-spacing: 1px; font-size: var(--fs-xs);">
+                        <i class="bi bi-folder-fill" style="color: var(--warning);"></i>
+                        @grupo.Key
                     </div>
                 </div>
-            }
+
+                <div class="table-responsive">
+                    <table class="table modern-table" style="min-width: 600px;">
+                        <thead>
+                            <tr>
+                                <th style="width: 40%;">Objeto / Componente</th>
+                                <th class="text-center" style="width: 15%;">Ver</th>
+                                <th class="text-center" style="width: 15%;">Crear</th>
+                                <th class="text-center" style="width: 15%;">Editar</th>
+                                <th class="text-center" style="width: 15%;">Eliminar</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var objetoGrupo in grupo.GroupBy(p => p.Codigo.Contains('.') ? p.Codigo.Substring(0, p.Codigo.IndexOf('.')) : p.Codigo))
+                            {
+                                var nombreComponente = objetoGrupo.Key;
+                                var permisoVer = objetoGrupo.FirstOrDefault(p => p.Codigo.EndsWith(".ver") || p.Codigo == nombreComponente);
+                                var permisoCrear = objetoGrupo.FirstOrDefault(p => p.Codigo.EndsWith(".crear"));
+                                var permisoEditar = objetoGrupo.FirstOrDefault(p => p.Codigo.EndsWith(".editar") || p.Codigo.EndsWith(".actualizar"));
+                                var permisoEliminar = objetoGrupo.FirstOrDefault(p => p.Codigo.EndsWith(".eliminar") || p.Codigo.EndsWith(".borrar"));
+
+                                <tr class="table-row-hover">
+                                    <td>
+                                        <div class="table-cell-primary">
+                                            <strong>@nombreComponente</strong>
+                                            <small>Gestión de @nombreComponente</small>
+                                        </div>
+                                    </td>
+                                    <td class="text-center">
+                                        @if (permisoVer != null)
+                                        {
+                                            <div class="form-check form-switch d-inline-block">
+                                                <InputCheckbox class="form-check-input permiso-switch" @bind-Value="permisoVer.Asignado" />
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">—</span>
+                                        }
+                                    </td>
+                                    <td class="text-center">
+                                        @if (permisoCrear != null)
+                                        {
+                                            <div class="form-check form-switch d-inline-block">
+                                                <InputCheckbox class="form-check-input permiso-switch" @bind-Value="permisoCrear.Asignado" />
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">—</span>
+                                        }
+                                    </td>
+                                    <td class="text-center">
+                                        @if (permisoEditar != null)
+                                        {
+                                            <div class="form-check form-switch d-inline-block">
+                                                <InputCheckbox class="form-check-input permiso-switch" @bind-Value="permisoEditar.Asignado" />
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">—</span>
+                                        }
+                                    </td>
+                                    <td class="text-center">
+                                        @if (permisoEliminar != null)
+                                        {
+                                            <div class="form-check form-switch d-inline-block">
+                                                <InputCheckbox class="form-check-input permiso-switch" @bind-Value="permisoEliminar.Asignado" />
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">—</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+    }
+    else
+    {
+        <div class="card-table">
+            <div class="empty-state">
+                <i class="bi bi-shield-lock"></i>
+                <h4>Selecciona un rol</h4>
+                <p>Elige un rol arriba para ver y editar sus permisos asignados.</p>
+            </div>
         </div>
     }
 </div>
@@ -206,12 +210,10 @@
 
         try
         {
-            // Obtener IDs de los permisos marcados
             var idsAsignados = permisosPantalla
                 .Where(p => p.Asignado)
                 .Select(p => p.PermisoId);
 
-            // 1 sola llamada transaccional
             await RolPermisoRepository.ReemplazarPermisosAsync(rolSeleccionadoId, idsAsignados);
 
             Toast.Exito("Permisos guardados correctamente");

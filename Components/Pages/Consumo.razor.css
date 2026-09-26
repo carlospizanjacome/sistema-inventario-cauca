@@ -1,9 +1,9 @@
 /* ═══════════════════════════════════════════════════════════
    CONSUMO — estilos específicos
-   (Base global en app.css)
+   (Base global: app.css + crud.css)
    ═══════════════════════════════════════════════════════════ */
 
-/* Alerta de stock bajo mínimo */
+/* ═══ ALERTA DE STOCK BAJO ═══ */
 .alert-stock {
     display: flex;
     align-items: center;
@@ -13,6 +13,7 @@
     border-radius: var(--radius-lg);
     padding: var(--space-4) var(--space-5);
     margin-bottom: var(--space-4);
+    flex-shrink: 0;
 }
 
     .alert-stock i {
@@ -38,24 +39,15 @@
         font-size: var(--fs-sm);
     }
 
-/* Fila de tabla marcada por stock bajo */
-.row-warning {
-    background: #fffbeb !important;
+/* ═══ FILA CON STOCK BAJO ═══
+   Nota: se usa especificidad natural, sin !important.
+   El .table-row-hover (definido globalmente) pierde ante esta regla
+   por orden de carga (componente scoped gana a global). */
+.row-warning,
+.row-warning:hover {
+    background: #fffbeb;
 }
 
     .row-warning:hover {
-        background: #fef3c7 !important;
+        background: #fef3c7;
     }
-
-/* Badge de advertencia (stock bajo) */
-.badge-warn {
-    background: var(--warning-soft);
-    color: var(--warning-text);
-    padding: 0.25rem 0.65rem;
-    border-radius: var(--radius-full);
-    font-size: var(--fs-xs);
-    font-weight: var(--fw-semibold);
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-}

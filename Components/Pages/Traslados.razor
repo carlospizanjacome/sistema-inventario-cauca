@@ -22,38 +22,71 @@
 
 <PageTitle>Traslados · Almacén</PageTitle>
 
-<div class="usuarios-page usuarios-fullscreen">
+<div class="page-container page-crud">
 
-    <div class="modern-card panel-formulario">
+    @* ═══════════════ PAGE HEADER (oculto cuando el form está abierto) ═══════════════ *@
+    @if (!_mostrarFormulario)
+    {
+        <div class="page-header">
+            <div>
+                <h1><i class="bi bi-arrow-left-right"></i> Traslados</h1>
+                <p class="subtitle">Movimientos internos de bienes entre aulas y responsables</p>
+            </div>
 
-        <div class="card-top-compact d-flex align-items-center gap-2 mb-2 pb-2 border-bottom">
-            <div class="card-icon-small-inline">
-                <i class="bi @(editando ? "bi-pencil-square" : "bi-arrow-left-right")" style="color: #7c3aed; font-size: 1.1rem;"></i>
-            </div>
-            <div class="d-flex align-items-baseline gap-2">
-                <h5 class="m-0 fw-bold text-dark" style="font-size: 1rem;">@(editando ? "Ver Traslado" : "Nuevo Traslado")</h5>
-                <span class="text-muted d-none d-sm-inline" style="font-size: 0.75rem;">| Movimientos internos de bienes entre aulas</span>
-            </div>
+            @if (puedeCrear)
+            {
+                <div class="header-actions">
+                    <button class="btn-nuevo btn-nuevo-traslado" @onclick="AbrirFormulario">
+                        <i class="bi bi-plus-lg"></i> Nuevo Traslado
+                    </button>
+                </div>
+            }
         </div>
+    }
 
-        @if (!editando)
-        {
-            <div class="alert alert-info mb-3" style="font-size:0.85rem; background:#eff6ff; border-color:#bfdbfe; color:#1e40af;">
-                <i class="bi bi-info-circle me-1"></i>
-                Al seleccionar el bien se cargará automáticamente su ubicación y responsable actuales.
+    @* ═══════════════ FORM COLAPSABLE ═══════════════ *@
+    @if (_mostrarFormulario)
+    {
+        <div class="card-form">
+            <div class="form-header">
+                <div class="form-header-left">
+                    <i class="bi bi-@(editando ? "eye-fill" : "plus-circle")"></i>
+                    <span>@(editando ? "Ver Traslado" : "Nuevo Traslado")</span>
+                </div>
+
+                <div class="form-header-center">
+                    <i class="bi bi-arrow-left-right"></i>
+                    <div>
+                        <div class="form-header-title">Traslados</div>
+                        <div class="form-header-subtitle">Movimientos internos de bienes</div>
+                    </div>
+                </div>
+
+                <button class="btn-cerrar-form" @onclick="Cancelar" title="Cerrar">
+                    <i class="bi bi-x-lg"></i>
+                </button>
             </div>
-        }
 
-        <EditForm @key="trasladoEditandoId" Model="trasladoDTO" OnValidSubmit="Guardar">
-            <DataAnnotationsValidator />
+            @if (!editando)
+            {
+                <div class="info-banner">
+                    <i class="bi bi-info-circle-fill"></i>
+                    <span>Al seleccionar el bien, se cargará automáticamente su ubicación y responsable actuales.</span>
+                </div>
+            }
 
-            <div class="container-fluid p-0">
+            <EditForm @key="trasladoEditandoId" Model="trasladoDTO" OnValidSubmit="Guardar">
+                <DataAnnotationsValidator />
 
-                <div class="row g-2 mb-2">
-                    <div class="col-md-4">
-                        <div class="modern-group">
+                <div class="form-section">
+                    <h4 class="form-section-title">
+                        <i class="bi bi-card-list"></i> Datos del Traslado
+                    </h4>
+                    <div class="form-grid-3">
+
+                        <div class="form-group">
                             <label>Bien *</label>
-                            <div class="input-modern">
+                            <div class="input-icon">
                                 <i class="bi bi-box-seam"></i>
                                 <select class="form-select"
                                         value="@trasladoDTO.BienId"
@@ -66,25 +99,21 @@
                                     }
                                 </select>
                             </div>
-                            <ValidationMessage For="() => trasladoDTO.BienId" />
+                            <ValidationMessage For="() => trasladoDTO.BienId" class="form-error" />
                         </div>
-                    </div>
 
-                    <div class="col-md-4">
-                        <div class="modern-group">
+                        <div class="form-group">
                             <label>Fecha Traslado *</label>
-                            <div class="input-modern">
+                            <div class="input-icon">
                                 <i class="bi bi-calendar-event"></i>
                                 <InputDate class="form-control" @bind-Value="trasladoDTO.FechaTraslado" disabled="@editando" />
                             </div>
-                            <ValidationMessage For="() => trasladoDTO.FechaTraslado" />
+                            <ValidationMessage For="() => trasladoDTO.FechaTraslado" class="form-error" />
                         </div>
-                    </div>
 
-                    <div class="col-md-4">
-                        <div class="modern-group">
+                        <div class="form-group">
                             <label>Aula Destino *</label>
-                            <div class="input-modern">
+                            <div class="input-icon">
                                 <i class="bi bi-door-open"></i>
                                 <InputSelect class="form-select" @bind-Value="trasladoDTO.AulaDestinoId" disabled="@editando">
                                     <option value="0">— Seleccione aula —</option>
@@ -94,38 +123,30 @@
                                     }
                                 </InputSelect>
                             </div>
-                            <ValidationMessage For="() => trasladoDTO.AulaDestinoId" />
+                            <ValidationMessage For="() => trasladoDTO.AulaDestinoId" class="form-error" />
                         </div>
-                    </div>
-                </div>
 
-                <div class="row g-2 mb-2">
-                    <div class="col-md-4">
-                        <div class="modern-group">
+                        <div class="form-group">
                             <label>Aula Origen</label>
-                            <div class="input-modern readonly-field">
+                            <div class="input-icon input-icon-readonly">
                                 <i class="bi bi-geo-alt-fill"></i>
                                 <span class="readonly-value">@_aulaOrigenNombre</span>
                             </div>
-                            <small class="text-muted" style="font-size:0.72rem;">Detectado del bien actual</small>
+                            <small class="form-hint">Detectado del bien actual</small>
                         </div>
-                    </div>
 
-                    <div class="col-md-4">
-                        <div class="modern-group">
+                        <div class="form-group">
                             <label>Funcionario Anterior</label>
-                            <div class="input-modern readonly-field">
+                            <div class="input-icon input-icon-readonly">
                                 <i class="bi bi-person-dash-fill"></i>
                                 <span class="readonly-value">@_funcionarioAnteriorNombre</span>
                             </div>
-                            <small class="text-muted" style="font-size:0.72rem;">Detectado del bien actual</small>
+                            <small class="form-hint">Detectado del bien actual</small>
                         </div>
-                    </div>
 
-                    <div class="col-md-4">
-                        <div class="modern-group">
+                        <div class="form-group">
                             <label>Funcionario Nuevo</label>
-                            <div class="input-modern">
+                            <div class="input-icon">
                                 <i class="bi bi-person-check-fill"></i>
                                 <InputSelect class="form-select" @bind-Value="trasladoDTO.FuncionarioNuevoId" disabled="@editando">
                                     <option value="">— Sin asignar —</option>
@@ -136,46 +157,42 @@
                                 </InputSelect>
                             </div>
                         </div>
-                    </div>
-                </div>
 
-                <div class="row g-2 mb-2">
-                    <div class="col-md-12">
-                        <div class="modern-group">
+                        <div class="form-group form-group-full">
                             <label>Motivo del Traslado</label>
-                            <InputTextArea class="form-control" rows="2" @bind-Value="trasladoDTO.Motivo" disabled="@editando" />
+                            <div class="input-icon">
+                                <i class="bi bi-chat-left-text textarea-icon"></i>
+                                <InputTextArea class="form-control" rows="2" @bind-Value="trasladoDTO.Motivo"
+                                               disabled="@editando"
+                                               placeholder="Descripción del motivo del traslado" />
+                            </div>
                         </div>
+
                     </div>
                 </div>
 
-            </div>
-
-            <div class="d-flex gap-2 mt-3 justify-content-end">
-                @if (editando)
-                {
-                    <button type="button" class="btn btn-cancel px-4" @onclick="Cancelar">
-                        <i class="bi bi-x-circle me-2"></i> Cerrar
+                <div class="form-actions">
+                    <button type="button" class="btn btn-cancel" @onclick="Cancelar">
+                        <i class="bi bi-x-lg"></i> @(editando ? "Cerrar" : "Cancelar")
                     </button>
-                }
-                else
-                {
-                    <button type="submit" class="btn btn-save px-4" style="background:#7c3aed;">
-                        <i class="bi bi-arrow-left-right me-2"></i>
-                        Registrar Traslado
-                    </button>
-                }
-            </div>
-        </EditForm>
-    </div>
+                    @if (!editando)
+                    {
+                        <button type="submit" class="btn btn-save btn-save-traslado">
+                            <i class="bi bi-arrow-left-right"></i> Registrar Traslado
+                        </button>
+                    }
+                </div>
+            </EditForm>
+        </div>
+    }
 
-    <!-- ═══════════ TABLA CON FILTROS + PAGINACIÓN ═══════════ -->
-    <div class="modern-card panel-tabla-elastic position-relative">
+    @* ═══════════════ CARD TABLE ═══════════════ *@
+    <div class="card-table">
 
-        <FiltrosMovimiento Filtro="_filtroAvanzado"
-                           OnCambio="AplicarFiltrosAvanzados" />
+        @* Barra de filtros *@
+        <div class="filtros-toolbar">
 
-        <div class="filtros-tabla">
-            <div class="filtro-busqueda">
+            <div class="filtro-busqueda-principal">
                 <i class="bi bi-search"></i>
                 <input type="text"
                        placeholder="Buscar por bien o motivo…"
@@ -189,16 +206,46 @@
                     </button>
                 }
             </div>
-            <div class="filtro-info">
-                <span class="badge-total">
-                    <i class="bi bi-arrow-left-right"></i>
-                    <strong>@(_pagina?.TotalRegistros ?? 0)</strong> traslados
-                </span>
+
+            <div class="filtros-toolbar-actions">
+                <button class="btn-filtros @(_mostrarFiltrosAvanzados ? "active" : "")"
+                        @onclick="ToggleFiltrosAvanzados">
+                    <i class="bi bi-sliders"></i>
+                    <span>Filtros</span>
+                    @if (_filtroAvanzado.HayFiltros)
+                    {
+                        <span class="filtros-badge"></span>
+                    }
+                    <i class="bi @(_mostrarFiltrosAvanzados ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                </button>
             </div>
         </div>
 
-        <div class="table-responsive style-scrollbar">
-            <table class="table modern-table align-middle m-0">
+        @* Filtros avanzados (colapsables) *@
+        @if (_mostrarFiltrosAvanzados)
+        {
+            <div class="panel-filtros">
+                <FiltrosMovimiento Filtro="_filtroAvanzado"
+                                   OnCambio="AplicarFiltrosAvanzados" />
+
+                <div class="filtros-acciones">
+                    <span class="badge-total">
+                        <i class="bi bi-arrow-left-right"></i>
+                        <strong>@(_pagina?.TotalRegistros ?? 0)</strong> traslados
+                    </span>
+                    @if (_filtroAvanzado.HayFiltros)
+                    {
+                        <button class="btn-limpiar-filtros" @onclick="LimpiarTodosLosFiltros">
+                            <i class="bi bi-arrow-counterclockwise"></i>
+                            Limpiar filtros
+                        </button>
+                    }
+                </div>
+            </div>
+        }
+
+        <div class="table-responsive">
+            <table class="table modern-table">
                 <thead>
                     <tr>
                         <th>Fecha</th>
@@ -208,40 +255,91 @@
                         <th>Func. Anterior</th>
                         <th>Func. Nuevo</th>
                         <th>Motivo</th>
-                        <th class="text-center">Acciones</th>
+                        <th class="text-center" style="width: 90px;">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
                     @if (_pagina is null)
                     {
-                        <tr><td colspan="8" class="text-center py-3 text-muted">
-                            <div class="spinner-border spinner-border-sm me-2" role="status"></div>
-                            Cargando...
-                        </td></tr>
+                        <tr>
+                            <td colspan="8" class="text-center py-4 text-muted">Cargando traslados…</td>
+                        </tr>
                     }
                     else if (!_pagina.Items.Any())
                     {
-                        <tr><td colspan="8" class="text-center py-3 text-muted">Sin traslados registrados.</td></tr>
+                        <tr>
+                            <td colspan="8" class="text-center py-4 text-muted">Sin traslados registrados.</td>
+                        </tr>
                     }
                     else
                     {
                         @foreach (var t in _pagina.Items)
                         {
                             <tr class="table-row-hover">
-                                <td>@t.FechaTraslado?.ToString("dd/MM/yyyy")</td>
-                                <td><code>@t.BienCodigo</code> @t.BienNombre</td>
-                                <td>@(t.AulaOrigenNombre ?? "—")</td>
-                                <td><strong>@t.AulaDestinoNombre</strong></td>
-                                <td>@(t.FuncionarioAnteriorNombre ?? "—")</td>
-                                <td>@(t.FuncionarioNuevoNombre ?? "—")</td>
-                                <td>@t.Motivo</td>
-                                <td class="text-center">
-                                    @if (puedeEliminar)
+                                <td class="text-mono">@t.FechaTraslado?.ToString("dd/MM/yyyy")</td>
+                                <td>
+                                    <div class="table-cell-primary">
+                                        <strong>@t.BienNombre</strong>
+                                        <small>@t.BienCodigo</small>
+                                    </div>
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(t.AulaOrigenNombre))
                                     {
-                                        <button class="btn-icon danger" @onclick="() => Eliminar(t)">
-                                            <i class="bi bi-trash-fill"></i>
-                                        </button>
+                                        <span class="text-muted">@t.AulaOrigenNombre</span>
                                     }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="badge badge-traslado-destino">
+                                        <i class="bi bi-arrow-right-short"></i>
+                                        @t.AulaDestinoNombre
+                                    </span>
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(t.FuncionarioAnteriorNombre))
+                                    {
+                                        <span class="text-muted">@t.FuncionarioAnteriorNombre</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(t.FuncionarioNuevoNombre))
+                                    {
+                                        <span>@t.FuncionarioNuevoNombre</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrWhiteSpace(t.Motivo))
+                                    {
+                                        <span class="text-muted">@t.Motivo</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                </td>
+                                <td class="text-center">
+                                    <div class="action-buttons">
+                                        @if (puedeEliminar)
+                                        {
+                                            <button class="btn-action btn-action-delete"
+                                                    @onclick="() => Eliminar(t)"
+                                                    title="Eliminar del histórico">
+                                                <i class="bi bi-trash-fill"></i>
+                                            </button>
+                                        }
+                                    </div>
                                 </td>
                             </tr>
                         }
@@ -269,6 +367,8 @@
     private TrasladoDTO trasladoDTO = new();
     private bool editando = false;
     private int trasladoEditandoId;
+    private bool _mostrarFormulario = false;
+    private bool _mostrarFiltrosAvanzados = false;
 
     private string _aulaOrigenNombre = "— Sin ubicación previa —";
     private string _funcionarioAnteriorNombre = "— Sin responsable previo —";
@@ -318,6 +418,44 @@
         }
     }
 
+    private void AbrirFormulario()
+    {
+        trasladoDTO = new TrasladoDTO { FechaTraslado = DateTime.Today };
+        editando = false;
+        trasladoEditandoId = 0;
+        _aulaOrigenNombre = "— Sin ubicación previa —";
+        _funcionarioAnteriorNombre = "— Sin responsable previo —";
+        _mostrarFormulario = true;
+        _mostrarFiltrosAvanzados = false;
+    }
+
+    private void Cancelar()
+    {
+        _mostrarFormulario = false;
+        trasladoDTO = new TrasladoDTO { FechaTraslado = DateTime.Today };
+        editando = false;
+        trasladoEditandoId = 0;
+        _aulaOrigenNombre = "— Sin ubicación previa —";
+        _funcionarioAnteriorNombre = "— Sin responsable previo —";
+        _filtroTexto = string.Empty;
+        StateHasChanged();
+    }
+
+    private void ToggleFiltrosAvanzados()
+    {
+        if (_mostrarFormulario)
+        {
+            _mostrarFormulario = false;
+            trasladoDTO = new TrasladoDTO { FechaTraslado = DateTime.Today };
+            editando = false;
+            trasladoEditandoId = 0;
+            _aulaOrigenNombre = "— Sin ubicación previa —";
+            _funcionarioAnteriorNombre = "— Sin responsable previo —";
+        }
+
+        _mostrarFiltrosAvanzados = !_mostrarFiltrosAvanzados;
+    }
+
     private async Task CambioPagina(int nuevaPagina)
     {
         _paginaActual = nuevaPagina;
@@ -335,6 +473,15 @@
 
     private async Task AplicarFiltrosAvanzados()
     {
+        _paginaActual = 1;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task LimpiarTodosLosFiltros()
+    {
+        _filtroAvanzado = new FiltroMovimientoDTO();
+        _filtroTexto = string.Empty;
         _paginaActual = 1;
         await Cargar();
         StateHasChanged();
@@ -468,15 +615,5 @@
         {
             Toast.Error($"Error: {ex.Message}");
         }
-    }
-
-    private void Cancelar()
-    {
-        trasladoDTO = new TrasladoDTO { FechaTraslado = DateTime.Today };
-        editando = false;
-        trasladoEditandoId = 0;
-        _aulaOrigenNombre = "— Sin ubicación previa —";
-        _funcionarioAnteriorNombre = "— Sin responsable previo —";
-        StateHasChanged();
     }
 }
