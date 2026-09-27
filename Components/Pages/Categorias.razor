@@ -1,9 +1,11 @@
 ﻿@page "/categorias"
 @rendermode InteractiveServer
 
+@using Almacen.Components.Shared
+@using Almacen.DTOs
+@using Almacen.Helpers
 @using Almacen.Interfaces
 @using Almacen.Models
-@using Almacen.DTOs
 @using Almacen.Services
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.JSInterop
@@ -110,9 +112,40 @@
             </EditForm>
         </div>
     }
-    
+
     @* ═══════════════ CARD TABLE ═══════════════ *@
     <div class="card-table">
+
+        @* ═══ Barra de búsqueda + total ═══ *@
+        <div class="filtros-tabla">
+            <div class="filtro-busqueda">
+                <i class="bi bi-search"></i>
+                <input type="text"
+                       placeholder="Buscar por nombre o descripción…"
+                       @bind="_filtroTexto"
+                       @bind:event="oninput"
+                       @bind:after="BuscarConDebounce" />
+                @if (!string.IsNullOrEmpty(_filtroTexto))
+                {
+                    <button class="filtro-clear" @onclick="LimpiarFiltro" title="Limpiar búsqueda">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                }
+            </div>
+
+            <div class="filtro-info">
+                <span class="badge-total">
+                    <i class="bi bi-tags"></i>
+                    <strong>@(_pagina?.TotalRegistros ?? 0)</strong> categorías
+                    @if (!string.IsNullOrEmpty(_filtroTexto))
+                    {
+                        <span class="filtro-activo-tag">· Filtrado</span>
+                    }
+                </span>
+            </div>
+        </div>
+
+        @* ═══ Tabla ═══ *@
         <div class="table-responsive">
             <table class="table modern-table">
                 <thead>
@@ -124,13 +157,23 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @if (categorias is null || !categorias.Any())
+                    @if (_pagina is null)
                     {
-                        <tr><td colspan="4" class="text-center py-3 text-muted">Sin categorías registradas.</td></tr>
+                        <tr><td colspan="4" class="text-center py-3 text-muted">Cargando categorías…</td></tr>
+                    }
+                    else if (!_pagina.Items.Any())
+                    {
+                        <tr>
+                            <td colspan="4" class="text-center py-3 text-muted">
+                                @(string.IsNullOrEmpty(_filtroTexto)
+                                    ? "Sin categorías registradas."
+                                    : "Sin resultados para la búsqueda.")
+                            </td>
+                        </tr>
                     }
                     else
                     {
-                        @foreach (var categoria in categorias)
+                        @foreach (var categoria in _pagina.Items)
                         {
                             <tr class="table-row-hover">
                                 <td><strong>@categoria.Nombre</strong></td>
@@ -160,15 +203,29 @@
                 </tbody>
             </table>
         </div>
+
+        @* ═══ Paginador ═══ *@
+        @if (_pagina is not null && _pagina.TotalRegistros > 0)
+        {
+            <Paginador T="Categoria"
+                       Resultado="_pagina"
+                       OnCambioPagina="CambioPagina"
+                       OnCambioTamano="CambioTamano" />
+        }
     </div>
 </div>
 
 @code {
-    private IEnumerable<Categoria>? categorias;
+    private ResultadoPaginado<Categoria>? _pagina;
     private CategoriaDTO categoriaDTO = new();
     private bool _editando;
     private int categoriaEditandoId;
     private bool _mostrarFormulario = false;
+
+    private int _paginaActual = 1;
+    private int _tamanoPagina = 25;
+    private string _filtroTexto = string.Empty;
+    private CancellationTokenSource? _debounceCts;
 
     private bool puedeCrear;
     private bool puedeEditar;
@@ -197,7 +254,51 @@
 
     private async Task Cargar()
     {
-        categorias = await CategoriaRepository.ObtenerTodosAsync();
+        _pagina = await CategoriaRepository.ObtenerPaginadoAsync(
+            _paginaActual,
+            _tamanoPagina,
+            string.IsNullOrWhiteSpace(_filtroTexto) ? null : _filtroTexto);
+    }
+
+    private async Task CambioPagina(int nuevaPagina)
+    {
+        _paginaActual = nuevaPagina;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task CambioTamano(int nuevoTamano)
+    {
+        _tamanoPagina = nuevoTamano;
+        _paginaActual = 1;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task BuscarConDebounce()
+    {
+        _debounceCts?.Cancel();
+        _debounceCts = new CancellationTokenSource();
+        var token = _debounceCts.Token;
+
+        try
+        {
+            await Task.Delay(350, token);
+            if (token.IsCancellationRequested) return;
+
+            _paginaActual = 1;
+            await Cargar();
+            StateHasChanged();
+        }
+        catch (TaskCanceledException) { }
+    }
+
+    private async Task LimpiarFiltro()
+    {
+        _filtroTexto = string.Empty;
+        _paginaActual = 1;
+        await Cargar();
+        StateHasChanged();
     }
 
     private void AbrirFormulario()
@@ -230,7 +331,6 @@
         {
             if (_editando)
             {
-                // ── EDICIÓN: guardar y MANTENER ABIERTO con los datos ──
                 await CategoriaRepository.ActualizarAsync(new Categoria
                 {
                     Id = categoriaEditandoId,
@@ -242,7 +342,6 @@
             }
             else
             {
-                // ── CREACIÓN: guardar y MANTENER ABIERTO, limpiar form ──
                 await CategoriaRepository.CrearAsync(new Categoria
                 {
                     Nombre = categoriaDTO.Nombre,
@@ -251,10 +350,8 @@
                 });
                 Toast.Exito($"Categoría '{categoriaDTO.Nombre}' creada. Puede continuar registrando.");
 
-                // Limpiar el form manteniendo Estado = true
                 categoriaDTO = new CategoriaDTO { Estado = true };
 
-                // Enfocar el primer campo (Nombre)
                 try
                 {
                     await JS.InvokeVoidAsync("eval",

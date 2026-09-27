@@ -1990,6 +1990,8 @@ code, kbd, samp, pre {
     border-top: 1px solid var(--border-soft);
     flex-wrap: wrap;
     font-size: var(--fs-sm);
+    flex-shrink: 0;
+    min-height: 52px;
 }
 
 .paginador-info {
@@ -2176,3 +2178,28 @@ input[type="date"] {
         box-shadow: var(--shadow-focus);
     }
 
+/* ═══════════════════════════════════════════════════════════
+   PAGE-CRUD CON FORMULARIO ABIERTO
+   Permite scroll vertical para que el paginador siempre sea accesible
+   ═══════════════════════════════════════════════════════════ */
+.page-crud.form-abierto {
+    height: auto;
+    max-height: none;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+    .page-crud.form-abierto > .card-table {
+        min-height: 350px;
+        flex: 0 0 auto;
+    }
+
+.page-crud.form-abierto {
+    height: auto !important;
+    overflow-y: auto !important;
+}
+
+    .page-crud.form-abierto > .card-table {
+        flex: 0 0 auto !important;
+        min-height: 400px;
+    }

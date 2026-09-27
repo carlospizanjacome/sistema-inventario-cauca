@@ -1,5 +1,6 @@
 ﻿@page "/"
 @using Almacen.DTOs
+@using Almacen.Helpers
 @using Almacen.Interfaces
 @using Almacen.Services
 @inject IDashboardRepository DashboardRepo
@@ -31,7 +32,7 @@
                 <div class="kpi-icon"><i class="bi bi-box-seam"></i></div>
                 <div class="kpi-body">
                     <span class="kpi-label">Bienes activos</span>
-                    <span class="kpi-value">@_kpis.TotalBienes.ToString("N0")</span>
+                    <span class="kpi-value">@Moneda.Numero(_kpis.TotalBienes)</span>
                 </div>
             </div>
 
@@ -39,7 +40,7 @@
                 <div class="kpi-icon"><i class="bi bi-tags"></i></div>
                 <div class="kpi-body">
                     <span class="kpi-label">Categorías</span>
-                    <span class="kpi-value">@_kpis.TotalCategorias.ToString("N0")</span>
+                    <span class="kpi-value">@Moneda.Numero(_kpis.TotalCategorias)</span>
                 </div>
             </div>
 
@@ -47,7 +48,7 @@
                 <div class="kpi-icon"><i class="bi bi-people"></i></div>
                 <div class="kpi-body">
                     <span class="kpi-label">Usuarios activos</span>
-                    <span class="kpi-value">@_kpis.UsuariosActivos.ToString("N0")</span>
+                    <span class="kpi-value">@Moneda.Numero(_kpis.UsuariosActivos)</span>
                 </div>
             </div>
 
@@ -55,7 +56,7 @@
                 <div class="kpi-icon"><i class="bi bi-cash-stack"></i></div>
                 <div class="kpi-body">
                     <span class="kpi-label">Valor inventario</span>
-                    <span class="kpi-value">@FormatearValorCompacto(_kpis.ValorInventario)</span>
+                    <span class="kpi-value">@Moneda.Kpi(_kpis.ValorInventario)</span>
                 </div>
             </div>
         </section>
@@ -121,7 +122,7 @@
                                         <td>@b.Nombre</td>
                                         <td>@b.CategoriaNombre</td>
                                         <td class="text-end">
-                                            @b.Valor.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("es-CO"))
+                                            @Moneda.Entero(b.Valor)
                                         </td>
                                     </tr>
                                 }
@@ -190,18 +191,4 @@
             await JS.InvokeVoidAsync("eval", "window.location.replace('/login')");
         }
     }
-
-    private static string FormatearValorCompacto(decimal valor)
-{
-    var cultura = System.Globalization.CultureInfo.GetCultureInfo("es-CO");
-
-    if (valor >= 1_000_000_000)
-        return (valor / 1_000_000_000).ToString("N1", cultura) + "B";
-    if (valor >= 1_000_000)
-        return (valor / 1_000_000).ToString("N1", cultura) + "M";
-    if (valor >= 1_000)
-        return (valor / 1_000).ToString("N0", cultura) + "K";
-
-    return valor.ToString("C0", cultura);
-}
 }

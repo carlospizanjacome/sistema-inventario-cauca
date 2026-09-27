@@ -1,4 +1,5 @@
-﻿using Almacen.Interfaces;
+﻿using Almacen.Helpers;
+using Almacen.Interfaces;
 using Almacen.Models;
 using Dapper;
 using Npgsql;
@@ -23,67 +24,90 @@ namespace Almacen.Repositories
             }
         }
 
+        private const string BaseSelect = @"
+            SELECT
+                id,
+                nombre,
+                descripcion,
+                estado,
+                fecha_creacion AS FechaCreacion
+            FROM categorias";
+
         public async Task<IEnumerable<Categoria>> ObtenerTodosAsync()
         {
-            const string sql = @"
-                SELECT
-                    id,
-                    nombre,
-                    descripcion,
-                    estado,
-                    fecha_creacion AS FechaCreacion
+            var sql = $"{BaseSelect} ORDER BY nombre;";
+
+            using var connection = Connection;
+            return await connection.QueryAsync<Categoria>(sql);
+        }
+
+        public async Task<ResultadoPaginado<Categoria>> ObtenerPaginadoAsync(
+            int pagina = 1,
+            int tamano = 25,
+            string? filtroTexto = null)
+        {
+            if (pagina < 1) pagina = 1;
+            if (tamano < 1) tamano = 25;
+            if (tamano > 200) tamano = 200;
+
+            var filtroBusqueda = string.Empty;
+            if (!string.IsNullOrWhiteSpace(filtroTexto))
+            {
+                filtroBusqueda = " AND (nombre ILIKE @Buscar OR descripcion ILIKE @Buscar)";
+            }
+
+            var sqlCount = $@"
+                SELECT COUNT(*)
                 FROM categorias
-                ORDER BY nombre;
-            ";
+                WHERE 1=1 {filtroBusqueda};";
+
+            var sqlData = $@"
+                {BaseSelect}
+                WHERE 1=1 {filtroBusqueda}
+                ORDER BY nombre
+                LIMIT @Tamano OFFSET @Offset;";
 
             using var connection = Connection;
 
-            return await connection.QueryAsync<Categoria>(sql);
+            var parametros = new
+            {
+                Buscar = $"%{filtroTexto}%",
+                Tamano = tamano,
+                Offset = (pagina - 1) * tamano
+            };
+
+            var total = await connection.ExecuteScalarAsync<int>(sqlCount, parametros);
+            var items = (await connection.QueryAsync<Categoria>(sqlData, parametros)).ToList();
+
+            return new ResultadoPaginado<Categoria>
+            {
+                Items = items,
+                TotalRegistros = total,
+                PaginaActual = pagina,
+                TamanoPagina = tamano
+            };
         }
 
         public async Task<Categoria?> ObtenerPorIdAsync(int id)
         {
-            const string sql = @"
-                SELECT
-                    id,
-                    nombre,
-                    descripcion,
-                    estado,
-                    fecha_creacion AS FechaCreacion
-                FROM categorias
-                WHERE id = @Id;
-            ";
+            var sql = $"{BaseSelect} WHERE id = @Id;";
 
             using var connection = Connection;
-
             return await connection.QueryFirstOrDefaultAsync<Categoria>(
-                sql,
-                new { Id = id });
+                sql, new { Id = id });
         }
 
         public async Task<int> CrearAsync(Categoria categoria)
         {
             const string sql = @"
                 INSERT INTO categorias
-                (
-                    nombre,
-                    descripcion,
-                    estado
-                )
+                (nombre, descripcion, estado)
                 VALUES
-                (
-                    @Nombre,
-                    @Descripcion,
-                    @Estado
-                )
-                RETURNING id;
-            ";
+                (@Nombre, @Descripcion, @Estado)
+                RETURNING id;";
 
             using var connection = Connection;
-
-            return await connection.ExecuteScalarAsync<int>(
-                sql,
-                categoria);
+            return await connection.ExecuteScalarAsync<int>(sql, categoria);
         }
 
         public async Task<bool> ActualizarAsync(Categoria categoria)
@@ -94,31 +118,19 @@ namespace Almacen.Repositories
                     nombre = @Nombre,
                     descripcion = @Descripcion,
                     estado = @Estado
-                WHERE id = @Id;
-            ";
+                WHERE id = @Id;";
 
             using var connection = Connection;
-
-            var filas = await connection.ExecuteAsync(
-                sql,
-                categoria);
-
+            var filas = await connection.ExecuteAsync(sql, categoria);
             return filas > 0;
         }
 
         public async Task<bool> EliminarAsync(int id)
         {
-            const string sql = @"
-                DELETE FROM categorias
-                WHERE id = @Id;
-            ";
+            const string sql = @"DELETE FROM categorias WHERE id = @Id;";
 
             using var connection = Connection;
-
-            var filas = await connection.ExecuteAsync(
-                sql,
-                new { Id = id });
-
+            var filas = await connection.ExecuteAsync(sql, new { Id = id });
             return filas > 0;
         }
     }

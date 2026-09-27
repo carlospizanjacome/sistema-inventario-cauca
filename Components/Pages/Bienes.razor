@@ -26,7 +26,7 @@
 
 <PageTitle>Bienes · Almacén</PageTitle>
 
-<div class="page-container page-crud">
+<div class="page-container page-crud @(_mostrarFormulario ? "form-abierto" : "")">
 
     @if (!_mostrarFormulario)
     {
