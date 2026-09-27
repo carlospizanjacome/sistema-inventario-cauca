@@ -42,7 +42,7 @@ public class KardexRepository : IKardexRepository
         var (filtro, param) = FiltroInstitucion.Construir(
             _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "b");
 
-        var sql = $"{BaseBienConsumo} {filtro} ORDER BY b.nombre;";
+        var sql = $"{BaseBienConsumo} {filtro} ORDER BY b.codigo;";
 
         using var cn = new NpgsqlConnection(_cs);
         return await cn.QueryAsync<BienConsumoDTO>(sql, param);
@@ -60,6 +60,10 @@ public class KardexRepository : IKardexRepository
             new { Id = id, InstitucionId = _sesion.InstitucionId });
     }
 
+    // ═══════════════════════════════════════════════════════════
+    // CREAR BIEN DE CONSUMO — con autogeneración de código
+    // Formato: CONS-{AÑO}-{D3}
+    // ═══════════════════════════════════════════════════════════
     public async Task<int> CrearBienConsumoAsync(BienConsumoDTO dto)
     {
         dto.InstitucionId = _sesion.InstitucionId;
@@ -75,8 +79,59 @@ public class KardexRepository : IKardexRepository
                  0, 0, @Activo, 1, NOW(), NOW())
             RETURNING id;";
 
+        const int maxIntentos = 3;
+        for (int intento = 1; intento <= maxIntentos; intento++)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(dto.Codigo))
+                {
+                    dto.Codigo = await GenerarSiguienteCodigoConsumoAsync();
+                }
+
+                using var cn = new NpgsqlConnection(_cs);
+                return await cn.ExecuteScalarAsync<int>(sql, dto);
+            }
+            catch (PostgresException ex)
+                when (ex.SqlState == "23505" && intento < maxIntentos)
+            {
+                dto.Codigo = string.Empty;
+                await Task.Delay(50);
+            }
+        }
+
+        throw new InvalidOperationException(
+            "No se pudo generar un código único. Intente nuevamente.");
+    }
+
+    /// <summary>
+    /// Genera el siguiente código consecutivo de consumo para la institución
+    /// y año actual. Formato: CONS-{AÑO}-{D3}
+    /// </summary>
+    private async Task<string> GenerarSiguienteCodigoConsumoAsync()
+    {
+        var prefijo = "CONS";
+        var anio = DateTime.Now.Year;
+        var patron = $"{prefijo}-{anio}-%";
+        var regex = $"^{prefijo}-{anio}-\\d+$";
+
+        const string sql = @"
+            SELECT COALESCE(MAX(CAST(SUBSTRING(codigo FROM '[0-9]+$') AS INTEGER)), 0)
+            FROM bienes
+            WHERE institucion_id = @InstitucionId
+              AND tipo_bien = 'consumo'
+              AND codigo LIKE @Patron
+              AND codigo ~ @Regex;";
+
         using var cn = new NpgsqlConnection(_cs);
-        return await cn.ExecuteScalarAsync<int>(sql, dto);
+        var ultimo = await cn.ExecuteScalarAsync<int>(sql, new
+        {
+            InstitucionId = _sesion.InstitucionId,
+            Patron = patron,
+            Regex = regex
+        });
+
+        return $"{prefijo}-{anio}-{(ultimo + 1):D3}";
     }
 
     public async Task<bool> ActualizarBienConsumoAsync(BienConsumoDTO dto)
@@ -109,6 +164,8 @@ public class KardexRepository : IKardexRepository
 
     public async Task<bool> ExisteCodigoConsumoAsync(string codigo, int? excluirId = null)
     {
+        if (string.IsNullOrWhiteSpace(codigo)) return false;
+
         var (filtro, _) = FiltroInstitucion.Construir(
             _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "b");
 
@@ -183,10 +240,6 @@ public class KardexRepository : IKardexRepository
             new { BienId = bienId, InstitucionId = _sesion.InstitucionId });
     }
 
-    /// <summary>
-    /// Registra un movimiento en el kardex y actualiza el bien
-    /// (stock_actual, cpp_actual, valor_stock) — TODO EN UNA TRANSACCIÓN.
-    /// </summary>
     public async Task<int> RegistrarMovimientoAsync(MovimientoConsumoDTO dto)
     {
         using var cn = new NpgsqlConnection(_cs);
@@ -195,7 +248,6 @@ public class KardexRepository : IKardexRepository
 
         try
         {
-            // 1. Obtener estado actual del bien (bloqueando para evitar race conditions)
             const string sqlGet = @"
             SELECT stock_actual AS StockActual,
                    cpp_actual AS CppActual,
@@ -214,7 +266,6 @@ public class KardexRepository : IKardexRepository
             var saldoValor = estado.ValorStock;
             var cpp = estado.CppActual;
 
-            // 2. Calcular según tipo de movimiento
             decimal nuevoSaldoCant;
             decimal nuevoSaldoValor;
             decimal nuevoCpp;
@@ -256,7 +307,6 @@ public class KardexRepository : IKardexRepository
                     throw new InvalidOperationException("Tipo de movimiento no válido.");
             }
 
-            // 3. Insertar el movimiento
             const string sqlInsert = @"
             INSERT INTO movimientos_consumo
                 (bien_id, institucion_id, tipo_movimiento, fecha_movimiento,
@@ -290,7 +340,6 @@ public class KardexRepository : IKardexRepository
                 dto.Observaciones
             }, tx);
 
-            // 4. Actualizar el bien
             const string sqlUpdate = @"
             UPDATE bienes
             SET stock_actual = @StockActual,
@@ -317,11 +366,6 @@ public class KardexRepository : IKardexRepository
         }
     }
 
-    /// <summary>
-    /// Clase interna para mapear el estado del bien en la transacción.
-    /// (no puede ser tupla porque un bien sin stock tiene valores 0,
-    /// que son indistinguibles del default)
-    /// </summary>
     private class EstadoBienConsumo
     {
         public decimal StockActual { get; set; }
@@ -339,7 +383,7 @@ public class KardexRepository : IKardexRepository
             AND b.activo = TRUE
             AND b.stock_actual <= b.stock_minimo
             {filtro}
-            ORDER BY b.nombre;";
+            ORDER BY b.codigo;";
 
         using var cn = new NpgsqlConnection(_cs);
         return await cn.QueryAsync<BienConsumoDTO>(sql, param);

@@ -4,27 +4,33 @@
 
 @if (_visible)
 {
-    <div class="confirm-backdrop" @onclick="Cancelar">
-        <div class="confirm-modal" @onclick:stopPropagation="true">
+    <div style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; z-index: 99999; padding: 16px;"
+         @onclick="Cancelar">
+        <div style="background: #fff; border-radius: 16px; max-width: 460px; width: 100%; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.4); font-family: 'Segoe UI', system-ui, sans-serif;"
+             @onclick:stopPropagation="true">
 
-            <div class="confirm-header" style="background: @(_opciones.ColorBoton);">
-                <i class="bi @_opciones.Icono"></i>
-                <h3>@_opciones.Titulo</h3>
+            @* ═══ HEADER ═══ *@
+            <div style="padding: 24px 24px 20px; color: #fff; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; background: @_opciones.ColorBoton;">
+                <i class="bi @_opciones.Icono" style="font-size: 2.5rem; opacity: 0.95;"></i>
+                <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: #fff;">@_opciones.Titulo</h3>
             </div>
 
-            <div class="confirm-body">
-                <p>@_opciones.Mensaje</p>
+            @* ═══ BODY ═══ *@
+            <div style="padding: 24px 28px; text-align: center;">
+                <p style="margin: 0; color: #475569; font-size: 0.95rem; line-height: 1.55;">@_opciones.Mensaje</p>
             </div>
 
-            <div class="confirm-footer">
-                <button type="button" class="btn-confirm-cancel" @onclick="Cancelar">
+            @* ═══ FOOTER ═══ *@
+            <div style="display: flex; gap: 10px; padding: 0 24px 22px;">
+                <button type="button"
+                        style="flex: 1; padding: 11px 20px; border-radius: 10px; font-weight: 600; font-size: 0.9rem; cursor: pointer; border: none; background: #f1f5f9; color: #475569; font-family: inherit;"
+                        @onclick="Cancelar">
                     @_opciones.TextoCancelar
                 </button>
                 <button type="button"
-                        class="btn-confirm-ok @(_opciones.EsPeligroso ? "peligro" : "")"
-                        style="background: @_opciones.ColorBoton;"
+                        style="flex: 1; padding: 11px 20px; border-radius: 10px; font-weight: 600; font-size: 0.9rem; cursor: pointer; border: none; color: #fff; display: flex; align-items: center; justify-content: center; gap: 6px; font-family: inherit; background: @_opciones.ColorBoton;"
                         @onclick="Aceptar">
-                    <i class="bi bi-check-lg me-1"></i> @_opciones.TextoConfirmar
+                    <i class="bi bi-check-lg"></i> @_opciones.TextoConfirmar
                 </button>
             </div>
 

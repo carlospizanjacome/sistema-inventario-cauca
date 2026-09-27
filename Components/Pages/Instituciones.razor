@@ -12,7 +12,6 @@
 @inject NavigationManager Navigation
 @inject ToastService Toast
 @inject ConfirmService Confirm
-
 @inject IJSRuntime JS
 
 <PageTitle>Instituciones · Almacén</PageTitle>
@@ -146,9 +145,34 @@
             </EditForm>
         </div>
     }
-    
+
     @* ═══════════════ CARD TABLE ═══════════════ *@
     <div class="card-table">
+
+        @* Barra superior: búsqueda + contador *@
+        <div class="filtros-tabla">
+            <div class="filtro-busqueda">
+                <i class="bi bi-search"></i>
+                <input type="text"
+                       placeholder="Buscar por nombre, NIT o rector…"
+                       @bind="_filtroTexto"
+                       @bind:event="oninput"
+                       @bind:after="AplicarFiltro" />
+                @if (!string.IsNullOrEmpty(_filtroTexto))
+                {
+                    <button class="filtro-clear" @onclick="LimpiarFiltro" title="Limpiar">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                }
+            </div>
+            <div class="filtro-info">
+                <span class="badge-total">
+                    <i class="bi bi-bank"></i>
+                    <strong>@(Filtradas.Count())</strong> instituciones
+                </span>
+            </div>
+        </div>
+
         <div class="table-responsive">
             <table class="table modern-table">
                 <thead>
@@ -167,13 +191,13 @@
                     {
                         <tr><td colspan="7" class="text-center py-3 text-muted">Cargando...</td></tr>
                     }
-                    else if (!_instituciones.Any())
+                    else if (!Filtradas.Any())
                     {
-                        <tr><td colspan="7" class="text-center py-3 text-muted">Sin instituciones registradas.</td></tr>
+                        <tr><td colspan="7" class="text-center py-3 text-muted">Sin instituciones para mostrar.</td></tr>
                     }
                     else
                     {
-                        @foreach (var i in _instituciones)
+                        @foreach (var i in Paginadas)
                         {
                             <tr class="table-row-hover">
                                 <td><strong>@i.Nombre</strong></td>
@@ -198,12 +222,14 @@
                                     </span>
                                 </td>
                                 <td class="text-center">
-                                    <button class="btn-icon me-1" @onclick="() => Editar(i)" title="Editar">
-                                        <i class="bi bi-pencil-fill"></i>
-                                    </button>
-                                    <button class="btn-icon danger" @onclick="() => Eliminar(i)" title="Eliminar">
-                                        <i class="bi bi-trash-fill"></i>
-                                    </button>
+                                    <div class="action-buttons">
+                                        <button class="btn-action btn-action-edit" @onclick="() => Editar(i)" title="Editar">
+                                            <i class="bi bi-pencil-fill"></i>
+                                        </button>
+                                        <button class="btn-action btn-action-delete" @onclick="() => Eliminar(i)" title="Eliminar">
+                                            <i class="bi bi-trash-fill"></i>
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         }
@@ -211,6 +237,48 @@
                 </tbody>
             </table>
         </div>
+
+        @* ═══ PAGINADOR ═══ *@
+        @if (_instituciones != null && Filtradas.Any())
+        {
+            <div class="paginador-container">
+                <div class="paginador-info">
+                    Mostrando
+                    <strong>@(((_paginaActual - 1) * _tamanoPagina) + 1)</strong>
+                    -
+                    <strong>@Math.Min(_paginaActual * _tamanoPagina, Filtradas.Count())</strong>
+                    de <strong>@Filtradas.Count()</strong> registros
+                </div>
+
+                <div class="paginador-controles">
+                    <button class="pg-btn" @onclick="() => IrAPagina(1)" disabled="@(_paginaActual <= 1)" title="Primera">
+                        <i class="bi bi-chevron-double-left"></i>
+                    </button>
+                    <button class="pg-btn" @onclick="() => IrAPagina(_paginaActual - 1)" disabled="@(_paginaActual <= 1)" title="Anterior">
+                        <i class="bi bi-chevron-left"></i>
+                    </button>
+                    <span class="pg-page">
+                        Página <strong>@_paginaActual</strong> de <strong>@TotalPaginas</strong>
+                    </span>
+                    <button class="pg-btn" @onclick="() => IrAPagina(_paginaActual + 1)" disabled="@(_paginaActual >= TotalPaginas)" title="Siguiente">
+                        <i class="bi bi-chevron-right"></i>
+                    </button>
+                    <button class="pg-btn" @onclick="() => IrAPagina(TotalPaginas)" disabled="@(_paginaActual >= TotalPaginas)" title="Última">
+                        <i class="bi bi-chevron-double-right"></i>
+                    </button>
+                </div>
+
+                <div class="paginador-size">
+                    <label>Mostrar:</label>
+                    <select value="@_tamanoPagina" @onchange="CambioTamano">
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                </div>
+            </div>
+        }
     </div>
 </div>
 
@@ -221,6 +289,11 @@
     private bool _mostrarFormulario = false;
     private int institucionEditandoId;
 
+    // ── Filtro + Paginación ──
+    private string _filtroTexto = string.Empty;
+    private int _paginaActual = 1;
+    private int _tamanoPagina = 25;
+
     protected override async Task OnInitializedAsync()
     {
         await Cargar();
@@ -229,6 +302,66 @@
     private async Task Cargar()
         => _instituciones = (await InstRepo.ObtenerTodasAsync()).ToList();
 
+    // ═══════════ FILTRO ═══════════
+    private IEnumerable<InstitucionDTO> Filtradas
+    {
+        get
+        {
+            if (_instituciones is null) return Enumerable.Empty<InstitucionDTO>();
+            if (string.IsNullOrWhiteSpace(_filtroTexto)) return _instituciones;
+
+            var f = _filtroTexto.Trim().ToLower();
+            return _instituciones.Where(i =>
+                (i.Nombre?.ToLower().Contains(f) ?? false) ||
+                (i.Nit?.ToLower().Contains(f) ?? false) ||
+                (i.Rector?.ToLower().Contains(f) ?? false));
+        }
+    }
+
+    // ═══════════ PAGINACIÓN ═══════════
+    private IEnumerable<InstitucionDTO> Paginadas
+    {
+        get
+        {
+            var lista = Filtradas.ToList();
+            var skip = (_paginaActual - 1) * _tamanoPagina;
+            return lista.Skip(skip).Take(_tamanoPagina);
+        }
+    }
+
+    private int TotalPaginas
+    {
+        get
+        {
+            var total = Filtradas.Count();
+            return total == 0 ? 1 : (int)Math.Ceiling((double)total / _tamanoPagina);
+        }
+    }
+
+    private void IrAPagina(int nuevaPagina)
+    {
+        if (nuevaPagina < 1 || nuevaPagina > TotalPaginas) return;
+        _paginaActual = nuevaPagina;
+    }
+
+    private void CambioTamano(ChangeEventArgs e)
+    {
+        _tamanoPagina = int.Parse(e.Value?.ToString() ?? "25");
+        _paginaActual = 1;
+    }
+
+    private void AplicarFiltro()
+    {
+        _paginaActual = 1;
+    }
+
+    private void LimpiarFiltro()
+    {
+        _filtroTexto = string.Empty;
+        _paginaActual = 1;
+    }
+
+    // ═══════════ FORM ═══════════
     private void AbrirFormulario()
     {
         _model = new InstitucionDTO { Activo = true };
@@ -267,20 +400,16 @@
         {
             if (_editando)
             {
-                // ── EDICIÓN: guardar y MANTENER ABIERTO con los datos ──
                 await InstRepo.ActualizarAsync(_model);
                 Toast.Exito($"Institución '{_model.Nombre}' actualizada. Puede seguir editando.");
             }
             else
             {
-                // ── CREACIÓN: guardar y MANTENER ABIERTO, limpiar form ──
                 await InstRepo.CrearAsync(_model);
                 Toast.Exito($"Institución '{_model.Nombre}' creada. Puede continuar registrando.");
 
-                // Limpiar el form manteniendo el estado Activo por defecto
                 _model = new InstitucionDTO { Activo = true };
 
-                // Enfocar el primer campo (Nombre)
                 try
                 {
                     await JS.InvokeVoidAsync("eval",
@@ -319,7 +448,7 @@
         StateHasChanged();
     }
 
-    private async Task Eliminar(InstitucionDTO i)
+       private async Task Eliminar(InstitucionDTO i)
     {
         if (!Sesion.EsSuperAdmin)
         {
@@ -331,6 +460,7 @@
             $"¿Eliminar la institución '{i.Nombre}'? Esta acción no se puede deshacer.");
         if (!ok) return;
 
+        // Validaciones previas
         if (await InstRepo.TieneSedesAsync(i.Id))
         {
             Toast.Error("No se puede eliminar: la institución tiene sedes asociadas.");
@@ -343,9 +473,27 @@
             Toast.Exito("Institución eliminada correctamente");
             await Cargar();
         }
+        catch (Npgsql.PostgresException pgEx) when (pgEx.SqlState == "23503")
+        {
+            // Error de FK: hay dependencias
+            var mensaje = ObtenerMensajeDependencia(pgEx.ConstraintName);
+            Toast.Error(mensaje);
+        }
         catch (Exception ex)
         {
-            Toast.Error($"Error: {ex.Message}");
+            Toast.Error($"Error al eliminar: {ex.Message}");
         }
+    }
+
+    private static string ObtenerMensajeDependencia(string? constraintName)
+    {
+        return constraintName switch
+        {
+            "usuarios_institucion_id_fkey"    => "No se puede eliminar: hay usuarios asociados a esta institución.",
+            "sedes_institucion_id_fkey"       => "No se puede eliminar: hay sedes asociadas a esta institución.",
+            "bienes_institucion_id_fkey"      => "No se puede eliminar: hay bienes registrados en esta institución.",
+            "funcionarios_institucion_id_fkey"=> "No se puede eliminar: hay funcionarios asociados a esta institución.",
+            _                                  => "No se puede eliminar: la institución tiene registros dependientes."
+        };
     }
 }

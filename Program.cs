@@ -1,4 +1,4 @@
-using Almacen.Components;
+Ôªøusing Almacen.Components;
 using Almacen.Interfaces;
 using Almacen.Models;
 using Almacen.Repositories;
@@ -7,7 +7,8 @@ using Almacen.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
-QuestPDF.Settings.UseEnvironmentFonts = false;
+
+QuestPDF.Settings.UseSystemFonts = false;
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
@@ -21,7 +22,7 @@ builder.Services.AddScoped<PermisoService>();
 builder.Services.AddScoped<IUsuarioRepository, UsuarioRepository>();
 builder.Services.AddScoped<IRolRepository, RolRepository>();
 builder.Services.AddScoped<IPermisoRepository, PermisoRepository>();
-builder.Services.AddScoped<IRolPermisoRepository,RolPermisoRepository>();
+builder.Services.AddScoped<IRolPermisoRepository, RolPermisoRepository>();
 
 
 builder.Services.AddScoped<ICategoriaRepository, CategoriaRepository>();
@@ -82,7 +83,7 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// SOLUCI”N CRÕTICA .NET 9: Habilita la lectura fÌsica de la carpeta wwwroot (Estilos CSS)
+// SOLUCI√ìN CR√çTICA .NET 9: Habilita la lectura f√≠sica de la carpeta wwwroot (Estilos CSS)
 app.UseStaticFiles();
 
 app.UseAntiforgery();
@@ -95,7 +96,7 @@ app.MapRazorComponents<App>()
 //app.Urls.Add($"http://0.0.0.0:{port}");
 //app.Run();
 
-// En producciÛn (Railway) usar puerto din·mico.
+// En producci√≥n (Railway) usar puerto din√°mico.
 // En desarrollo, dejar que VS use launchSettings.json (puerto 7012).
 if (!app.Environment.IsDevelopment())
 {

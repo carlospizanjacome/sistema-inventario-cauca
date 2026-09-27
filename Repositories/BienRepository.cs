@@ -69,7 +69,7 @@ namespace Almacen.Repositories
                 _sesion.InstitucionId,
                 tabla: "b");
 
-            var sql = $"{BaseSelect} WHERE 1=1 {filtro} ORDER BY b.nombre;";
+            var sql = $"{BaseSelect} WHERE 1=1 {filtro} AND b.tipo_bien = 'devolutivo' ORDER BY b.codigo;";
 
             using var connection = Connection;
             return await connection.QueryAsync<Bien>(sql, param);
@@ -91,7 +91,6 @@ namespace Almacen.Repositories
 
         public async Task<int> CrearAsync(Bien bien)
         {
-            // Asignar institución del usuario actual
             bien.InstitucionId = _sesion.InstitucionId;
 
             const string sql = @"
@@ -115,8 +114,58 @@ namespace Almacen.Repositories
                 )
                 RETURNING id;";
 
+            const int maxIntentos = 3;
+            for (int intento = 1; intento <= maxIntentos; intento++)
+            {
+                try
+                {
+                    if (string.IsNullOrWhiteSpace(bien.Codigo))
+                    {
+                        bien.Codigo = await GenerarSiguienteCodigoAsync(
+                            bien.TipoBien ?? "devolutivo");
+                    }
+
+                    using var connection = Connection;
+                    var id = await connection.ExecuteScalarAsync<int>(sql, bien);
+                    return id;
+                }
+                catch (PostgresException ex)
+                    when (ex.SqlState == "23505" && intento < maxIntentos)
+                {
+                    bien.Codigo = string.Empty;
+                    await Task.Delay(50);
+                }
+            }
+
+            throw new InvalidOperationException(
+                "No se pudo generar un código único. Intente nuevamente.");
+        }
+
+        private async Task<string> GenerarSiguienteCodigoAsync(string tipoBien)
+        {
+            var prefijo = tipoBien == "consumo" ? "CONS" : "DEVO";
+            var anio = DateTime.Now.Year;
+            var patron = $"{prefijo}-{anio}-%";
+            var regex = $"^{prefijo}-{anio}-\\d+$";
+
+            const string sql = @"
+                SELECT COALESCE(MAX(CAST(SUBSTRING(codigo FROM '[0-9]+$') AS INTEGER)), 0)
+                FROM bienes
+                WHERE institucion_id = @InstitucionId
+                  AND tipo_bien = @TipoBien
+                  AND codigo LIKE @Patron
+                  AND codigo ~ @Regex;";
+
             using var connection = Connection;
-            return await connection.ExecuteScalarAsync<int>(sql, bien);
+            var ultimo = await connection.ExecuteScalarAsync<int>(sql, new
+            {
+                InstitucionId = _sesion.InstitucionId,
+                TipoBien = tipoBien,
+                Patron = patron,
+                Regex = regex
+            });
+
+            return $"{prefijo}-{anio}-{(ultimo + 1):D3}";
         }
 
         public async Task ActualizarAsync(Bien bien)
@@ -164,7 +213,6 @@ namespace Almacen.Repositories
             int tamano = 25,
             string? filtroTexto = null)
         {
-            // Normalizar parámetros
             if (pagina < 1) pagina = 1;
             if (tamano < 1) tamano = 25;
             if (tamano > 200) tamano = 200;
@@ -172,7 +220,6 @@ namespace Almacen.Repositories
             var (filtroInst, _) = FiltroInstitucion.Construir(
                 _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "b");
 
-            // Filtro de búsqueda (opcional)
             var filtroBusqueda = string.Empty;
             if (!string.IsNullOrWhiteSpace(filtroTexto))
             {
@@ -182,12 +229,14 @@ namespace Almacen.Repositories
             var sqlCount = $@"
                 SELECT COUNT(*)
                 FROM bienes b
-                WHERE 1=1 {filtroInst} {filtroBusqueda};";
+                WHERE 1=1 {filtroInst} {filtroBusqueda}
+                  AND b.tipo_bien = 'devolutivo';";
 
             var sqlData = $@"
                 {BaseSelect}
                 WHERE 1=1 {filtroInst} {filtroBusqueda}
-                ORDER BY b.nombre
+                  AND b.tipo_bien = 'devolutivo'
+                ORDER BY b.codigo
                 LIMIT @Tamano OFFSET @Offset;";
 
             using var connection = Connection;
@@ -210,12 +259,12 @@ namespace Almacen.Repositories
                 PaginaActual = pagina,
                 TamanoPagina = tamano
             };
-
         }
+
         public async Task<ResultadoPaginado<Bien>> ObtenerPaginadoConFiltrosAsync(
-    FiltroBienDTO filtro,
-    int pagina = 1,
-    int tamano = 25)
+            FiltroBienDTO filtro,
+            int pagina = 1,
+            int tamano = 25)
         {
             if (pagina < 1) pagina = 1;
             if (tamano < 1) tamano = 25;
@@ -227,6 +276,9 @@ namespace Almacen.Repositories
             var condiciones = new List<string>();
             var parametros = new DynamicParameters();
             parametros.Add("InstitucionId", _sesion.InstitucionId);
+
+            // Forzar tipo_bien = devolutivo
+            condiciones.Add("b.tipo_bien = 'devolutivo'");
 
             if (!string.IsNullOrWhiteSpace(filtro.Texto))
             {
@@ -264,12 +316,6 @@ namespace Almacen.Repositories
                 parametros.Add("EstadoFisico", filtro.EstadoFisico);
             }
 
-            if (!string.IsNullOrWhiteSpace(filtro.TipoBien))
-            {
-                condiciones.Add("b.tipo_bien = @TipoBien");
-                parametros.Add("TipoBien", filtro.TipoBien);
-            }
-
             if (filtro.Activo.HasValue)
             {
                 condiciones.Add("b.activo = @Activo");
@@ -296,18 +342,18 @@ namespace Almacen.Repositories
             parametros.Add("Offset", (pagina - 1) * tamano);
 
             var sqlCount = $@"
-        SELECT COUNT(*)
-        FROM bienes b
-        LEFT JOIN aulas a ON a.id = b.aula_id
-        LEFT JOIN bloques bl ON bl.id = a.bloque_id
-        LEFT JOIN sedes s ON s.id = bl.sede_id
-        WHERE 1=1 {filtroInst} {whereExtra};";
+                SELECT COUNT(*)
+                FROM bienes b
+                LEFT JOIN aulas a ON a.id = b.aula_id
+                LEFT JOIN bloques bl ON bl.id = a.bloque_id
+                LEFT JOIN sedes s ON s.id = bl.sede_id
+                WHERE 1=1 {filtroInst} {whereExtra};";
 
             var sqlData = $@"
-        {BaseSelect}
-        WHERE 1=1 {filtroInst} {whereExtra}
-        ORDER BY b.nombre
-        LIMIT @Tamano OFFSET @Offset;";
+                {BaseSelect}
+                WHERE 1=1 {filtroInst} {whereExtra}
+                ORDER BY b.codigo
+                LIMIT @Tamano OFFSET @Offset;";
 
             using var connection = Connection;
 
@@ -329,11 +375,12 @@ namespace Almacen.Repositories
                 _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "b");
 
             var sql = $@"
-        {BaseSelect}
-        WHERE b.funcionario_id = @FuncionarioId
-          AND b.activo = TRUE
-          {filtroInst}
-        ORDER BY b.nombre;";
+                {BaseSelect}
+                WHERE b.funcionario_id = @FuncionarioId
+                  AND b.activo = TRUE
+                  AND b.tipo_bien = 'devolutivo'
+                  {filtroInst}
+                ORDER BY b.codigo;";
 
             using var connection = Connection;
             return await connection.QueryAsync<Bien>(sql,

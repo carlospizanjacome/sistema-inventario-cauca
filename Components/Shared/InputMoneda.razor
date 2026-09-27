@@ -1,0 +1,72 @@
+﻿@using System.Globalization
+@inherits InputNumber<decimal>
+
+<input type="text"
+       class="@Class"
+       style="@Style"
+       value="@_display"
+       @onfocus="OnFocusHandler"
+       @onblur="OnBlurHandler"
+       @oninput="OnInputHandler"
+       placeholder="@Placeholder"
+       disabled="@Disabled"
+       @attributes="AdditionalAttributes" />
+
+@code {
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public string? Style { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public string? Placeholder { get; set; }
+
+    private string? _display;
+    private bool _isFocused;
+
+    private static readonly CultureInfo CulturaCOP =
+        CultureInfo.GetCultureInfo("es-CO");
+
+    protected override void OnParametersSet()
+    {
+        // Si NO está enfocado → formatear con separador de miles
+        if (!_isFocused)
+        {
+            _display = CurrentValue.ToString("N0", CulturaCOP);
+        }
+    }
+
+    private void OnFocusHandler()
+    {
+        _isFocused = true;
+        _display = CurrentValue == 0
+            ? ""
+            : CurrentValue.ToString("0.##", CultureInfo.InvariantCulture);
+    }
+
+    private async Task OnBlurHandler()
+    {
+        _isFocused = false;
+        _display = CurrentValue.ToString("N0", CulturaCOP);
+        await Task.CompletedTask;
+    }
+
+    private async Task OnInputHandler(ChangeEventArgs e)
+    {
+        var texto = e.Value?.ToString() ?? "";
+        _display = texto;
+
+        var limpio = texto
+            .Replace(".", "")
+            .Replace(",", ".")
+            .Trim();
+
+        if (string.IsNullOrWhiteSpace(limpio))
+        {
+            await ValueChanged.InvokeAsync(0);
+            return;
+        }
+
+        if (decimal.TryParse(limpio, NumberStyles.Any, CultureInfo.InvariantCulture, out var valor))
+        {
+            await ValueChanged.InvokeAsync(valor);
+        }
+    }
+}

@@ -20,6 +20,9 @@ public class ToastService
 
     private void Mostrar(string mensaje, ToastTipo tipo)
     {
+        Console.WriteLine($"[ToastService] Mostrar() → {tipo}: {mensaje}");
+        Console.WriteLine($"[ToastService] Suscriptores: {OnShow?.GetInvocationList().Length ?? 0}");
+        Console.WriteLine($"[ToastService] HashCode: {GetHashCode()}");
         OnShow?.Invoke(new ToastMensaje { Texto = mensaje, Tipo = tipo });
     }
 }

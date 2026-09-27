@@ -24,6 +24,7 @@
 
 <div class="page-container page-crud">
 
+    @* ═══════════════ PAGE HEADER (oculto cuando el form está abierto) ═══════════════ *@
     @if (!_mostrarFormulario)
     {
         <div class="page-header">
@@ -43,6 +44,7 @@
         </div>
     }
 
+    @* ═══════════════ FORM COLAPSABLE ═══════════════ *@
     @if (_mostrarFormulario)
     {
         <div class="card-form">
@@ -51,6 +53,7 @@
                     <i class="bi bi-@(editando ? "pencil-square" : "plus-circle")"></i>
                     <span>@(editando ? "Editar Entrada" : "Nueva Entrada")</span>
                 </div>
+
                 <div class="form-header-center">
                     <i class="bi bi-box-arrow-in-down"></i>
                     <div>
@@ -58,6 +61,7 @@
                         <div class="form-header-subtitle">Registro de altas al inventario</div>
                     </div>
                 </div>
+
                 <button class="btn-cerrar-form" @onclick="Cancelar" title="Cerrar">
                     <i class="bi bi-x-lg"></i>
                 </button>
@@ -66,108 +70,107 @@
             <EditForm @key="entradaEditandoId" Model="entradaDTO" OnValidSubmit="Guardar">
                 <DataAnnotationsValidator />
 
-                <div class="form-section">
-                    <h4 class="form-section-title"><i class="bi bi-card-list"></i> Identificación</h4>
-                    <div class="form-grid-3">
+                <div class="form-grid-3">
 
-                        <div class="form-group" style="grid-column: span 2;">
-                            <label>Bien *</label>
-                            <div class="input-icon">
-                                <i class="bi bi-box-seam"></i>
-                                <InputSelect class="form-select" @bind-Value="entradaDTO.BienId">
-                                    <option value="0">— Seleccione bien —</option>
-                                    @foreach (var b in bienes)
-                                    {
-                                        <option value="@b.Id">@b.Codigo — @b.Nombre</option>
-                                    }
-                                </InputSelect>
-                            </div>
-                            <ValidationMessage For="() => entradaDTO.BienId" class="form-error" />
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label>Bien *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-box-seam"></i>
+                            <InputSelect class="form-select" @bind-Value="entradaDTO.BienId">
+                                <option value="0">— Seleccione bien —</option>
+                                @foreach (var b in bienes)
+                                {
+                                    <option value="@b.Id">@b.Codigo — @b.Nombre</option>
+                                }
+                            </InputSelect>
                         </div>
-
-                        <div class="form-group">
-                            <label>Tipo Fuente *</label>
-                            <div class="input-icon">
-                                <i class="bi bi-tag"></i>
-                                <InputSelect class="form-select" @bind-Value="entradaDTO.TipoFuente">
-                                    <option value="FSE">Compra FSE</option>
-                                    <option value="Donacion">Donación</option>
-                                    <option value="Transferencia">Transferencia</option>
-                                    <option value="Otro">Otro</option>
-                                </InputSelect>
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Fecha Entrada *</label>
-                            <div class="input-icon">
-                                <i class="bi bi-calendar-check"></i>
-                                <InputDate class="form-control" @bind-Value="entradaDTO.FechaEntrada" />
-                            </div>
-                            <ValidationMessage For="() => entradaDTO.FechaEntrada" class="form-error" />
-                        </div>
-
-                        <div class="form-group">
-                            <label>N° Factura</label>
-                            <div class="input-icon">
-                                <i class="bi bi-receipt"></i>
-                                <InputText class="form-control" @bind-Value="entradaDTO.NumeroFactura"
-                                           placeholder="Ej: FAC-2025-008" />
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Proveedor</label>
-                            <div class="input-icon">
-                                <i class="bi bi-shop"></i>
-                                <InputSelect class="form-select" @bind-Value="entradaDTO.ProveedorId">
-                                    <option value="">— Sin proveedor —</option>
-                                    @foreach (var p in proveedores)
-                                    {
-                                        <option value="@p.Id">@p.Nombre</option>
-                                    }
-                                </InputSelect>
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Valor</label>
-                            <div class="input-icon">
-                                <i class="bi bi-currency-dollar"></i>
-                                <InputNumber class="form-control" @bind-Value="entradaDTO.Valor" min="0" />
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Recibe (Funcionario)</label>
-                            <div class="input-icon">
-                                <i class="bi bi-person-check"></i>
-                                <InputSelect class="form-select" @bind-Value="entradaDTO.FuncionarioRecibeId">
-                                    <option value="">— Sin asignar —</option>
-                                    @foreach (var f in funcionarios)
-                                    {
-                                        <option value="@f.Id">@f.NombreCompleto</option>
-                                    }
-                                </InputSelect>
-                            </div>
-                        </div>
-
-                        <div class="form-group form-group-full">
-                            <label>Observaciones</label>
-                            <div class="input-icon">
-                                <i class="bi bi-chat-left-text textarea-icon"></i>
-                                <InputTextArea class="form-control" rows="2" @bind-Value="entradaDTO.Observaciones"
-                                               placeholder="Observaciones sobre la entrada" />
-                            </div>
-                        </div>
-
+                        <ValidationMessage For="() => entradaDTO.BienId" class="form-error" />
                     </div>
+
+                    <div class="form-group">
+                        <label>Tipo Fuente *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-tag"></i>
+                            <InputSelect class="form-select" @bind-Value="entradaDTO.TipoFuente">
+                                <option value="FSE">Compra FSE</option>
+                                <option value="Donacion">Donación</option>
+                                <option value="Transferencia">Transferencia</option>
+                                <option value="Otro">Otro</option>
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Fecha Entrada *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-calendar-check"></i>
+                            <InputDate class="form-control" @bind-Value="entradaDTO.FechaEntrada" />
+                        </div>
+                        <ValidationMessage For="() => entradaDTO.FechaEntrada" class="form-error" />
+                    </div>
+
+                    <div class="form-group">
+                        <label>N° Factura</label>
+                        <div class="input-icon">
+                            <i class="bi bi-receipt"></i>
+                            <InputText class="form-control" @bind-Value="entradaDTO.NumeroFactura"
+                                       placeholder="Ej: FAC-2025-008" />
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Proveedor</label>
+                        <div class="input-icon">
+                            <i class="bi bi-shop"></i>
+                            <InputSelect class="form-select" @bind-Value="entradaDTO.ProveedorId">
+                                <option value="">— Sin proveedor —</option>
+                                @foreach (var p in proveedores)
+                                {
+                                    <option value="@p.Id">@p.Nombre</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Valor</label>
+                        <div class="input-icon">
+                            <i class="bi bi-currency-dollar"></i>
+                            <InputNumber class="form-control" @bind-Value="entradaDTO.Valor" min="0" />
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Recibe (Funcionario)</label>
+                        <div class="input-icon">
+                            <i class="bi bi-person-check"></i>
+                            <InputSelect class="form-select" @bind-Value="entradaDTO.FuncionarioRecibeId">
+                                <option value="">— Sin asignar —</option>
+                                @foreach (var f in funcionarios)
+                                {
+                                    <option value="@f.Id">@f.NombreCompleto</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    <div class="form-group form-group-full">
+                        <label>Observaciones</label>
+                        <div class="input-icon">
+                            <i class="bi bi-chat-left-text textarea-icon"></i>
+                            <InputTextArea class="form-control" rows="2" @bind-Value="entradaDTO.Observaciones"
+                                           placeholder="Observaciones sobre la entrada" />
+                        </div>
+                    </div>
+
                 </div>
 
                 @if (editando && entradaEditandoId > 0)
                 {
                     <div class="form-section">
-                        <h4 class="form-section-title"><i class="bi bi-paperclip"></i> Soportes</h4>
+                        <h4 class="form-section-title">
+                            <i class="bi bi-paperclip"></i> Soportes
+                        </h4>
                         <AdjuntosUploader EntidadTipo="entrada" EntidadId="entradaEditandoId" />
                     </div>
                 }
@@ -185,9 +188,12 @@
         </div>
     }
 
+    @* ═══════════════ CARD TABLE ═══════════════ *@
     <div class="card-table">
 
+        @* Barra de filtros *@
         <div class="filtros-toolbar">
+
             <div class="filtro-busqueda-principal">
                 <i class="bi bi-search"></i>
                 <input type="text"
@@ -236,16 +242,14 @@
                         <i class="bi bi-calendar"></i>
                         <input type="date"
                                @bind="_filtroFechaDesde"
-                               @bind:after="AplicarFiltrosAvanzados"
-                               placeholder="Desde" />
+                               @bind:after="AplicarFiltrosAvanzados" />
                     </div>
 
                     <div class="filtro-select">
                         <i class="bi bi-calendar"></i>
                         <input type="date"
                                @bind="_filtroFechaHasta"
-                               @bind:after="AplicarFiltrosAvanzados"
-                               placeholder="Hasta" />
+                               @bind:after="AplicarFiltrosAvanzados" />
                     </div>
                 </div>
 
@@ -441,7 +445,11 @@
 
     private void AbrirFormulario()
     {
-        entradaDTO = new EntradaDTO { FechaEntrada = DateTime.Today, TipoFuente = "FSE" };
+        entradaDTO = new EntradaDTO
+        {
+            FechaEntrada = DateTime.Today,
+            TipoFuente = "FSE"
+        };
         editando = false;
         entradaEditandoId = 0;
         _mostrarFormulario = true;
@@ -451,7 +459,11 @@
     private void Cancelar()
     {
         _mostrarFormulario = false;
-        entradaDTO = new EntradaDTO { FechaEntrada = DateTime.Today, TipoFuente = "FSE" };
+        entradaDTO = new EntradaDTO
+        {
+            FechaEntrada = DateTime.Today,
+            TipoFuente = "FSE"
+        };
         editando = false;
         entradaEditandoId = 0;
         _filtroTexto = string.Empty;
@@ -463,7 +475,11 @@
         if (_mostrarFormulario)
         {
             _mostrarFormulario = false;
-            entradaDTO = new EntradaDTO { FechaEntrada = DateTime.Today, TipoFuente = "FSE" };
+            entradaDTO = new EntradaDTO
+            {
+                FechaEntrada = DateTime.Today,
+                TipoFuente = "FSE"
+            };
             editando = false;
             entradaEditandoId = 0;
         }
@@ -513,7 +529,6 @@
         {
             await Task.Delay(350, token);
             if (token.IsCancellationRequested) return;
-
             _paginaActual = 1;
             await Cargar();
             StateHasChanged();
@@ -531,9 +546,23 @@
 
     private async Task Guardar()
     {
-        if (!editando && !puedeCrear) { Toast.Error("No tiene permiso para registrar entradas."); return; }
-        if (editando && !puedeEditar) { Toast.Error("No tiene permiso para editar entradas."); return; }
-        if (entradaDTO.BienId <= 0) { Toast.Error("Debe seleccionar un bien."); return; }
+        if (!editando && !puedeCrear)
+        {
+            Toast.Error("No tiene permiso para registrar entradas.");
+            return;
+        }
+
+        if (editando && !puedeEditar)
+        {
+            Toast.Error("No tiene permiso para editar entradas.");
+            return;
+        }
+
+        if (entradaDTO.BienId <= 0)
+        {
+            Toast.Error("Debe seleccionar un bien.");
+            return;
+        }
 
         try
         {
@@ -541,6 +570,7 @@
             {
                 await EntradaRepo.ActualizarAsync(entradaDTO);
                 Toast.Exito("Entrada actualizada correctamente");
+
                 _filtroTexto = string.Empty;
                 await Cargar();
                 StateHasChanged();
@@ -552,13 +582,38 @@
                     Toast.Error("Este bien ya tiene una entrada registrada.");
                     return;
                 }
+
                 await EntradaRepo.CrearAsync(entradaDTO);
-                Toast.Exito("Entrada registrada correctamente");
-                Cancelar();
+                Toast.Exito($"Entrada '{entradaDTO.NumeroFactura}' creada. Puede continuar registrando.");
+
+                // ✅ MANTENER FORM ABIERTO con datos comunes
+                var tipoFuenteActual = entradaDTO.TipoFuente;
+                var proveedorActual = entradaDTO.ProveedorId;
+                var fechaActual = entradaDTO.FechaEntrada;
+
+                entradaDTO = new EntradaDTO
+                {
+                    FechaEntrada = fechaActual,
+                    TipoFuente = tipoFuenteActual,
+                    ProveedorId = proveedorActual
+                };
+
+                // Enfocar el primer campo (Bien)
+                try
+                {
+                    await JS.InvokeVoidAsync("eval",
+                        "setTimeout(() => { const el = document.querySelector('.card-form input'); if (el) el.focus(); }, 100);");
+                }
+                catch { /* silencioso */ }
+
                 await Cargar();
+                StateHasChanged();
             }
         }
-        catch (Exception ex) { Toast.Error($"Error: {ex.Message}"); }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
     }
 
     private void Editar(EntradaDTO e)

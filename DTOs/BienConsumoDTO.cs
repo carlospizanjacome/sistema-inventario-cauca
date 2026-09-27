@@ -7,7 +7,7 @@ public class BienConsumoDTO
     public int Id { get; set; }
     public int InstitucionId { get; set; }
 
-    [Required(ErrorMessage = "El código es obligatorio")]
+    // El código se autogenera en el repositorio. No es requerido desde el form.
     [StringLength(30)]
     public string Codigo { get; set; } = string.Empty;
 

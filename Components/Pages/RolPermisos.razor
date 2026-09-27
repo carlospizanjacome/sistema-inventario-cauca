@@ -55,100 +55,136 @@
         </div>
     </div>
 
-    @* ═══════════════ MATRIZ DE PERMISOS ═══════════════ *@
-    @if (rolSeleccionadoId > 0)
+    @* ═══════════════ BUSCADOR + RESUMEN ═══════════════ *@
+    @if (rolSeleccionadoId > 0 && permisosPantalla.Any())
     {
-        @foreach (var grupo in permisosPantalla.GroupBy(x => x.Modulo))
-        {
-            <div class="card-table mb-4">
-                <div class="filtros-tabla" style="background: var(--bg-muted);">
-                    <div class="filtros-titulo" style="display: flex; align-items: center; gap: var(--space-2); font-weight: var(--fw-bold); color: var(--text-primary); text-transform: uppercase; letter-spacing: 1px; font-size: var(--fs-xs);">
-                        <i class="bi bi-folder-fill" style="color: var(--warning);"></i>
-                        @grupo.Key
-                    </div>
+        <div class="card-table mb-4">
+            <div class="filtros-tabla">
+                <div class="filtro-busqueda">
+                    <i class="bi bi-search"></i>
+                    <input type="text"
+                           placeholder="Buscar permiso por código, módulo o descripción…"
+                           @bind="_filtroTexto"
+                           @bind:event="oninput" />
+                    @if (!string.IsNullOrEmpty(_filtroTexto))
+                    {
+                        <button class="filtro-clear" @onclick="LimpiarFiltro" title="Limpiar">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    }
                 </div>
-
-                <div class="table-responsive">
-                    <table class="table modern-table" style="min-width: 600px;">
-                        <thead>
-                            <tr>
-                                <th style="width: 40%;">Objeto / Componente</th>
-                                <th class="text-center" style="width: 15%;">Ver</th>
-                                <th class="text-center" style="width: 15%;">Crear</th>
-                                <th class="text-center" style="width: 15%;">Editar</th>
-                                <th class="text-center" style="width: 15%;">Eliminar</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var objetoGrupo in grupo.GroupBy(p => p.Codigo.Contains('.') ? p.Codigo.Substring(0, p.Codigo.IndexOf('.')) : p.Codigo))
-                            {
-                                var nombreComponente = objetoGrupo.Key;
-                                var permisoVer = objetoGrupo.FirstOrDefault(p => p.Codigo.EndsWith(".ver") || p.Codigo == nombreComponente);
-                                var permisoCrear = objetoGrupo.FirstOrDefault(p => p.Codigo.EndsWith(".crear"));
-                                var permisoEditar = objetoGrupo.FirstOrDefault(p => p.Codigo.EndsWith(".editar") || p.Codigo.EndsWith(".actualizar"));
-                                var permisoEliminar = objetoGrupo.FirstOrDefault(p => p.Codigo.EndsWith(".eliminar") || p.Codigo.EndsWith(".borrar"));
-
-                                <tr class="table-row-hover">
-                                    <td>
-                                        <div class="table-cell-primary">
-                                            <strong>@nombreComponente</strong>
-                                            <small>Gestión de @nombreComponente</small>
-                                        </div>
-                                    </td>
-                                    <td class="text-center">
-                                        @if (permisoVer != null)
-                                        {
-                                            <div class="form-check form-switch d-inline-block">
-                                                <InputCheckbox class="form-check-input permiso-switch" @bind-Value="permisoVer.Asignado" />
-                                            </div>
-                                        }
-                                        else
-                                        {
-                                            <span class="text-muted">—</span>
-                                        }
-                                    </td>
-                                    <td class="text-center">
-                                        @if (permisoCrear != null)
-                                        {
-                                            <div class="form-check form-switch d-inline-block">
-                                                <InputCheckbox class="form-check-input permiso-switch" @bind-Value="permisoCrear.Asignado" />
-                                            </div>
-                                        }
-                                        else
-                                        {
-                                            <span class="text-muted">—</span>
-                                        }
-                                    </td>
-                                    <td class="text-center">
-                                        @if (permisoEditar != null)
-                                        {
-                                            <div class="form-check form-switch d-inline-block">
-                                                <InputCheckbox class="form-check-input permiso-switch" @bind-Value="permisoEditar.Asignado" />
-                                            </div>
-                                        }
-                                        else
-                                        {
-                                            <span class="text-muted">—</span>
-                                        }
-                                    </td>
-                                    <td class="text-center">
-                                        @if (permisoEliminar != null)
-                                        {
-                                            <div class="form-check form-switch d-inline-block">
-                                                <InputCheckbox class="form-check-input permiso-switch" @bind-Value="permisoEliminar.Asignado" />
-                                            </div>
-                                        }
-                                        else
-                                        {
-                                            <span class="text-muted">—</span>
-                                        }
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
+                <div class="filtro-info">
+                    <span class="badge-total">
+                        <i class="bi bi-check-circle-fill"></i>
+                        <strong>@permisosPantalla.Count(p => p.Asignado)</strong> de @permisosPantalla.Count asignados
+                    </span>
                 </div>
             </div>
+        </div>
+    }
+
+    @* ═══════════════ MATRIZ DE PERMISOS DINÁMICA ═══════════════ *@
+    @if (rolSeleccionadoId > 0)
+    {
+        var gruposModulo = PermisosFiltrados.GroupBy(x => x.Modulo).OrderBy(g => g.Key).ToList();
+
+        @if (!gruposModulo.Any())
+        {
+            <div class="card-table">
+                <div class="empty-state">
+                    <i class="bi bi-search"></i>
+                    <h4>Sin resultados</h4>
+                    <p>No hay permisos que coincidan con "@_filtroTexto".</p>
+                </div>
+            </div>
+        }
+        else
+        {
+            @foreach (var grupoModulo in gruposModulo)
+            {
+                var permisosModulo = grupoModulo.ToList();
+                var acciones = permisosModulo
+                    .Select(p => ObtenerAccion(p.Codigo))
+                    .Where(a => !string.IsNullOrEmpty(a))
+                    .Distinct()
+                    .OrderBy(OrdenAccion)
+                    .ToList();
+
+                var componentes = permisosModulo
+                    .GroupBy(p => ObtenerComponente(p.Codigo))
+                    .OrderBy(g => g.Key)
+                    .ToList();
+
+                <div class="card-table mb-4">
+                    <div class="filtros-tabla">
+                        <div class="filtros-titulo">
+                            <i class="bi bi-folder-fill" style="color: var(--warning);"></i>
+                            <span>@grupoModulo.Key</span>
+                        </div>
+                        <div class="filtro-info">
+                            <span class="badge-total">
+                                <i class="bi bi-list-ul"></i>
+                                <strong>@componentes.Count</strong> componentes ·
+                                <strong>@permisosModulo.Count(p => p.Asignado)</strong>/@permisosModulo.Count asignados
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table modern-table" style="min-width: 600px;">
+                            <thead>
+                                <tr>
+                                    <th style="min-width: 200px;">Componente</th>
+                                    @foreach (var accion in acciones)
+                                    {
+                                        <th class="text-center" style="min-width: 90px;">
+                                            <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 4px 0;">
+                                                <i class="bi @IconoAccion(accion)" style="font-size: 1.1rem; color: var(--brand);"></i>
+                                                <span style="font-size: 0.7rem;">@NombreAccion(accion)</span>
+                                                <input type="checkbox"
+                                                       class="form-check-input"
+                                                       style="cursor: pointer;"
+                                                       title="Seleccionar / deseleccionar toda la columna"
+                                                       checked="@TodosAsignadosEnColumna(permisosModulo, accion)"
+                                                       @onchange="e => ToggleColumna(permisosModulo, accion, (bool)(e.Value ?? false))" />
+                                            </div>
+                                        </th>
+                                    }
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var comp in componentes)
+                                {
+                                    <tr class="table-row-hover">
+                                        <td>
+                                            <div class="table-cell-primary">
+                                                <strong>@comp.Key</strong>
+                                                <small>Gestión de @comp.Key</small>
+                                            </div>
+                                        </td>
+                                        @foreach (var accion in acciones)
+                                        {
+                                            var perm = comp.FirstOrDefault(p => ObtenerAccion(p.Codigo) == accion);
+                                            <td class="text-center">
+                                                @if (perm != null)
+                                                {
+                                                    <div class="form-check form-switch d-inline-block">
+                                                        <InputCheckbox class="form-check-input permiso-switch" @bind-Value="perm.Asignado" />
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">—</span>
+                                                }
+                                            </td>
+                                        }
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            }
         }
     }
     else
@@ -169,7 +205,114 @@
     private List<PermisoRolDTO> permisosPantalla = [];
     private int rolSeleccionadoId;
     private bool puedeAsignarPermisos;
+    private string _filtroTexto = string.Empty;
 
+    // ═══════════ FILTRO ═══════════
+    private IEnumerable<PermisoRolDTO> PermisosFiltrados
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(_filtroTexto)) return permisosPantalla;
+
+            var f = _filtroTexto.Trim().ToLower();
+            return permisosPantalla.Where(p =>
+                (p.Codigo?.ToLower().Contains(f) ?? false) ||
+                (p.Descripcion?.ToLower().Contains(f) ?? false) ||
+                (p.Modulo?.ToLower().Contains(f) ?? false));
+        }
+    }
+
+    private void LimpiarFiltro()
+    {
+        _filtroTexto = string.Empty;
+    }
+
+    // ═══════════ HELPERS PARA PARSING ═══════════
+    private static string ObtenerComponente(string? codigo)
+    {
+        if (string.IsNullOrWhiteSpace(codigo)) return "";
+        var idx = codigo.IndexOf('.');
+        return idx > 0 ? codigo.Substring(0, idx) : codigo;
+    }
+
+    private static string ObtenerAccion(string? codigo)
+    {
+        if (string.IsNullOrWhiteSpace(codigo)) return "";
+        var idx = codigo.IndexOf('.');
+        return (idx > 0 && idx < codigo.Length - 1) ? codigo.Substring(idx + 1) : "";
+    }
+
+    private static int OrdenAccion(string accion) => accion switch
+    {
+        "ver" => 1,
+        "crear" => 2,
+        "editar" => 3,
+        "actualizar" => 3,
+        "movimiento" => 4,
+        "calcular" => 5,
+        "exportar" => 6,
+        "abrir" => 7,
+        "cerrar" => 8,
+        "escanear" => 9,
+        "permisos" => 10,
+        "eliminar" => 11,
+        "borrar" => 11,
+        _ => 99
+    };
+
+    private static string NombreAccion(string accion) => accion switch
+    {
+        "ver" => "Ver",
+        "crear" => "Crear",
+        "editar" => "Editar",
+        "actualizar" => "Actualizar",
+        "eliminar" => "Eliminar",
+        "borrar" => "Borrar",
+        "movimiento" => "Movimiento",
+        "calcular" => "Calcular",
+        "exportar" => "Exportar",
+        "abrir" => "Abrir",
+        "cerrar" => "Cerrar",
+        "escanear" => "Escanear",
+        "permisos" => "Permisos",
+        _ => string.IsNullOrEmpty(accion) ? "—" : char.ToUpper(accion[0]) + accion.Substring(1)
+    };
+
+    private static string IconoAccion(string accion) => accion switch
+    {
+        "ver" => "bi-eye-fill",
+        "crear" => "bi-plus-circle-fill",
+        "editar" => "bi-pencil-fill",
+        "actualizar" => "bi-arrow-clockwise",
+        "eliminar" => "bi-trash-fill",
+        "borrar" => "bi-trash-fill",
+        "movimiento" => "bi-arrow-left-right",
+        "calcular" => "bi-calculator-fill",
+        "exportar" => "bi-download",
+        "abrir" => "bi-unlock-fill",
+        "cerrar" => "bi-lock-fill",
+        "escanear" => "bi-upc-scan",
+        "permisos" => "bi-key-fill",
+        _ => "bi-circle"
+    };
+
+    // ═══════════ SELECCIÓN MASIVA POR COLUMNA ═══════════
+    private bool TodosAsignadosEnColumna(IEnumerable<PermisoRolDTO> permisosModulo, string accion)
+    {
+        var enColumna = permisosModulo.Where(p => ObtenerAccion(p.Codigo) == accion).ToList();
+        return enColumna.Any() && enColumna.All(p => p.Asignado);
+    }
+
+    private void ToggleColumna(IEnumerable<PermisoRolDTO> permisosModulo, string accion, bool valor)
+    {
+        foreach (var p in permisosModulo.Where(x => ObtenerAccion(x.Codigo) == accion))
+        {
+            p.Asignado = valor;
+        }
+        StateHasChanged();
+    }
+
+    // ═══════════ CICLO DE VIDA ═══════════
     protected override async Task OnInitializedAsync()
     {
         if (!await Seguridad.TienePermisoAsync("roles.permisos"))
@@ -181,7 +324,6 @@
         puedeAsignarPermisos = await Seguridad.TienePermisoAsync("roles.permisos");
 
         await CargarRoles();
-
         permisos = await PermisoRepository.ObtenerTodosAsync();
     }
 
@@ -212,11 +354,12 @@
         {
             var idsAsignados = permisosPantalla
                 .Where(p => p.Asignado)
-                .Select(p => p.PermisoId);
+                .Select(p => p.PermisoId)
+                .ToList();
 
             await RolPermisoRepository.ReemplazarPermisosAsync(rolSeleccionadoId, idsAsignados);
 
-            Toast.Exito("Permisos guardados correctamente");
+            Toast.Exito($"Permisos guardados: {idsAsignados.Count} asignados.");
         }
         catch (Exception ex)
         {
@@ -237,6 +380,7 @@
             permisosPantalla.Clear();
         }
 
+        _filtroTexto = string.Empty;
         StateHasChanged();
     }
 

@@ -5,78 +5,78 @@
 @inject UsuarioSesionService Sesion
 @inject NavigationManager Nav
 
-<div class="app-shell @(sidebarCollapsed ? "is-collapsed" : "") @(mobileOpen ? "is-mobile-open" : "")">
+<div>
+    <div class="app-shell @(sidebarCollapsed ? "is-collapsed" : "") @(mobileOpen ? "is-mobile-open" : "")">
 
-    <aside class="app-sidebar">
-        <NavMenu Collapsed="sidebarCollapsed" />
-    </aside>
+        <aside class="app-sidebar">
+            <NavMenu Collapsed="sidebarCollapsed" />
+        </aside>
 
-    <div class="app-main">
-        <header class="app-topbar">
-            <button class="btn-toggle" @onclick="ToggleSidebar" title="Mostrar/ocultar menú">
-                <i class="bi bi-list"></i>
-            </button>
+        <div class="app-main">
+            <header class="app-topbar">
+                <button class="btn-toggle" @onclick="ToggleSidebar" title="Mostrar/ocultar menú">
+                    <i class="bi bi-list"></i>
+                </button>
 
-            <div class="topbar-title">
-                <span class="topbar-title-main">Sistema de Inventario y Almacén</span>
-                <span class="topbar-title-sub">Alcaldía de Popayán</span>
-            </div>
-
-            @if (Sesion.UsuarioActual != null)
-            {
-                <div class="topbar-context">
-                    @* Badge de contexto: Super-Admin o Institución *@
-                    @if (Sesion.EsSuperAdmin)
-                    {
-                        <div class="context-badge context-super" title="Acceso total al sistema">
-                            <i class="bi bi-shield-fill-check"></i>
-                            <span>Super-Admin · Todas las instituciones</span>
-                        </div>
-                    }
-                    else if (!string.IsNullOrWhiteSpace(Sesion.InstitucionNombre))
-                    {
-                        <div class="context-badge context-inst" title="@Sesion.InstitucionNombre">
-                            <i class="bi bi-building"></i>
-                            <span>@Sesion.InstitucionNombre</span>
-                        </div>
-                    }
-
-                    @* Usuario + rol + logout *@
-                    <div class="context-user">
-                        <div class="context-avatar" title="@Sesion.UsuarioActual.NombreCompleto">
-                            @ObtenerIniciales(Sesion.UsuarioActual.NombreCompleto)
-                        </div>
-                        <div class="context-user-info">
-                            <span class="context-user-name" title="@Sesion.UsuarioActual.NombreCompleto">
-                                @Sesion.UsuarioActual.NombreCompleto
-                            </span>
-                            <span class="context-user-role">
-                                @(Sesion.UsuarioActual.NombreRol ?? "Usuario")
-                            </span>
-                        </div>
-                        <button class="btn-icon" @onclick="CerrarSesion" title="Cerrar sesión">
-                            <i class="bi bi-box-arrow-right"></i>
-                        </button>
-                    </div>
+                <div class="topbar-title">
+                    <span class="topbar-title-main">Sistema de Inventario y Almacén</span>
+                    <span class="topbar-title-sub">Alcaldía de Popayán</span>
                 </div>
-            }
 
-            <div class="topbar-actions">
-                <button class="btn-icon" title="Notificaciones">
-                    <i class="bi bi-bell"></i>
-                </button>
-                <button class="btn-icon" title="Ayuda">
-                    <i class="bi bi-question-circle"></i>
-                </button>
-            </div>
-        </header>
+                @if (Sesion.UsuarioActual != null)
+                {
+                    <div class="topbar-context">
+                        @if (Sesion.EsSuperAdmin)
+                        {
+                            <div class="context-badge context-super" title="Acceso total al sistema">
+                                <i class="bi bi-shield-fill-check"></i>
+                                <span>Super-Admin · Todas las instituciones</span>
+                            </div>
+                        }
+                        else if (!string.IsNullOrWhiteSpace(Sesion.InstitucionNombre))
+                        {
+                            <div class="context-badge context-inst" title="@Sesion.InstitucionNombre">
+                                <i class="bi bi-building"></i>
+                                <span>@Sesion.InstitucionNombre</span>
+                            </div>
+                        }
 
-        <main class="app-content">
-            @Body
-        </main>
+                        <div class="context-user">
+                            <div class="context-avatar" title="@Sesion.UsuarioActual.NombreCompleto">
+                                @ObtenerIniciales(Sesion.UsuarioActual.NombreCompleto)
+                            </div>
+                            <div class="context-user-info">
+                                <span class="context-user-name" title="@Sesion.UsuarioActual.NombreCompleto">
+                                    @Sesion.UsuarioActual.NombreCompleto
+                                </span>
+                                <span class="context-user-role">
+                                    @(Sesion.UsuarioActual.NombreRol ?? "Usuario")
+                                </span>
+                            </div>
+                            <button class="btn-icon" @onclick="CerrarSesion" title="Cerrar sesión">
+                                <i class="bi bi-box-arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                }
+
+                <div class="topbar-actions">
+                    <button class="btn-icon" title="Notificaciones">
+                        <i class="bi bi-bell"></i>
+                    </button>
+                    <button class="btn-icon" title="Ayuda">
+                        <i class="bi bi-question-circle"></i>
+                    </button>
+                </div>
+            </header>
+
+            <main class="app-content">
+                @Body
+            </main>
+        </div>
+
+        <div class="app-backdrop" @onclick="CloseMobileSidebar"></div>
     </div>
-
-    <div class="app-backdrop" @onclick="CloseMobileSidebar"></div>
 
     <ToastContainer />
     <ConfirmDialog />
@@ -130,10 +130,6 @@
         Nav.NavigateTo("/login", forceLoad: true);
     }
 
-    /// <summary>
-    /// Devuelve las iniciales del nombre (máx 2) para el avatar del topbar.
-    /// Ej: "Ana María Rodríguez" → "AM"
-    /// </summary>
     private string ObtenerIniciales(string? nombreCompleto)
     {
         if (string.IsNullOrWhiteSpace(nombreCompleto)) return "?";
@@ -142,8 +138,6 @@
         if (partes.Length == 0) return "?";
         if (partes.Length == 1) return partes[0].Substring(0, 1).ToUpper();
 
-        // Toma primera letra del primer nombre + primera letra del primer apellido
         return (partes[0].Substring(0, 1) + partes[1].Substring(0, 1)).ToUpper();
     }
 }
-

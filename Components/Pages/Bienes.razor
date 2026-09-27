@@ -33,7 +33,7 @@
         <div class="page-header">
             <div>
                 <h1><i class="bi bi-box-seam"></i> Bienes</h1>
-                <p class="subtitle">Catálogo de bienes devolutivos y de consumo</p>
+                <p class="subtitle">Catálogo de bienes devolutivos</p>
             </div>
 
             <div class="header-actions">
@@ -60,7 +60,7 @@
                     <i class="bi bi-box-seam"></i>
                     <div>
                         <div class="form-header-title">Bienes</div>
-                        <div class="form-header-subtitle">Catálogo de bienes devolutivos y de consumo</div>
+                        <div class="form-header-subtitle">Catálogo de bienes devolutivos</div>
                     </div>
                 </div>
 
@@ -77,13 +77,31 @@
                         <i class="bi bi-card-list"></i> Identificación
                     </h4>
                     <div class="form-grid-3">
-                        <div class="form-group">
-                            <label>Código *</label>
-                            <div class="input-icon">
-                                <i class="bi bi-upc-scan"></i>
-                                <InputText class="form-control" @bind-Value="bienDTO.Codigo" placeholder="Ej: 4555" />
+                        @if (editando)
+                        {
+                            <div class="form-group">
+                                <label>Código</label>
+                                <div class="input-icon">
+                                    <i class="bi bi-upc-scan"></i>
+                                    <input type="text" class="form-control" value="@bienDTO.Codigo" disabled />
+                                </div>
+                                <small class="form-hint">El código no es editable</small>
                             </div>
-                        </div>
+                        }
+                        else
+                        {
+                            <div class="form-group">
+                                <label>Código</label>
+                                <div class="input-icon" style="display: flex; align-items: center; gap: 8px; padding: 0.55rem 0.85rem; background: var(--brand-soft); border: 1.5px dashed var(--brand-border); border-radius: var(--radius);">
+                                    <i class="bi bi-magic" style="color: var(--brand); font-size: 1.1rem;"></i>
+                                    <div>
+                                        <strong style="color: var(--brand); font-size: 0.85rem;">Automático</strong>
+                                        <div style="font-size: 0.72rem; color: var(--text-muted);">Ej: DEVO-@DateTime.Now.Year-XXX</div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+
                         <div class="form-group">
                             <label>Nombre *</label>
                             <div class="input-icon">
@@ -104,16 +122,10 @@
                                 </InputSelect>
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label>Tipo Bien *</label>
-                            <div class="input-icon">
-                                <i class="bi bi-boxes"></i>
-                                <InputSelect class="form-control" @bind-Value="bienDTO.TipoBien">
-                                    <option value="devolutivo">Devolutivo</option>
-                                    <option value="consumo">Consumo</option>
-                                </InputSelect>
-                            </div>
-                        </div>
+
+                        @* El módulo Bienes solo maneja Devolutivos.
+                           Los bienes de consumo se crean en /consumo. *@
+
                         <div class="form-group">
                             <label>Marca</label>
                             <div class="input-icon">
@@ -139,7 +151,7 @@
                             <label>Valor Adquisición</label>
                             <div class="input-icon">
                                 <i class="bi bi-currency-dollar"></i>
-                                <InputNumber class="form-control" @bind-Value="bienDTO.ValorAdquisicion" />
+                                <InputMoneda class="form-control" @bind-Value="bienDTO.ValorAdquisicion" />
                             </div>
                         </div>
                         <div class="form-group">
@@ -198,43 +210,40 @@
                     </div>
                 </div>
 
-                @if (bienDTO.TipoBien == "devolutivo")
-                {
-                    <div class="form-section">
-                        <h4 class="form-section-title">
-                            <i class="bi bi-calculator"></i> Depreciación
-                        </h4>
-                        <div class="form-grid-3">
-                            <div class="form-group">
-                                <label>Fecha Adquisición</label>
-                                <div class="input-icon">
-                                    <i class="bi bi-calendar-check"></i>
-                                    <InputDate class="form-control" @bind-Value="bienDTO.FechaAdquisicion" />
-                                </div>
+                <div class="form-section">
+                    <h4 class="form-section-title">
+                        <i class="bi bi-calculator"></i> Depreciación
+                    </h4>
+                    <div class="form-grid-3">
+                        <div class="form-group">
+                            <label>Fecha Adquisición</label>
+                            <div class="input-icon">
+                                <i class="bi bi-calendar-check"></i>
+                                <InputDate class="form-control" @bind-Value="bienDTO.FechaAdquisicion" />
                             </div>
-                            <div class="form-group">
-                                <label>Vida Útil (Tabla CGN)</label>
-                                <div class="input-icon">
-                                    <i class="bi bi-clock-history"></i>
-                                    <InputSelect class="form-control" @bind-Value="bienDTO.VidaUtilId">
-                                        <option value="">— Sin asignar —</option>
-                                        @foreach (var v in vidasUtiles)
-                                        {
-                                            <option value="@v.Id">@v.NombreCompleto</option>
-                                        }
-                                    </InputSelect>
-                                </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Vida Útil (Tabla CGN)</label>
+                            <div class="input-icon">
+                                <i class="bi bi-clock-history"></i>
+                                <InputSelect class="form-control" @bind-Value="bienDTO.VidaUtilId">
+                                    <option value="">— Sin asignar —</option>
+                                    @foreach (var v in vidasUtiles)
+                                    {
+                                        <option value="@v.Id">@v.NombreCompleto</option>
+                                    }
+                                </InputSelect>
                             </div>
-                            <div class="form-group">
-                                <label>Valor Residual</label>
-                                <div class="input-icon">
-                                    <i class="bi bi-piggy-bank"></i>
-                                    <InputNumber class="form-control" @bind-Value="bienDTO.ValorResidual" />
-                                </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Valor Residual</label>
+                            <div class="input-icon">
+                                <i class="bi bi-piggy-bank"></i>
+                                <InputMoneda class="form-control" @bind-Value="bienDTO.ValorResidual" />
                             </div>
                         </div>
                     </div>
-                }
+                </div>
 
                 <div class="form-section">
                     <h4 class="form-section-title">
@@ -324,14 +333,6 @@
                         </select>
                     </div>
                     <div class="filtro-select">
-                        <i class="bi bi-boxes"></i>
-                        <select @bind="_filtroTipoBien" @bind:after="AplicarFiltrosAvanzados">
-                            <option value="">Todos los tipos</option>
-                            <option value="devolutivo">Devolutivo</option>
-                            <option value="consumo">Consumo</option>
-                        </select>
-                    </div>
-                    <div class="filtro-select">
                         <i class="bi bi-heart-pulse"></i>
                         <select @bind="_filtroEstadoFisico" @bind:after="AplicarFiltrosAvanzados">
                             <option value="">Todos los estados</option>
@@ -397,7 +398,6 @@
                     <tr>
                         <th>Código</th>
                         <th>Bien</th>
-                        <th>Tipo</th>
                         <th class="text-center">Cant.</th>
                         <th>Ubicación</th>
                         <th>Responsable</th>
@@ -408,11 +408,11 @@
                 <tbody>
                     @if (_pagina is null)
                     {
-                        <tr><td colspan="8" class="text-center py-3 text-muted">Cargando bienes…</td></tr>
+                        <tr><td colspan="7" class="text-center py-3 text-muted">Cargando bienes…</td></tr>
                     }
                     else if (!_pagina.Items.Any())
                     {
-                        <tr><td colspan="8" class="text-center py-3 text-muted">Sin bienes para mostrar.</td></tr>
+                        <tr><td colspan="7" class="text-center py-3 text-muted">Sin bienes para mostrar.</td></tr>
                     }
                     else
                     {
@@ -429,11 +429,6 @@
                                         }
                                     </div>
                                 </td>
-                                <td>
-                                    <span class="badge @(bien.TipoBien == "devolutivo" ? "badge-tipo-devolutivo" : "badge-tipo-consumo")">
-                                        @bien.TipoBien
-                                    </span>
-                                </td>
                                 <td class="text-center">
                                     <span class="badge badge-neutral">@bien.Cantidad</span>
                                 </td>
@@ -441,10 +436,6 @@
                                     @if (!string.IsNullOrEmpty(bien.AulaNombre))
                                     {
                                         <span>@bien.AulaNombre</span>
-                                    }
-                                    else if (!string.IsNullOrEmpty(bien.Ubicacion))
-                                    {
-                                        <span class="text-muted">@bien.Ubicacion</span>
                                     }
                                     else
                                     {
@@ -455,10 +446,6 @@
                                     @if (!string.IsNullOrEmpty(bien.FuncionarioNombre))
                                     {
                                         <span>@bien.FuncionarioNombre</span>
-                                    }
-                                    else if (!string.IsNullOrEmpty(bien.Responsable))
-                                    {
-                                        <span class="text-muted">@bien.Responsable</span>
                                     }
                                     else
                                     {
@@ -526,7 +513,6 @@
 
     private bool _mostrarFiltros = false;
     private string? _filtroCategoriaId;
-    private string? _filtroTipoBien;
     private string? _filtroEstadoFisico;
     private string? _filtroActivo;
     private string? _filtroAulaId;
@@ -535,7 +521,6 @@
     private bool _hayFiltrosActivos =>
         !string.IsNullOrEmpty(_filtroTexto) ||
         !string.IsNullOrEmpty(_filtroCategoriaId) ||
-        !string.IsNullOrEmpty(_filtroTipoBien) ||
         !string.IsNullOrEmpty(_filtroEstadoFisico) ||
         !string.IsNullOrEmpty(_filtroActivo) ||
         !string.IsNullOrEmpty(_filtroAulaId) ||
@@ -543,7 +528,6 @@
 
     private bool _hayFiltrosAvanzados =>
         !string.IsNullOrEmpty(_filtroCategoriaId) ||
-        !string.IsNullOrEmpty(_filtroTipoBien) ||
         !string.IsNullOrEmpty(_filtroEstadoFisico) ||
         !string.IsNullOrEmpty(_filtroActivo) ||
         !string.IsNullOrEmpty(_filtroAulaId) ||
@@ -626,7 +610,7 @@
                 new FiltroBienDTO
                 {
                     CategoriaId = categoriaId,
-                    TipoBien = _filtroTipoBien,
+                    TipoBien = "devolutivo",
                     EstadoFisico = _filtroEstadoFisico,
                     Activo = activo,
                     AulaId = aulaId,
@@ -696,7 +680,6 @@
     {
         _filtroTexto = string.Empty;
         _filtroCategoriaId = null;
-        _filtroTipoBien = null;
         _filtroEstadoFisico = null;
         _filtroActivo = null;
         _filtroAulaId = null;
@@ -720,7 +703,7 @@
                 Nombre = bienDTO.Nombre,
                 Descripcion = bienDTO.Descripcion,
                 CategoriaId = bienDTO.CategoriaId,
-                TipoBien = bienDTO.TipoBien,
+                TipoBien = "devolutivo",
                 Marca = bienDTO.Marca,
                 Modelo = bienDTO.Modelo,
                 Serie = bienDTO.Serie,
@@ -741,17 +724,14 @@
 
             if (editando)
             {
-                // ── EDICIÓN: guardar y MANTENER ABIERTO para seguir editando ──
                 await BienRepository.ActualizarAsync(bien);
                 Toast.Exito($"Bien '{bien.Nombre}' actualizado. Puede seguir editando.");
             }
             else
             {
-                // ── CREACIÓN: guardar y MANTENER ABIERTO para seguir registrando ──
                 await BienRepository.CrearAsync(bien);
-                Toast.Exito($"Bien '{bien.Nombre}' creado. Puede continuar registrando.");
+                Toast.Exito($"Bien '{bien.Nombre}' creado con código {bien.Codigo}.");
 
-                var tipoActual = bienDTO.TipoBien;
                 var estadoActual = bienDTO.EstadoFisico;
                 var categoriaActual = bienDTO.CategoriaId;
                 var aulaActual = bienDTO.AulaId;
@@ -760,7 +740,7 @@
                 bienDTO = new BienDTO
                 {
                     Activo = true,
-                    TipoBien = tipoActual,
+                    TipoBien = "devolutivo",
                     EstadoFisico = estadoActual,
                     Cantidad = 1,
                     CategoriaId = categoriaActual,
@@ -842,7 +822,9 @@
 
         try
         {
-            var todos = (await BienRepository.ObtenerTodosAsync()).ToList();
+            var todos = (await BienRepository.ObtenerTodosAsync())
+                .Where(b => b.TipoBien == "devolutivo")
+                .ToList();
 
             if (!todos.Any())
             {
