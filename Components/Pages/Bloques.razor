@@ -1,7 +1,9 @@
 ﻿@page "/bloques"
 @rendermode InteractiveServer
 
+@using Almacen.Components.Shared
 @using Almacen.DTOs
+@using Almacen.Helpers
 @using Almacen.Interfaces
 @using Almacen.Services
 @using Microsoft.AspNetCore.Components.Forms
@@ -15,9 +17,8 @@
 
 <PageTitle>Bloques · Almacén</PageTitle>
 
-<div class="page-container page-crud">
+<div class="page-container page-crud @(_mostrarFormulario ? "form-abierto" : "")">
 
-    @* ═══════════════ PAGE HEADER (oculto si form abierto) ═══════════════ *@
     @if (!_mostrarFormulario)
     {
         <div class="page-header">
@@ -34,7 +35,6 @@
         </div>
     }
 
-    @* ═══════════════ FORM COLAPSABLE ═══════════════ *@
     @if (_mostrarFormulario)
     {
         <div class="card-form">
@@ -124,9 +124,76 @@
             </EditForm>
         </div>
     }
-    
-    @* ═══════════════ CARD TABLE ═══════════════ *@
+
     <div class="card-table">
+
+        @* ═══ Barra de filtros ═══ *@
+        <div class="filtros-tabla">
+            <div class="filtro-busqueda">
+                <i class="bi bi-search"></i>
+                <input type="text"
+                       placeholder="Buscar bloque por nombre o descripción…"
+                       @bind="_filtroTexto"
+                       @bind:event="oninput"
+                       @bind:after="BuscarConDebounce" />
+                @if (!string.IsNullOrEmpty(_filtroTexto))
+                {
+                    <button class="filtro-clear" @onclick="LimpiarFiltro" title="Limpiar búsqueda">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                }
+            </div>
+
+            <div class="filtros-tabla-derecha">
+
+                @* ═══ Dropdown custom de sede ═══ *@
+                <details class="dropdown-sede" id="dropdown-sede-bloques">
+                    <summary class="dropdown-sede-trigger">
+                        <i class="bi bi-building"></i>
+                        <span>@(string.IsNullOrEmpty(_sedeSeleccionadaNombre) ? "Todas las sedes" : _sedeSeleccionadaNombre)</span>
+                        <i class="bi bi-chevron-down dropdown-sede-chevron"></i>
+                    </summary>
+
+                    <div class="dropdown-sede-panel">
+                        <div class="dropdown-sede-item @(_sedeSeleccionadaId is null ? "active" : "")"
+                             @onclick="() => SeleccionarSede(null)">
+                            <i class="bi bi-grid-3x3"></i>
+                            <span>Todas las sedes</span>
+                            @if (_sedeSeleccionadaId is null)
+                            {
+                                <i class="bi bi-check2 dropdown-sede-check"></i>
+                            }
+                        </div>
+
+                        <div class="dropdown-sede-divider"></div>
+
+                        @foreach (var s in _sedes)
+                        {
+                            <div class="dropdown-sede-item @(_sedeSeleccionadaId == s.Id ? "active" : "")"
+                                 @onclick="() => SeleccionarSede(s)">
+                                <i class="bi bi-building"></i>
+                                <span>@s.Nombre</span>
+                                @if (_sedeSeleccionadaId == s.Id)
+                                {
+                                    <i class="bi bi-check2 dropdown-sede-check"></i>
+                                }
+                            </div>
+                        }
+                    </div>
+                </details>
+
+                <span class="badge-total">
+                    <i class="bi bi-grid-3x3"></i>
+                    <strong>@(_pagina?.TotalRegistros ?? 0)</strong> bloques
+                    @if (!string.IsNullOrEmpty(_filtroTexto) || _sedeSeleccionadaId.HasValue)
+                    {
+                        <span class="filtro-activo-tag">· Filtrado</span>
+                    }
+                </span>
+            </div>
+        </div>
+
+        @* ═══ Tabla ═══ *@
         <div class="table-responsive">
             <table class="table modern-table">
                 <thead>
@@ -141,13 +208,23 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @if (_bloques.Count == 0)
+                    @if (_pagina is null)
                     {
-                        <tr><td colspan="7" class="text-center py-3 text-muted">Sin bloques registrados.</td></tr>
+                        <tr><td colspan="7" class="text-center py-3 text-muted">Cargando bloques…</td></tr>
+                    }
+                    else if (!_pagina.Items.Any())
+                    {
+                        <tr>
+                            <td colspan="7" class="text-center py-3 text-muted">
+                                @(string.IsNullOrEmpty(_filtroTexto) && !_sedeSeleccionadaId.HasValue
+                                    ? "Sin bloques registrados."
+                                    : "Sin resultados para los filtros aplicados.")
+                            </td>
+                        </tr>
                     }
                     else
                     {
-                        @foreach (var b in _bloques)
+                        @foreach (var b in _pagina.Items)
                         {
                             <tr class="table-row-hover">
                                 <td>@b.InstitucionNombre</td>
@@ -174,15 +251,32 @@
                 </tbody>
             </table>
         </div>
+
+        @if (_pagina is not null && _pagina.TotalRegistros > 0)
+        {
+            <Paginador T="BloqueDTO"
+                       Resultado="_pagina"
+                       OnCambioPagina="CambioPagina"
+                       OnCambioTamano="CambioTamano" />
+        }
     </div>
 </div>
 
 @code {
-    private List<BloqueDTO> _bloques = new();
+    private ResultadoPaginado<BloqueDTO>? _pagina;
     private List<SedeDTO> _sedes = new();
     private BloqueDTO _model = new();
     private bool _editando = false;
     private bool _mostrarFormulario = false;
+
+    private int _paginaActual = 1;
+    private int _tamanoPagina = 25;
+    private string _filtroTexto = string.Empty;
+    private CancellationTokenSource? _debounceCts;
+
+    // Filtro por sede
+    private int? _sedeSeleccionadaId;
+    private string _sedeSeleccionadaNombre = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -191,7 +285,72 @@
     }
 
     private async Task Cargar()
-        => _bloques = (await BloqueRepo.ObtenerTodosAsync()).ToList();
+    {
+        _pagina = await BloqueRepo.ObtenerPaginadoAsync(
+            _paginaActual,
+            _tamanoPagina,
+            string.IsNullOrWhiteSpace(_filtroTexto) ? null : _filtroTexto,
+            _sedeSeleccionadaId);
+    }
+
+    private async Task BuscarConDebounce()
+    {
+        _debounceCts?.Cancel();
+        _debounceCts = new CancellationTokenSource();
+        var token = _debounceCts.Token;
+
+        try
+        {
+            await Task.Delay(350, token);
+            if (token.IsCancellationRequested) return;
+
+            _paginaActual = 1;
+            await Cargar();
+            StateHasChanged();
+        }
+        catch (TaskCanceledException) { }
+    }
+
+    private async Task LimpiarFiltro()
+    {
+        _filtroTexto = string.Empty;
+        _paginaActual = 1;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task SeleccionarSede(SedeDTO? sede)
+    {
+        _sedeSeleccionadaId = sede?.Id;
+        _sedeSeleccionadaNombre = sede?.Nombre ?? string.Empty;
+        _paginaActual = 1;
+
+        // Cerrar el dropdown
+        try
+        {
+            await JS.InvokeVoidAsync("eval",
+                "document.getElementById('dropdown-sede-bloques')?.removeAttribute('open')");
+        }
+        catch { /* silencioso */ }
+
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task CambioPagina(int nuevaPagina)
+    {
+        _paginaActual = nuevaPagina;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task CambioTamano(int nuevoTamano)
+    {
+        _tamanoPagina = nuevoTamano;
+        _paginaActual = 1;
+        await Cargar();
+        StateHasChanged();
+    }
 
     private void AbrirFormulario()
     {
@@ -220,17 +379,14 @@
         {
             if (_editando)
             {
-                // ── EDICIÓN: guardar y MANTENER ABIERTO con los datos ──
                 await BloqueRepo.ActualizarAsync(_model);
                 Toast.Exito($"Bloque '{_model.Nombre}' actualizado. Puede seguir editando.");
             }
             else
             {
-                // ── CREACIÓN: guardar y MANTENER ABIERTO, limpiar form ──
                 await BloqueRepo.CrearAsync(_model);
                 Toast.Exito($"Bloque '{_model.Nombre}' creado. Puede continuar registrando.");
 
-                // Mantener sede y pisos para registros masivos
                 var sedeActual = _model.SedeId;
                 var pisosActual = _model.Pisos;
 
@@ -241,7 +397,6 @@
                     Pisos = pisosActual
                 };
 
-                // Enfocar el primer campo (Nombre)
                 try
                 {
                     await JS.InvokeVoidAsync("eval",

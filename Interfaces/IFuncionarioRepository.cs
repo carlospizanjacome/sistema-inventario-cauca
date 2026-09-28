@@ -14,12 +14,14 @@ public interface IFuncionarioRepository
     Task<bool> TieneBienesAsync(int funcionarioId);
 
     Task<ResultadoPaginado<FuncionarioDTO>> ObtenerPaginadoAsync(
-    int pagina = 1,
-    int tamano = 25,
-    string? filtroTexto = null);
+        int pagina = 1,
+        int tamano = 25,
+        string? filtroTexto = null,
+        int? sedeId = null,
+        bool? activo = null);
 
     Task<ResultadoPaginado<FuncionarioCuentandanteDTO>> ObtenerCuentandantesPaginadoAsync(
-    int pagina = 1,
-    int tamano = 25,
-    string? filtroTexto = null);
+        int pagina = 1,
+        int tamano = 25,
+        string? filtroTexto = null);
 }

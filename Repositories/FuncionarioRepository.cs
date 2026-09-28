@@ -58,7 +58,6 @@ public class FuncionarioRepository : IFuncionarioRepository
 
     public async Task<int> CrearAsync(FuncionarioDTO dto)
     {
-        // Asignar institución del usuario actual
         dto.InstitucionId = _sesion.InstitucionId;
 
         const string sql = @"
@@ -125,7 +124,9 @@ public class FuncionarioRepository : IFuncionarioRepository
     public async Task<ResultadoPaginado<FuncionarioDTO>> ObtenerPaginadoAsync(
         int pagina = 1,
         int tamano = 25,
-        string? filtroTexto = null)
+        string? filtroTexto = null,
+        int? sedeId = null,
+        bool? activo = null)
     {
         if (pagina < 1) pagina = 1;
         if (tamano < 1) tamano = 25;
@@ -134,34 +135,49 @@ public class FuncionarioRepository : IFuncionarioRepository
         var (filtroInst, _) = FiltroInstitucion.Construir(
             _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "f");
 
-        var filtroBusqueda = string.Empty;
+        var condiciones = new List<string>();
+        var parametros = new DynamicParameters();
+        parametros.Add("InstitucionId", _sesion.InstitucionId);
+
         if (!string.IsNullOrWhiteSpace(filtroTexto))
         {
-            filtroBusqueda = @" AND (f.cedula ILIKE @Buscar 
-                                 OR f.nombre_completo ILIKE @Buscar 
-                                 OR f.email ILIKE @Buscar)";
+            condiciones.Add(@"(f.cedula ILIKE @Buscar 
+                           OR f.nombre_completo ILIKE @Buscar 
+                           OR f.email ILIKE @Buscar)");
+            parametros.Add("Buscar", $"%{filtroTexto}%");
         }
+
+        if (sedeId.HasValue && sedeId.Value > 0)
+        {
+            condiciones.Add("f.sede_id = @SedeId");
+            parametros.Add("SedeId", sedeId.Value);
+        }
+
+        if (activo.HasValue)
+        {
+            condiciones.Add("f.activo = @Activo");
+            parametros.Add("Activo", activo.Value);
+        }
+
+        var whereExtra = condiciones.Any()
+            ? " AND " + string.Join(" AND ", condiciones)
+            : string.Empty;
+
+        parametros.Add("Tamano", tamano);
+        parametros.Add("Offset", (pagina - 1) * tamano);
 
         var sqlCount = $@"
             SELECT COUNT(*)
             FROM funcionarios f
-            WHERE 1=1 {filtroInst} {filtroBusqueda};";
+            WHERE 1=1 {filtroInst} {whereExtra};";
 
         var sqlData = $@"
             {BaseSelect}
-            WHERE 1=1 {filtroInst} {filtroBusqueda}
+            WHERE 1=1 {filtroInst} {whereExtra}
             ORDER BY f.nombre_completo
             LIMIT @Tamano OFFSET @Offset;";
 
         using var cn = new NpgsqlConnection(_cs);
-
-        var parametros = new
-        {
-            InstitucionId = _sesion.InstitucionId,
-            Buscar = $"%{filtroTexto}%",
-            Tamano = tamano,
-            Offset = (pagina - 1) * tamano
-        };
 
         var total = await cn.ExecuteScalarAsync<int>(sqlCount, parametros);
         var items = (await cn.QueryAsync<FuncionarioDTO>(sqlData, parametros)).ToList();

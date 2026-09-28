@@ -1,7 +1,9 @@
 ﻿@page "/aulas"
 @rendermode InteractiveServer
 
+@using Almacen.Components.Shared
 @using Almacen.DTOs
+@using Almacen.Helpers
 @using Almacen.Interfaces
 @using Almacen.Services
 @using Microsoft.AspNetCore.Components.Forms
@@ -15,9 +17,8 @@
 
 <PageTitle>Aulas · Almacén</PageTitle>
 
-<div class="page-container page-crud">
+<div class="page-container page-crud @(_mostrarFormulario ? "form-abierto" : "")">
 
-    @* ═══════════════ PAGE HEADER (oculto si form abierto) ═══════════════ *@
     @if (!_mostrarFormulario)
     {
         <div class="page-header">
@@ -34,7 +35,6 @@
         </div>
     }
 
-    @* ═══════════════ FORM COLAPSABLE ═══════════════ *@
     @if (_mostrarFormulario)
     {
         <div class="card-form">
@@ -133,9 +133,112 @@
             </EditForm>
         </div>
     }
-    
-    @* ═══════════════ CARD TABLE ═══════════════ *@
+
     <div class="card-table">
+
+        @* ═══ Barra de filtros ═══ *@
+        <div class="filtros-tabla">
+            <div class="filtro-busqueda">
+                <i class="bi bi-search"></i>
+                <input type="text"
+                       placeholder="Buscar aula por nombre…"
+                       @bind="_filtroTexto"
+                       @bind:event="oninput"
+                       @bind:after="BuscarConDebounce" />
+                @if (!string.IsNullOrEmpty(_filtroTexto))
+                {
+                    <button class="filtro-clear" @onclick="LimpiarFiltro" title="Limpiar búsqueda">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                }
+            </div>
+
+            <div class="filtros-tabla-derecha">
+
+                @* ═══ Dropdown Bloque ═══ *@
+                <details class="dropdown-filtro" id="dropdown-bloque-aulas">
+                    <summary class="dropdown-filtro-trigger">
+                        <i class="bi bi-box"></i>
+                        <span>@(string.IsNullOrEmpty(_bloqueSeleccionadoNombre) ? "Todos los bloques" : _bloqueSeleccionadoNombre)</span>
+                        <i class="bi bi-chevron-down dropdown-filtro-chevron"></i>
+                    </summary>
+
+                    <div class="dropdown-filtro-panel">
+                        <div class="dropdown-filtro-item @(_bloqueSeleccionadoId is null ? "active" : "")"
+                             @onclick="() => SeleccionarBloque(null)">
+                            <i class="bi bi-grid-3x3"></i>
+                            <span>Todos los bloques</span>
+                            @if (_bloqueSeleccionadoId is null)
+                            {
+                                <i class="bi bi-check2 dropdown-filtro-check"></i>
+                            }
+                        </div>
+
+                        <div class="dropdown-filtro-divider"></div>
+
+                        @foreach (var b in _bloques)
+                        {
+                            <div class="dropdown-filtro-item @(_bloqueSeleccionadoId == b.Id ? "active" : "")"
+                                 @onclick="() => SeleccionarBloque(b)">
+                                <i class="bi bi-box"></i>
+                                <span>@b.SedeNombre / @b.Nombre</span>
+                                @if (_bloqueSeleccionadoId == b.Id)
+                                {
+                                    <i class="bi bi-check2 dropdown-filtro-check"></i>
+                                }
+                            </div>
+                        }
+                    </div>
+                </details>
+
+                @* ═══ Dropdown Tipo ═══ *@
+                <details class="dropdown-filtro" id="dropdown-tipo-aulas">
+                    <summary class="dropdown-filtro-trigger">
+                        <i class="bi bi-tag"></i>
+                        <span>@(string.IsNullOrEmpty(_tipoSeleccionado) ? "Todos los tipos" : _tipoSeleccionado)</span>
+                        <i class="bi bi-chevron-down dropdown-filtro-chevron"></i>
+                    </summary>
+
+                    <div class="dropdown-filtro-panel">
+                        <div class="dropdown-filtro-item @(string.IsNullOrEmpty(_tipoSeleccionado) ? "active" : "")"
+                             @onclick="() => SeleccionarTipo(null)">
+                            <i class="bi bi-grid-3x3"></i>
+                            <span>Todos los tipos</span>
+                            @if (string.IsNullOrEmpty(_tipoSeleccionado))
+                            {
+                                <i class="bi bi-check2 dropdown-filtro-check"></i>
+                            }
+                        </div>
+
+                        <div class="dropdown-filtro-divider"></div>
+
+                        @foreach (var t in _tiposDisponibles)
+                        {
+                            <div class="dropdown-filtro-item @(_tipoSeleccionado == t ? "active" : "")"
+                                 @onclick="() => SeleccionarTipo(t)">
+                                <i class="bi bi-tag"></i>
+                                <span>@t</span>
+                                @if (_tipoSeleccionado == t)
+                                {
+                                    <i class="bi bi-check2 dropdown-filtro-check"></i>
+                                }
+                            </div>
+                        }
+                    </div>
+                </details>
+
+                <span class="badge-total">
+                    <i class="bi bi-door-open"></i>
+                    <strong>@(_pagina?.TotalRegistros ?? 0)</strong> aulas
+                    @if (!string.IsNullOrEmpty(_filtroTexto) || _bloqueSeleccionadoId.HasValue || !string.IsNullOrEmpty(_tipoSeleccionado))
+                    {
+                        <span class="filtro-activo-tag">· Filtrado</span>
+                    }
+                </span>
+            </div>
+        </div>
+
+        @* ═══ Tabla ═══ *@
         <div class="table-responsive">
             <table class="table modern-table">
                 <thead>
@@ -149,13 +252,21 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @if (_aulas.Count == 0)
+                    @if (_pagina is null)
                     {
-                        <tr><td colspan="6" class="text-center py-3 text-muted">Sin aulas registradas.</td></tr>
+                        <tr><td colspan="6" class="text-center py-3 text-muted">Cargando aulas…</td></tr>
+                    }
+                    else if (!_pagina.Items.Any())
+                    {
+                        <tr>
+                            <td colspan="6" class="text-center py-3 text-muted">
+                                @(SinFiltros() ? "Sin aulas registradas." : "Sin resultados para los filtros aplicados.")
+                            </td>
+                        </tr>
                     }
                     else
                     {
-                        @foreach (var a in _aulas)
+                        @foreach (var a in _pagina.Items)
                         {
                             <tr class="table-row-hover">
                                 <td>@a.InstitucionNombre / @a.SedeNombre / @a.BloqueNombre</td>
@@ -181,15 +292,38 @@
                 </tbody>
             </table>
         </div>
+
+        @if (_pagina is not null && _pagina.TotalRegistros > 0)
+        {
+            <Paginador T="AulaDTO"
+                       Resultado="_pagina"
+                       OnCambioPagina="CambioPagina"
+                       OnCambioTamano="CambioTamano" />
+        }
     </div>
 </div>
 
 @code {
-    private List<AulaDTO> _aulas = new();
+    private ResultadoPaginado<AulaDTO>? _pagina;
     private List<BloqueDTO> _bloques = new();
     private AulaDTO _model = new();
     private bool _editando = false;
     private bool _mostrarFormulario = false;
+
+    private int _paginaActual = 1;
+    private int _tamanoPagina = 25;
+    private string _filtroTexto = string.Empty;
+    private CancellationTokenSource? _debounceCts;
+
+    private int? _bloqueSeleccionadoId;
+    private string _bloqueSeleccionadoNombre = string.Empty;
+
+    private string? _tipoSeleccionado;
+
+    private static readonly string[] _tiposDisponibles =
+    {
+        "Aula", "Laboratorio", "Oficina", "Bodega", "Biblioteca", "Baño", "Otro"
+    };
 
     protected override async Task OnInitializedAsync()
     {
@@ -198,7 +332,95 @@
     }
 
     private async Task Cargar()
-        => _aulas = (await AulaRepo.ObtenerTodasAsync()).ToList();
+    {
+        _pagina = await AulaRepo.ObtenerPaginadoAsync(
+            _paginaActual,
+            _tamanoPagina,
+            string.IsNullOrWhiteSpace(_filtroTexto) ? null : _filtroTexto,
+            _bloqueSeleccionadoId,
+            string.IsNullOrWhiteSpace(_tipoSeleccionado) ? null : _tipoSeleccionado);
+    }
+
+    private bool SinFiltros()
+        => string.IsNullOrEmpty(_filtroTexto)
+           && _bloqueSeleccionadoId is null
+           && string.IsNullOrEmpty(_tipoSeleccionado);
+
+    private async Task BuscarConDebounce()
+    {
+        _debounceCts?.Cancel();
+        _debounceCts = new CancellationTokenSource();
+        var token = _debounceCts.Token;
+
+        try
+        {
+            await Task.Delay(350, token);
+            if (token.IsCancellationRequested) return;
+
+            _paginaActual = 1;
+            await Cargar();
+            StateHasChanged();
+        }
+        catch (TaskCanceledException) { }
+    }
+
+    private async Task LimpiarFiltro()
+    {
+        _filtroTexto = string.Empty;
+        _paginaActual = 1;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task SeleccionarBloque(BloqueDTO? bloque)
+    {
+        _bloqueSeleccionadoId = bloque?.Id;
+        _bloqueSeleccionadoNombre = bloque is null
+            ? string.Empty
+            : $"{bloque.SedeNombre} / {bloque.Nombre}";
+        _paginaActual = 1;
+
+        try
+        {
+            await JS.InvokeVoidAsync("eval",
+                "document.getElementById('dropdown-bloque-aulas')?.removeAttribute('open')");
+        }
+        catch { /* silencioso */ }
+
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task SeleccionarTipo(string? tipo)
+    {
+        _tipoSeleccionado = tipo;
+        _paginaActual = 1;
+
+        try
+        {
+            await JS.InvokeVoidAsync("eval",
+                "document.getElementById('dropdown-tipo-aulas')?.removeAttribute('open')");
+        }
+        catch { /* silencioso */ }
+
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task CambioPagina(int nuevaPagina)
+    {
+        _paginaActual = nuevaPagina;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task CambioTamano(int nuevoTamano)
+    {
+        _tamanoPagina = nuevoTamano;
+        _paginaActual = 1;
+        await Cargar();
+        StateHasChanged();
+    }
 
     private void AbrirFormulario()
     {
@@ -227,17 +449,14 @@
         {
             if (_editando)
             {
-                // ── EDICIÓN: guardar y MANTENER ABIERTO con los datos ──
                 await AulaRepo.ActualizarAsync(_model);
                 Toast.Exito($"Aula '{_model.Nombre}' actualizada. Puede seguir editando.");
             }
             else
             {
-                // ── CREACIÓN: guardar y MANTENER ABIERTO, limpiar form ──
                 await AulaRepo.CrearAsync(_model);
                 Toast.Exito($"Aula '{_model.Nombre}' creada. Puede continuar registrando.");
 
-                // Mantener bloque, tipo y capacidad para registros masivos
                 var bloqueActual = _model.BloqueId;
                 var tipoActual = _model.Tipo;
                 var capacidadActual = _model.Capacidad;
@@ -250,7 +469,6 @@
                     Capacidad = capacidadActual
                 };
 
-                // Enfocar el primer campo (Nombre)
                 try
                 {
                     await JS.InvokeVoidAsync("eval",

@@ -13,6 +13,13 @@ public interface IKardexRepository
     Task<bool> EliminarBienConsumoAsync(int id);
     Task<bool> ExisteCodigoConsumoAsync(string codigo, int? excluirId = null);
 
+    Task<ResultadoPaginado<BienConsumoDTO>> ObtenerBienesConsumoPaginadoAsync(
+        int pagina = 1,
+        int tamano = 25,
+        string? filtroTexto = null,
+        int? categoriaId = null,
+        bool? soloBajoStock = null);
+
     // ── Kardex ──
     Task<IEnumerable<MovimientoConsumoDTO>> ObtenerMovimientosAsync(int? bienId = null);
     Task<IEnumerable<MovimientoConsumoDTO>> ObtenerKardexAsync(int bienId);

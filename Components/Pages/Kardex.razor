@@ -1,7 +1,6 @@
 ﻿@page "/kardex"
 @rendermode InteractiveServer
 
-@using Almacen.Components.Shared
 @using Almacen.DTOs
 @using Almacen.Interfaces
 @using Almacen.Services
@@ -21,11 +20,11 @@
 <div class="usuarios-page usuarios-fullscreen">
 
     <div class="page-header-custom">
-        <div>
+        <div class="page-header-title">
             <h1><i class="bi bi-journal-text"></i> Kárdex de Consumo</h1>
-            <p>Control de entradas, salidas y saldos por bien</p>
         </div>
-        <div class="header-actions-custom">
+
+        <div class="page-header-right">
             <div class="buscador-bien">
                 <i class="bi bi-search"></i>
                 <input type="text"
@@ -53,11 +52,23 @@
                     </button>
                 }
             </div>
+
+            @if (_bienIdSeleccionado > 0 && _bienSeleccionado != null)
+            {
+                <div class="kardex-banner-top">
+                    <i class="bi bi-info-circle-fill"></i>
+                    <span>
+                        Este es un <strong>libro auxiliar contable</strong>. Los movimientos no se editan ni eliminan.
+                        Para corregir, registra un <strong>ajuste</strong> con el tipo contrario.
+                    </span>
+                </div>
+            }
         </div>
     </div>
 
     @if (_bienIdSeleccionado > 0 && _bienSeleccionado != null)
     {
+        <!-- ═══ RESUMEN DEL BIEN (KPIs) ═══ -->
         <section class="resumen-bien">
             <div class="resumen-card">
                 <span class="resumen-label">Stock actual</span>
@@ -72,14 +83,19 @@
             </div>
             <div class="resumen-card">
                 <span class="resumen-label">CPP</span>
-                <span class="resumen-valor">@_bienSeleccionado.CppActual.ToString("N4")</span>
+                <span class="resumen-valor">
+                    @_bienSeleccionado.CppActual.ToString("C2", System.Globalization.CultureInfo.GetCultureInfo("es-CO"))
+                </span>
             </div>
             <div class="resumen-card">
                 <span class="resumen-label">Valor total</span>
-                <span class="resumen-valor">@_bienSeleccionado.ValorStock.ToString("C2")</span>
+                <span class="resumen-valor">
+                    @_bienSeleccionado.ValorStock.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("es-CO"))
+                </span>
             </div>
         </section>
 
+        <!-- ═══ FORMULARIO DE MOVIMIENTO ═══ -->
         <div class="modern-card">
             <div class="card-top-compact">
                 <h5><i class="bi bi-arrow-left-right"></i> Registrar movimiento</h5>
@@ -109,8 +125,8 @@
                     </div>
                     <div class="col-md-2">
                         <label class="mini-label">Costo unitario</label>
-                        <InputMoneda class="form-control" @bind-Value="_movDTO.CostoUnitario"
-                                     Disabled="@(EsSalida)" />
+                        <InputNumber class="form-control" @bind-Value="_movDTO.CostoUnitario" step="0.01"
+                                     disabled="@(EsSalida)" />
                         @if (EsSalida)
                         {
                             <small class="text-muted" style="font-size:0.68rem;">Usa CPP actual</small>
@@ -157,14 +173,7 @@
             </EditForm>
         </div>
 
-        <div class="kardex-info-banner">
-            <i class="bi bi-info-circle-fill"></i>
-            <span>
-                Este es un <strong>libro auxiliar contable</strong>. Los movimientos no se editan ni eliminan.
-                Para corregir un movimiento, registra un <strong>ajuste</strong> con el tipo contrario.
-            </span>
-        </div>
-
+        <!-- ═══ TABLA KÁRDEX ═══ -->
         <div class="modern-card">
             <div class="card-top-compact">
                 <h5><i class="bi bi-clock-history"></i> Histórico de movimientos</h5>
@@ -204,11 +213,11 @@
                                         </span>
                                     </td>
                                     <td class="text-end">@m.Cantidad.ToString("N2")</td>
-                                    <td class="text-end">@m.CostoUnitario.ToString("C2")</td>
-                                    <td class="text-end">@m.ValorMovimiento.ToString("C2")</td>
+                                    <td class="text-end">@m.CostoUnitario.ToString("C2", System.Globalization.CultureInfo.GetCultureInfo("es-CO"))</td>
+                                    <td class="text-end">@m.ValorMovimiento.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("es-CO"))</td>
                                     <td class="text-end"><strong>@m.SaldoCantidad.ToString("N2")</strong></td>
-                                    <td class="text-end">@m.SaldoValor.ToString("C2")</td>
-                                    <td class="text-end">@m.Cpp.ToString("N4")</td>
+                                    <td class="text-end">@m.SaldoValor.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("es-CO"))</td>
+                                    <td class="text-end">@m.Cpp.ToString("C2", System.Globalization.CultureInfo.GetCultureInfo("es-CO"))</td>
                                     <td>@m.DocumentoReferencia</td>
                                     <td>@m.Observaciones</td>
                                 </tr>
@@ -257,6 +266,7 @@
         _bienes = (await KardexRepo.ObtenerBienesConsumoAsync()).ToList();
         _proveedores = (await ProveedorRepo.ObtenerTodosAsync()).ToList();
         _funcionarios = (await FuncRepo.ObtenerTodosAsync()).ToList();
+
         _bienesFiltrados = _bienes.ToList();
 
         if (BienIdQuery.HasValue && BienIdQuery.Value > 0)

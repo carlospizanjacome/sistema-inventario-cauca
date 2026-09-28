@@ -2179,27 +2179,9 @@ input[type="date"] {
     }
 
 /* ═══════════════════════════════════════════════════════════
-   PAGE-CRUD CON FORMULARIO ABIERTO
-   Permite scroll vertical para que el paginador siempre sea accesible
+   Sin barra externa en páginas .page-crud
+   (login y dashboard no se afectan)
    ═══════════════════════════════════════════════════════════ */
-.page-crud.form-abierto {
-    height: auto;
-    max-height: none;
-    overflow-y: auto;
-    overflow-x: hidden;
+body:has(.page-crud) {
+    overflow: hidden !important;
 }
-
-    .page-crud.form-abierto > .card-table {
-        min-height: 350px;
-        flex: 0 0 auto;
-    }
-
-.page-crud.form-abierto {
-    height: auto !important;
-    overflow-y: auto !important;
-}
-
-    .page-crud.form-abierto > .card-table {
-        flex: 0 0 auto !important;
-        min-height: 400px;
-    }

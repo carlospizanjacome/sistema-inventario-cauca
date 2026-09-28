@@ -41,6 +41,76 @@ public class AulaRepository : IAulaRepository
         return await cn.QueryAsync<AulaDTO>(sql, param);
     }
 
+    public async Task<ResultadoPaginado<AulaDTO>> ObtenerPaginadoAsync(
+        int pagina = 1,
+        int tamano = 25,
+        string? filtroTexto = null,
+        int? bloqueId = null,
+        string? tipo = null)
+    {
+        if (pagina < 1) pagina = 1;
+        if (tamano < 1) tamano = 25;
+        if (tamano > 200) tamano = 200;
+
+        var (filtroInst, _) = FiltroInstitucion.Construir(
+            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "s");
+
+        var condiciones = new List<string>();
+        var parametros = new DynamicParameters();
+        parametros.Add("InstitucionId", _sesion.InstitucionId);
+
+        if (!string.IsNullOrWhiteSpace(filtroTexto))
+        {
+            condiciones.Add("a.nombre ILIKE @Buscar");
+            parametros.Add("Buscar", $"%{filtroTexto}%");
+        }
+
+        if (bloqueId.HasValue && bloqueId.Value > 0)
+        {
+            condiciones.Add("a.bloque_id = @BloqueId");
+            parametros.Add("BloqueId", bloqueId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(tipo))
+        {
+            condiciones.Add("a.tipo = @Tipo");
+            parametros.Add("Tipo", tipo);
+        }
+
+        var whereExtra = condiciones.Any()
+            ? " AND " + string.Join(" AND ", condiciones)
+            : string.Empty;
+
+        parametros.Add("Tamano", tamano);
+        parametros.Add("Offset", (pagina - 1) * tamano);
+
+        var sqlCount = $@"
+            SELECT COUNT(*)
+            FROM aulas a
+            LEFT JOIN bloques b ON b.id = a.bloque_id
+            LEFT JOIN sedes s ON s.id = b.sede_id
+            WHERE 1=1 {filtroInst} {whereExtra};";
+
+        var sqlData = $@"
+            {BaseSelect}
+            WHERE 1=1 {filtroInst} {whereExtra}
+            ORDER BY i.nombre, s.nombre, b.nombre, a.nombre
+            LIMIT @Tamano OFFSET @Offset;";
+
+        using var cn = new NpgsqlConnection(_cs);
+
+        var total = await cn.ExecuteScalarAsync<int>(sqlCount, parametros);
+        var items = (await cn.QueryAsync<AulaDTO>(sqlData, parametros)).ToList();
+
+        return new ResultadoPaginado<AulaDTO>
+        {
+            Items = items,
+            TotalRegistros = total,
+            PaginaActual = pagina,
+            TamanoPagina = tamano
+        };
+    }
+
     public async Task<IEnumerable<AulaDTO>> ObtenerPorBloqueAsync(int bloqueId)
     {
         var (filtro, param) = FiltroInstitucion.Construir(

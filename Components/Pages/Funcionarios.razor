@@ -19,9 +19,9 @@
 
 <PageTitle>Funcionarios · Almacén</PageTitle>
 
-<div class="page-container page-crud">
+<div class="page-container page-crud @(_mostrarFormulario ? "form-abierto" : "")">
 
-    @* ═══════════════ PAGE HEADER (oculto si form abierto) ═══════════════ *@
+    @* ═══════════════ PAGE HEADER ═══════════════ *@
     @if (!_mostrarFormulario)
     {
         <div class="page-header">
@@ -163,7 +163,7 @@
     @* ═══════════════ CARD TABLE ═══════════════ *@
     <div class="card-table">
 
-        @* Barra de búsqueda SIEMPRE visible *@
+        @* ═══ Barra: buscador + dropdowns + total ═══ *@
         <div class="filtros-tabla">
             <div class="filtro-busqueda">
                 <i class="bi bi-search"></i>
@@ -178,14 +178,100 @@
                     </button>
                 }
             </div>
-            <div class="filtro-info">
+
+            <div class="filtros-tabla-derecha">
+
+                @* ═══ Dropdown Sede ═══ *@
+                <details class="dropdown-filtro" id="dropdown-sede-func">
+                    <summary class="dropdown-filtro-trigger">
+                        <i class="bi bi-building"></i>
+                        <span>@(string.IsNullOrEmpty(_sedeSeleccionadaNombre) ? "Todas las sedes" : _sedeSeleccionadaNombre)</span>
+                        <i class="bi bi-chevron-down dropdown-filtro-chevron"></i>
+                    </summary>
+
+                    <div class="dropdown-filtro-panel">
+                        <div class="dropdown-filtro-item @(_sedeSeleccionadaId is null ? "active" : "")"
+                             @onclick="() => SeleccionarSede(null)">
+                            <i class="bi bi-grid-3x3"></i>
+                            <span>Todas las sedes</span>
+                            @if (_sedeSeleccionadaId is null)
+                            {
+                                <i class="bi bi-check2 dropdown-filtro-check"></i>
+                            }
+                        </div>
+
+                        <div class="dropdown-filtro-divider"></div>
+
+                        @foreach (var s in sedes)
+                        {
+                            <div class="dropdown-filtro-item @(_sedeSeleccionadaId == s.Id ? "active" : "")"
+                                 @onclick="() => SeleccionarSede(s)">
+                                <i class="bi bi-building"></i>
+                                <span>@s.Nombre</span>
+                                @if (_sedeSeleccionadaId == s.Id)
+                                {
+                                    <i class="bi bi-check2 dropdown-filtro-check"></i>
+                                }
+                            </div>
+                        }
+                    </div>
+                </details>
+
+                @* ═══ Dropdown Estado ═══ *@
+                <details class="dropdown-filtro" id="dropdown-estado-func">
+                    <summary class="dropdown-filtro-trigger">
+                        <i class="bi bi-toggle-on"></i>
+                        <span>@(_filtroActivo switch { true => "Solo activos", false => "Solo inactivos", null => "Activos e inactivos" })</span>
+                        <i class="bi bi-chevron-down dropdown-filtro-chevron"></i>
+                    </summary>
+
+                    <div class="dropdown-filtro-panel">
+                        <div class="dropdown-filtro-item @(_filtroActivo is null ? "active" : "")"
+                             @onclick="() => SeleccionarEstado(null)">
+                            <i class="bi bi-list-ul"></i>
+                            <span>Activos e inactivos</span>
+                            @if (_filtroActivo is null)
+                            {
+                                <i class="bi bi-check2 dropdown-filtro-check"></i>
+                            }
+                        </div>
+
+                        <div class="dropdown-filtro-divider"></div>
+
+                        <div class="dropdown-filtro-item @(_filtroActivo == true ? "active" : "")"
+                             @onclick="() => SeleccionarEstado(true)">
+                            <i class="bi bi-check-circle"></i>
+                            <span>Solo activos</span>
+                            @if (_filtroActivo == true)
+                            {
+                                <i class="bi bi-check2 dropdown-filtro-check"></i>
+                            }
+                        </div>
+
+                        <div class="dropdown-filtro-item @(_filtroActivo == false ? "active" : "")"
+                             @onclick="() => SeleccionarEstado(false)">
+                            <i class="bi bi-x-circle"></i>
+                            <span>Solo inactivos</span>
+                            @if (_filtroActivo == false)
+                            {
+                                <i class="bi bi-check2 dropdown-filtro-check"></i>
+                            }
+                        </div>
+                    </div>
+                </details>
+
                 <span class="badge-total">
                     <i class="bi bi-person-badge"></i>
                     <strong>@(_pagina?.TotalRegistros ?? 0)</strong> funcionarios
+                    @if (!string.IsNullOrEmpty(_filtroTexto) || _sedeSeleccionadaId.HasValue || _filtroActivo.HasValue)
+                    {
+                        <span class="filtro-activo-tag">· Filtrado</span>
+                    }
                 </span>
             </div>
         </div>
 
+        @* ═══ Tabla ═══ *@
         <div class="table-responsive">
             <table class="table modern-table">
                 <thead>
@@ -255,6 +341,7 @@
             </table>
         </div>
 
+        @* ═══ Paginador ═══ *@
         @if (_pagina is not null && _pagina.TotalRegistros > 0)
         {
             <Paginador T="FuncionarioDTO"
@@ -278,6 +365,11 @@
     private int _tamanoPagina = 25;
     private string _filtroTexto = string.Empty;
     private CancellationTokenSource? _debounceCts;
+
+    // ─── Filtros nuevos ───
+    private int? _sedeSeleccionadaId;
+    private string _sedeSeleccionadaNombre = string.Empty;
+    private bool? _filtroActivo;
 
     private bool puedeCrear;
     private bool puedeEditar;
@@ -305,7 +397,9 @@
         _pagina = await FuncRepo.ObtenerPaginadoAsync(
             _paginaActual,
             _tamanoPagina,
-            string.IsNullOrWhiteSpace(_filtroTexto) ? null : _filtroTexto);
+            string.IsNullOrWhiteSpace(_filtroTexto) ? null : _filtroTexto,
+            _sedeSeleccionadaId,
+            _filtroActivo);
     }
 
     // ═══════════ INPUT BÚSQUEDA ═══════════
@@ -341,6 +435,40 @@
         StateHasChanged();
     }
 
+    // ═══════════ FILTROS ═══════════
+    private async Task SeleccionarSede(SedeDTO? sede)
+    {
+        _sedeSeleccionadaId = sede?.Id;
+        _sedeSeleccionadaNombre = sede?.Nombre ?? string.Empty;
+        _paginaActual = 1;
+
+        try
+        {
+            await JS.InvokeVoidAsync("eval",
+                "document.getElementById('dropdown-sede-func')?.removeAttribute('open')");
+        }
+        catch { }
+
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task SeleccionarEstado(bool? activo)
+    {
+        _filtroActivo = activo;
+        _paginaActual = 1;
+
+        try
+        {
+            await JS.InvokeVoidAsync("eval",
+                "document.getElementById('dropdown-estado-func')?.removeAttribute('open')");
+        }
+        catch { }
+
+        await Cargar();
+        StateHasChanged();
+    }
+
     private async Task CambioPagina(int nuevaPagina)
     {
         _paginaActual = nuevaPagina;
@@ -364,7 +492,6 @@
         funcionarioEditandoId = 0;
         _mostrarFormulario = true;
 
-        // Limpiar filtro y recargar la tabla
         _filtroTexto = string.Empty;
         _paginaActual = 1;
     }
@@ -376,7 +503,6 @@
         editando = false;
         funcionarioEditandoId = 0;
 
-        // Limpiar filtro y recargar la tabla
         _filtroTexto = string.Empty;
         _paginaActual = 1;
         await Cargar();
@@ -407,17 +533,14 @@
         {
             if (editando)
             {
-                // ── EDICIÓN: guardar y MANTENER ABIERTO con los datos ──
                 await FuncRepo.ActualizarAsync(funcionarioDTO);
                 Toast.Exito($"Funcionario '{funcionarioDTO.NombreCompleto}' actualizado. Puede seguir editando.");
             }
             else
             {
-                // ── CREACIÓN: guardar y MANTENER ABIERTO, limpiar form ──
                 await FuncRepo.CrearAsync(funcionarioDTO);
                 Toast.Exito($"Funcionario '{funcionarioDTO.NombreCompleto}' creado. Puede continuar registrando.");
 
-                // Mantener cargo, tipo vinculación y sede para registros masivos
                 var cargoActual = funcionarioDTO.Cargo;
                 var tipoActual = funcionarioDTO.TipoVinculacion;
                 var sedeActual = funcionarioDTO.SedeId;
@@ -430,16 +553,14 @@
                     SedeId = sedeActual
                 };
 
-                // Enfocar el primer campo (Cédula)
                 try
                 {
                     await JS.InvokeVoidAsync("eval",
                         "setTimeout(() => { const el = document.querySelector('.card-form input'); if (el) el.focus(); }, 100);");
                 }
-                catch { /* silencioso */ }
+                catch { }
             }
 
-            // Limpiar filtro y recargar la tabla
             _filtroTexto = string.Empty;
             _paginaActual = 1;
             await Cargar();
@@ -471,7 +592,6 @@
         funcionarioDTO.UsuarioId = f.UsuarioId;
         funcionarioDTO.Activo = f.Activo;
 
-        // Limpiar filtro al entrar en modo edición
         _filtroTexto = string.Empty;
         _paginaActual = 1;
 

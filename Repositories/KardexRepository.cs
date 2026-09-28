@@ -61,6 +61,84 @@ public class KardexRepository : IKardexRepository
     }
 
     // ═══════════════════════════════════════════════════════════
+    // NUEVO — Paginado con filtros
+    // ═══════════════════════════════════════════════════════════
+    public async Task<ResultadoPaginado<BienConsumoDTO>> ObtenerBienesConsumoPaginadoAsync(
+        int pagina = 1,
+        int tamano = 25,
+        string? filtroTexto = null,
+        int? categoriaId = null,
+        bool? soloBajoStock = null)
+    {
+        if (pagina < 1) pagina = 1;
+        if (tamano < 1) tamano = 25;
+        if (tamano > 200) tamano = 200;
+
+        var (filtroInst, _) = FiltroInstitucion.Construir(
+            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "b");
+
+        var condiciones = new List<string> { "b.tipo_bien = 'consumo'" };
+        var parametros = new DynamicParameters();
+        parametros.Add("InstitucionId", _sesion.InstitucionId);
+
+        if (!string.IsNullOrWhiteSpace(filtroTexto))
+        {
+            condiciones.Add("(b.codigo ILIKE @Buscar OR b.nombre ILIKE @Buscar)");
+            parametros.Add("Buscar", $"%{filtroTexto}%");
+        }
+
+        if (categoriaId.HasValue && categoriaId.Value > 0)
+        {
+            condiciones.Add("b.categoria_id = @CategoriaId");
+            parametros.Add("CategoriaId", categoriaId.Value);
+        }
+
+        if (soloBajoStock == true)
+        {
+            condiciones.Add("b.stock_actual <= b.stock_minimo");
+        }
+
+        var whereExtra = " AND " + string.Join(" AND ", condiciones);
+
+        parametros.Add("Tamano", tamano);
+        parametros.Add("Offset", (pagina - 1) * tamano);
+
+        var sqlCount = $@"
+            SELECT COUNT(*)
+            FROM bienes b
+            WHERE 1=1 {filtroInst} {whereExtra};";
+
+        var sqlData = $@"
+            SELECT b.id, b.institucion_id AS InstitucionId, b.codigo, b.nombre,
+                   b.descripcion, b.categoria_id AS CategoriaId,
+                   b.unidad_medida AS UnidadMedida,
+                   b.stock_minimo AS StockMinimo,
+                   b.stock_actual AS StockActual,
+                   b.cpp_actual AS CppActual,
+                   b.valor_stock AS ValorStock,
+                   b.activo,
+                   c.nombre AS CategoriaNombre
+            FROM bienes b
+            LEFT JOIN categorias c ON c.id = b.categoria_id
+            WHERE 1=1 {filtroInst} {whereExtra}
+            ORDER BY b.codigo
+            LIMIT @Tamano OFFSET @Offset;";
+
+        using var cn = new NpgsqlConnection(_cs);
+
+        var total = await cn.ExecuteScalarAsync<int>(sqlCount, parametros);
+        var items = (await cn.QueryAsync<BienConsumoDTO>(sqlData, parametros)).ToList();
+
+        return new ResultadoPaginado<BienConsumoDTO>
+        {
+            Items = items,
+            TotalRegistros = total,
+            PaginaActual = pagina,
+            TamanoPagina = tamano
+        };
+    }
+
+    // ═══════════════════════════════════════════════════════════
     // CREAR BIEN DE CONSUMO — con autogeneración de código
     // Formato: CONS-{AÑO}-{D3}
     // ═══════════════════════════════════════════════════════════

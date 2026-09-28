@@ -19,9 +19,8 @@
 
 <PageTitle>Categorías · Almacén</PageTitle>
 
-<div class="page-container page-crud">
+<div class="page-container page-crud @(_mostrarFormulario ? "form-abierto" : "")">
 
-    @* ═══════════════ PAGE HEADER (oculto si form abierto) ═══════════════ *@
     @if (!_mostrarFormulario)
     {
         <div class="page-header">
@@ -41,7 +40,6 @@
         </div>
     }
 
-    @* ═══════════════ FORM COLAPSABLE ═══════════════ *@
     @if (_mostrarFormulario)
     {
         <div class="card-form">
@@ -113,10 +111,9 @@
         </div>
     }
 
-    @* ═══════════════ CARD TABLE ═══════════════ *@
     <div class="card-table">
 
-        @* ═══ Barra de búsqueda + total ═══ *@
+        @* ═══ Barra: buscador + estado + total ═══ *@
         <div class="filtros-tabla">
             <div class="filtro-busqueda">
                 <i class="bi bi-search"></i>
@@ -133,11 +130,55 @@
                 }
             </div>
 
-            <div class="filtro-info">
+            <div class="filtros-tabla-derecha">
+
+                @* ═══ Dropdown Estado ═══ *@
+                <details class="dropdown-filtro" id="dropdown-estado-cat">
+                    <summary class="dropdown-filtro-trigger">
+                        <i class="bi bi-toggle-on"></i>
+                        <span>@(_filtroEstado switch { true => "Solo activas", false => "Solo inactivas", null => "Activas e inactivas" })</span>
+                        <i class="bi bi-chevron-down dropdown-filtro-chevron"></i>
+                    </summary>
+
+                    <div class="dropdown-filtro-panel">
+                        <div class="dropdown-filtro-item @(_filtroEstado is null ? "active" : "")"
+                             @onclick="() => SeleccionarEstado(null)">
+                            <i class="bi bi-list-ul"></i>
+                            <span>Activas e inactivas</span>
+                            @if (_filtroEstado is null)
+                            {
+                                <i class="bi bi-check2 dropdown-filtro-check"></i>
+                            }
+                        </div>
+
+                        <div class="dropdown-filtro-divider"></div>
+
+                        <div class="dropdown-filtro-item @(_filtroEstado == true ? "active" : "")"
+                             @onclick="() => SeleccionarEstado(true)">
+                            <i class="bi bi-check-circle"></i>
+                            <span>Solo activas</span>
+                            @if (_filtroEstado == true)
+                            {
+                                <i class="bi bi-check2 dropdown-filtro-check"></i>
+                            }
+                        </div>
+
+                        <div class="dropdown-filtro-item @(_filtroEstado == false ? "active" : "")"
+                             @onclick="() => SeleccionarEstado(false)">
+                            <i class="bi bi-x-circle"></i>
+                            <span>Solo inactivas</span>
+                            @if (_filtroEstado == false)
+                            {
+                                <i class="bi bi-check2 dropdown-filtro-check"></i>
+                            }
+                        </div>
+                    </div>
+                </details>
+
                 <span class="badge-total">
                     <i class="bi bi-tags"></i>
                     <strong>@(_pagina?.TotalRegistros ?? 0)</strong> categorías
-                    @if (!string.IsNullOrEmpty(_filtroTexto))
+                    @if (!string.IsNullOrEmpty(_filtroTexto) || _filtroEstado.HasValue)
                     {
                         <span class="filtro-activo-tag">· Filtrado</span>
                     }
@@ -165,9 +206,9 @@
                     {
                         <tr>
                             <td colspan="4" class="text-center py-3 text-muted">
-                                @(string.IsNullOrEmpty(_filtroTexto)
+                                @(SinFiltros()
                                     ? "Sin categorías registradas."
-                                    : "Sin resultados para la búsqueda.")
+                                    : "Sin resultados para los filtros aplicados.")
                             </td>
                         </tr>
                     }
@@ -204,7 +245,6 @@
             </table>
         </div>
 
-        @* ═══ Paginador ═══ *@
         @if (_pagina is not null && _pagina.TotalRegistros > 0)
         {
             <Paginador T="Categoria"
@@ -225,6 +265,7 @@
     private int _paginaActual = 1;
     private int _tamanoPagina = 25;
     private string _filtroTexto = string.Empty;
+    private bool? _filtroEstado;
     private CancellationTokenSource? _debounceCts;
 
     private bool puedeCrear;
@@ -257,23 +298,12 @@
         _pagina = await CategoriaRepository.ObtenerPaginadoAsync(
             _paginaActual,
             _tamanoPagina,
-            string.IsNullOrWhiteSpace(_filtroTexto) ? null : _filtroTexto);
+            string.IsNullOrWhiteSpace(_filtroTexto) ? null : _filtroTexto,
+            _filtroEstado);
     }
 
-    private async Task CambioPagina(int nuevaPagina)
-    {
-        _paginaActual = nuevaPagina;
-        await Cargar();
-        StateHasChanged();
-    }
-
-    private async Task CambioTamano(int nuevoTamano)
-    {
-        _tamanoPagina = nuevoTamano;
-        _paginaActual = 1;
-        await Cargar();
-        StateHasChanged();
-    }
+    private bool SinFiltros()
+        => string.IsNullOrEmpty(_filtroTexto) && _filtroEstado is null;
 
     private async Task BuscarConDebounce()
     {
@@ -296,6 +326,37 @@
     private async Task LimpiarFiltro()
     {
         _filtroTexto = string.Empty;
+        _paginaActual = 1;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task SeleccionarEstado(bool? estado)
+    {
+        _filtroEstado = estado;
+        _paginaActual = 1;
+
+        try
+        {
+            await JS.InvokeVoidAsync("eval",
+                "document.getElementById('dropdown-estado-cat')?.removeAttribute('open')");
+        }
+        catch { }
+
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task CambioPagina(int nuevaPagina)
+    {
+        _paginaActual = nuevaPagina;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task CambioTamano(int nuevoTamano)
+    {
+        _tamanoPagina = nuevoTamano;
         _paginaActual = 1;
         await Cargar();
         StateHasChanged();
@@ -357,7 +418,7 @@
                     await JS.InvokeVoidAsync("eval",
                         "setTimeout(() => { const el = document.querySelector('.card-form input'); if (el) el.focus(); }, 100);");
                 }
-                catch { /* silencioso */ }
+                catch { }
             }
 
             await Cargar();

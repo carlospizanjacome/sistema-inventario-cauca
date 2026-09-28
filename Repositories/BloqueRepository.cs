@@ -39,6 +39,68 @@ public class BloqueRepository : IBloqueRepository
         return await cn.QueryAsync<BloqueDTO>(sql, param);
     }
 
+    public async Task<ResultadoPaginado<BloqueDTO>> ObtenerPaginadoAsync(
+        int pagina = 1,
+        int tamano = 25,
+        string? filtroTexto = null,
+        int? sedeId = null)
+    {
+        if (pagina < 1) pagina = 1;
+        if (tamano < 1) tamano = 25;
+        if (tamano > 200) tamano = 200;
+
+        var (filtroInst, _) = FiltroInstitucion.Construir(
+            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "s");
+
+        var condiciones = new List<string>();
+        var parametros = new DynamicParameters();
+        parametros.Add("InstitucionId", _sesion.InstitucionId);
+
+        if (!string.IsNullOrWhiteSpace(filtroTexto))
+        {
+            condiciones.Add("(b.nombre ILIKE @Buscar OR b.descripcion ILIKE @Buscar)");
+            parametros.Add("Buscar", $"%{filtroTexto}%");
+        }
+
+        if (sedeId.HasValue && sedeId.Value > 0)
+        {
+            condiciones.Add("b.sede_id = @SedeId");
+            parametros.Add("SedeId", sedeId.Value);
+        }
+
+        var whereExtra = condiciones.Any()
+            ? " AND " + string.Join(" AND ", condiciones)
+            : string.Empty;
+
+        parametros.Add("Tamano", tamano);
+        parametros.Add("Offset", (pagina - 1) * tamano);
+
+        var sqlCount = $@"
+            SELECT COUNT(*)
+            FROM bloques b
+            LEFT JOIN sedes s ON s.id = b.sede_id
+            WHERE 1=1 {filtroInst} {whereExtra};";
+
+        var sqlData = $@"
+            {BaseSelect}
+            WHERE 1=1 {filtroInst} {whereExtra}
+            ORDER BY i.nombre, s.nombre, b.nombre
+            LIMIT @Tamano OFFSET @Offset;";
+
+        using var cn = new NpgsqlConnection(_cs);
+
+        var total = await cn.ExecuteScalarAsync<int>(sqlCount, parametros);
+        var items = (await cn.QueryAsync<BloqueDTO>(sqlData, parametros)).ToList();
+
+        return new ResultadoPaginado<BloqueDTO>
+        {
+            Items = items,
+            TotalRegistros = total,
+            PaginaActual = pagina,
+            TamanoPagina = tamano
+        };
+    }
+
     public async Task<IEnumerable<BloqueDTO>> ObtenerPorSedeAsync(int sedeId)
     {
         var (filtro, param) = FiltroInstitucion.Construir(

@@ -1,65 +1,12 @@
+/* CSS for Categorias component */
 /* ═══════════════════════════════════════════════════════════
-   CONSUMO — estilos específicos
-   (Base global: app.css + crud.css)
-   ═══════════════════════════════════════════════════════════ */
-
-/* ═══ ALERTA DE STOCK BAJO ═══ */
-.alert-stock {
-    display: flex;
-    align-items: center;
-    gap: var(--space-4);
-    background: linear-gradient(135deg, #fef3c7, #fde68a);
-    border: 1px solid #fbbf24;
-    border-radius: var(--radius-lg);
-    padding: var(--space-4) var(--space-5);
-    margin-bottom: var(--space-4);
-    flex-shrink: 0;
-}
-
-    .alert-stock i {
-        font-size: 1.8rem;
-        color: var(--warning-hover);
-        flex-shrink: 0;
-    }
-
-    .alert-stock div {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-    }
-
-    .alert-stock strong {
-        color: var(--warning-text);
-        font-size: var(--fs-md);
-        font-weight: var(--fw-bold);
-    }
-
-    .alert-stock span {
-        color: #78350f;
-        font-size: var(--fs-sm);
-    }
-
-/* ═══ FILA CON STOCK BAJO ═══
-   Nota: se usa especificidad natural, sin !important.
-   El .table-row-hover (definido globalmente) pierde ante esta regla
-   por orden de carga (componente scoped gana a global). */
-.row-warning,
-.row-warning:hover {
-    background: #fffbeb;
-}
-
-    .row-warning:hover {
-        background: #fef3c7;
-    }
-
-/* ═══════════════════════════════════════════════════════════
-   CONSUMO — dropdowns custom de filtros
+   CATEGORÍAS — estilos específicos
    ═══════════════════════════════════════════════════════════ */
 
 .filtros-tabla-derecha {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--space-3);
     flex-wrap: wrap;
 }
 
@@ -88,12 +35,12 @@
     padding: 0 14px !important;
     min-width: 200px !important;
     border: 1.5px solid #94a3b8 !important;
-    border-radius: 8px !important;
+    border-radius: var(--radius) !important;
     background: #fff !important;
-    color: #0f172a !important;
+    color: var(--text-primary) !important;
     font-family: inherit !important;
-    font-size: 0.9rem !important;
-    transition: all 0.12s ease !important;
+    font-size: var(--fs-base) !important;
+    transition: all var(--t-fast) !important;
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;
 }
 
@@ -103,7 +50,7 @@
     }
 
 .dropdown-filtro[open] .dropdown-filtro-trigger {
-    border-color: #4f46e5 !important;
+    border-color: var(--brand) !important;
     border-width: 2px !important;
     padding: 0 13px !important;
     box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.15) !important;
@@ -122,19 +69,19 @@
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
-    font-weight: 500 !important;
+    font-weight: var(--fw-medium) !important;
 }
 
 .dropdown-filtro-chevron {
     color: #94a3b8 !important;
-    font-size: 0.75rem !important;
-    transition: transform 0.12s ease !important;
+    font-size: 0.8rem !important;
+    transition: transform var(--t-fast), color var(--t-fast) !important;
     flex-shrink: 0 !important;
 }
 
 .dropdown-filtro[open] .dropdown-filtro-chevron {
     transform: rotate(180deg) !important;
-    color: #4f46e5 !important;
+    color: var(--brand) !important;
 }
 
 .dropdown-filtro-panel {
@@ -143,41 +90,54 @@
     right: 0 !important;
     min-width: 240px !important;
     background: #fff !important;
-    border: 1px solid #e2e8f0 !important;
-    border-radius: 12px !important;
+    border: 1px solid var(--border-soft) !important;
+    border-radius: var(--radius-lg) !important;
     box-shadow: 0 12px 40px rgba(15, 23, 42, 0.18) !important;
     padding: 6px !important;
     z-index: 100 !important;
     max-height: 320px !important;
     overflow-y: auto !important;
+    animation: dropdownSlide 0.15s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+@keyframes dropdownSlide {
+    from {
+        opacity: 0;
+        transform: translateY(-8px) scale(0.98);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
 }
 
 .dropdown-filtro-item {
     display: flex !important;
     align-items: center !important;
     gap: 10px !important;
-    padding: 9px 12px !important;
-    border-radius: 8px !important;
+    padding: 10px 12px !important;
+    border-radius: var(--radius) !important;
     cursor: pointer !important;
-    font-size: 0.85rem !important;
-    color: #475569 !important;
+    font-size: var(--fs-base) !important;
+    color: var(--text-secondary) !important;
     user-select: none !important;
-    transition: background 0.12s ease, color 0.12s ease !important;
+    transition: background var(--t-fast), color var(--t-fast) !important;
 }
 
     .dropdown-filtro-item:hover {
-        background: #eef2ff !important;
-        color: #4f46e5 !important;
+        background: var(--brand-soft) !important;
+        color: var(--brand) !important;
     }
 
     .dropdown-filtro-item.active {
-        background: #eef2ff !important;
-        color: #4f46e5 !important;
-        font-weight: 600 !important;
+        background: var(--brand-soft) !important;
+        color: var(--brand) !important;
+        font-weight: var(--fw-semibold) !important;
     }
 
     .dropdown-filtro-item > i:first-child {
-        font-size: 0.9rem !important;
+        font-size: 0.95rem !important;
         width: 18px !important;
         text-align: center !important;
         flex-shrink: 0 !important;
@@ -188,7 +148,7 @@
     }
 
 .dropdown-filtro-check {
-    color: #4f46e5 !important;
+    color: var(--brand) !important;
     font-size: 1rem !important;
     font-weight: bold !important;
     flex-shrink: 0 !important;
@@ -196,7 +156,7 @@
 
 .dropdown-filtro-divider {
     height: 1px !important;
-    background: #e2e8f0 !important;
+    background: var(--border-soft) !important;
     margin: 6px 4px !important;
 }
 
