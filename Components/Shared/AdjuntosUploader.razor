@@ -5,21 +5,33 @@
 @inject ConfirmService Confirm
 
 <div class="adjuntos-wrapper">
+
     <div class="adjuntos-header">
-        <label>
+        <div class="adjuntos-header-left">
             <i class="bi bi-paperclip"></i>
-            Archivos adjuntos
-            <span class="contador">@(_adjuntos.Count)</span>
-        </label>
+            <span>Archivos adjuntos</span>
+        </div>
+        <span class="adjuntos-contador">@(_adjuntos.Count)</span>
     </div>
 
     @if (EntidadId > 0)
     {
-        <div class="upload-area">
+        <label class="upload-dropzone">
             <InputFile OnChange="SubirArchivo"
                        accept=".pdf,.jpg,.jpeg,.png"
-                       multiple />
-        </div>
+                       multiple
+                       class="upload-input" />
+
+            <div class="upload-dropzone-content">
+                <div class="upload-icon-circle">
+                    <i class="bi bi-cloud-arrow-up-fill"></i>
+                </div>
+                <div class="upload-text">
+                    <strong>Arrastra archivos aquí o haz clic para subir</strong>
+                    <span>Formatos permitidos: PDF, JPG, PNG · Máximo 5 archivos</span>
+                </div>
+            </div>
+        </label>
     }
     else
     {
@@ -32,21 +44,33 @@
     @if (_adjuntos.Any())
     {
         <div class="adjuntos-lista">
+            <div class="adjuntos-lista-header">
+                <span>@_adjuntos.Count archivo@(_adjuntos.Count == 1 ? "" : "s")</span>
+            </div>
+
             @foreach (var a in _adjuntos)
             {
                 <div class="adjunto-item">
-                    <i class="@GetIcono(a.MimeType) adjunto-icon"></i>
+                    <div class="adjunto-icon-wrap @GetColorClass(a.MimeType)">
+                        <i class="@GetIcono(a.MimeType)"></i>
+                    </div>
                     <div class="adjunto-info">
-                        <span class="adjunto-nombre">@a.NombreOriginal</span>
+                        <span class="adjunto-nombre" title="@a.NombreOriginal">@a.NombreOriginal</span>
                         <span class="adjunto-meta">
                             @a.TamanoFormateado · @a.CreatedAt.ToString("dd/MM/yy HH:mm")
                         </span>
                     </div>
                     <div class="adjunto-actions">
-                        <button type="button" @onclick="() => Descargar(a)" title="Descargar">
+                        <button type="button"
+                                class="adjunto-btn adjunto-btn-download"
+                                @onclick="() => Descargar(a)"
+                                title="Descargar">
                             <i class="bi bi-download"></i>
                         </button>
-                        <button type="button" @onclick="() => Eliminar(a)" title="Eliminar">
+                        <button type="button"
+                                class="adjunto-btn adjunto-btn-delete"
+                                @onclick="() => Eliminar(a)"
+                                title="Eliminar">
                             <i class="bi bi-trash"></i>
                         </button>
                     </div>
@@ -56,7 +80,10 @@
     }
     else if (EntidadId > 0)
     {
-        <p class="adjuntos-vacio">Sin archivos adjuntos.</p>
+        <p class="adjuntos-vacio">
+            <i class="bi bi-inbox"></i>
+            <span>Sin archivos adjuntos</span>
+        </p>
     }
 </div>
 
@@ -155,5 +182,12 @@
         "application/pdf" => "bi-file-earmark-pdf-fill",
         "image/jpeg" or "image/jpg" or "image/png" => "bi-file-earmark-image-fill",
         _ => "bi-file-earmark"
+    };
+
+    private static string GetColorClass(string? mime) => mime switch
+    {
+        "application/pdf" => "icon-pdf",
+        "image/jpeg" or "image/jpg" or "image/png" => "icon-img",
+        _ => "icon-default"
     };
 }

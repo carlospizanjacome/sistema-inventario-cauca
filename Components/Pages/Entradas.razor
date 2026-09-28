@@ -22,9 +22,8 @@
 
 <PageTitle>Entradas · Almacén</PageTitle>
 
-<div class="page-container page-crud">
+<div class="page-container page-crud @(_mostrarFormulario ? "form-abierto" : "")">
 
-    @* ═══════════════ PAGE HEADER (oculto cuando el form está abierto) ═══════════════ *@
     @if (!_mostrarFormulario)
     {
         <div class="page-header">
@@ -44,7 +43,6 @@
         </div>
     }
 
-    @* ═══════════════ FORM COLAPSABLE ═══════════════ *@
     @if (_mostrarFormulario)
     {
         <div class="card-form">
@@ -114,7 +112,8 @@
                         <div class="input-icon">
                             <i class="bi bi-receipt"></i>
                             <InputText class="form-control" @bind-Value="entradaDTO.NumeroFactura"
-                                       placeholder="Ej: FAC-2025-008" />
+                                       placeholder="Ej: FAC-2025-008"
+                                       inputmode="text" />
                         </div>
                     </div>
 
@@ -167,9 +166,10 @@
 
                 @if (editando && entradaEditandoId > 0)
                 {
-                    <div class="form-section">
+                    <div class="form-section soportes-section">
                         <h4 class="form-section-title">
-                            <i class="bi bi-paperclip"></i> Soportes
+                            <i class="bi bi-paperclip soportes-icon"></i>
+                            <span>Soportes</span>
                         </h4>
                         <AdjuntosUploader EntidadTipo="entrada" EntidadId="entradaEditandoId" />
                     </div>
@@ -191,7 +191,6 @@
     @* ═══════════════ CARD TABLE ═══════════════ *@
     <div class="card-table">
 
-        @* Barra de filtros *@
         <div class="filtros-toolbar">
 
             <div class="filtro-busqueda-principal">
@@ -586,7 +585,6 @@
                 await EntradaRepo.CrearAsync(entradaDTO);
                 Toast.Exito($"Entrada '{entradaDTO.NumeroFactura}' creada. Puede continuar registrando.");
 
-                // ✅ MANTENER FORM ABIERTO con datos comunes
                 var tipoFuenteActual = entradaDTO.TipoFuente;
                 var proveedorActual = entradaDTO.ProveedorId;
                 var fechaActual = entradaDTO.FechaEntrada;
@@ -598,7 +596,6 @@
                     ProveedorId = proveedorActual
                 };
 
-                // Enfocar el primer campo (Bien)
                 try
                 {
                     await JS.InvokeVoidAsync("eval",

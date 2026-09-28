@@ -21,7 +21,7 @@
 
 <PageTitle>Salidas · Almacén</PageTitle>
 
-<div class="page-container page-crud">
+<div class="page-container page-crud @(_mostrarFormulario ? "form-abierto" : "")">
 
     @if (!_mostrarFormulario)
     {
@@ -73,7 +73,9 @@
                             <label>Bien *</label>
                             <div class="input-icon">
                                 <i class="bi bi-box-seam"></i>
-                                <InputSelect class="form-select" @bind-Value="salidaDTO.BienId">
+                                <InputSelect class="form-select"
+                                             @bind-Value="salidaDTO.BienId"
+                                             @bind-Value:after="OnBienCambiadoAsync">
                                     <option value="0">— Seleccione bien —</option>
                                     @foreach (var b in bienes)
                                     {
@@ -127,11 +129,14 @@
                         </div>
 
                         <div class="form-group">
-                            <label>Valor de Salida</label>
+                            <label>Valor de Salida <small class="text-muted">(auto)</small></label>
                             <div class="input-icon">
                                 <i class="bi bi-currency-dollar"></i>
-                                <InputMoneda class="form-control" @bind-Value="salidaDTO.ValorSalida" />
+                                <InputMoneda class="form-control"
+                                             @bind-Value="salidaDTO.ValorSalida"
+                                             ReadOnly="true" />
                             </div>
+                            <small class="form-hint">Se toma del valor de adquisición del bien</small>
                         </div>
 
                         <div class="form-group">
@@ -438,6 +443,35 @@
                 _paginaActual, _tamanoPagina,
                 string.IsNullOrWhiteSpace(_filtroTexto) ? null : _filtroTexto);
         }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // AUTOCOMPLETADO DEL VALOR — al seleccionar el bien
+    // ═══════════════════════════════════════════════════════════
+    private async Task OnBienCambiadoAsync()
+    {
+        var bienId = salidaDTO.BienId;
+
+        if (bienId <= 0)
+        {
+            salidaDTO.ValorSalida = 0;
+            return;
+        }
+
+        try
+        {
+            var bien = await BienRepo.ObtenerPorIdAsync(bienId);
+            if (bien is not null)
+            {
+                salidaDTO.ValorSalida = bien.ValorAdquisicion;
+            }
+        }
+        catch
+        {
+            // Silencioso — si falla, deja el valor en 0
+        }
+
+        StateHasChanged();
     }
 
     private void AbrirFormulario()

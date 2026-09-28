@@ -10,12 +10,17 @@
        @oninput="OnInputHandler"
        placeholder="@Placeholder"
        disabled="@Disabled"
+       readonly="@ReadOnly"
+       inputmode="decimal"
+       autocomplete="off"
+       onkeypress="return (event.charCode >= 48 && event.charCode <= 57) || event.charCode === 44 || event.charCode === 46 || event.charCode === 0"
        @attributes="AdditionalAttributes" />
 
 @code {
     [Parameter] public string? Class { get; set; }
     [Parameter] public string? Style { get; set; }
     [Parameter] public bool Disabled { get; set; }
+    [Parameter] public bool ReadOnly { get; set; }
     [Parameter] public string? Placeholder { get; set; }
 
     private string? _display;
@@ -26,7 +31,6 @@
 
     protected override void OnParametersSet()
     {
-        // Si NO está enfocado → formatear con separador de miles
         if (!_isFocused)
         {
             _display = CurrentValue.ToString("N0", CulturaCOP);
@@ -35,6 +39,8 @@
 
     private void OnFocusHandler()
     {
+        if (ReadOnly) return;
+
         _isFocused = true;
         _display = CurrentValue == 0
             ? ""
@@ -50,10 +56,17 @@
 
     private async Task OnInputHandler(ChangeEventArgs e)
     {
-        var texto = e.Value?.ToString() ?? "";
-        _display = texto;
+        if (ReadOnly) return;
 
-        var limpio = texto
+        var texto = e.Value?.ToString() ?? "";
+
+        var filtrado = new string(texto
+            .Where(c => char.IsDigit(c) || c == '.' || c == ',')
+            .ToArray());
+
+        _display = filtrado;
+
+        var limpio = filtrado
             .Replace(".", "")
             .Replace(",", ".")
             .Trim();
