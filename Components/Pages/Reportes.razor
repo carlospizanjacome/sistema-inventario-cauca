@@ -63,7 +63,7 @@
             <div class="kpi-card kpi-red">
                 <div class="kpi-icon"><i class="bi bi-exclamation-triangle"></i></div>
                 <div class="kpi-body">
-                    <span class="kpi-label">Bajo stock mínimo</span>
+                    <span class="kpi-label">Bajo stock</span>
                     <span class="kpi-value">@_global.BienesBajoStock.ToString("N0")</span>
                 </div>
             </div>
@@ -74,7 +74,7 @@
             <div class="kpi-card kpi-green">
                 <div class="kpi-icon"><i class="bi bi-cash-stack"></i></div>
                 <div class="kpi-body">
-                    <span class="kpi-label">Valor histórico PPE</span>
+                    <span class="kpi-label">Valor PPE</span>
                     <span class="kpi-value" title="@_global.ValorAdquisicion.ToString("C0", CulturaCOP)">
                         @FormatoValor(_global.ValorAdquisicion)
                     </span>
@@ -84,7 +84,7 @@
             <div class="kpi-card kpi-orange">
                 <div class="kpi-icon"><i class="bi bi-graph-down-arrow"></i></div>
                 <div class="kpi-body">
-                    <span class="kpi-label">Depreciación acum.</span>
+                    <span class="kpi-label">Deprec. acum.</span>
                     <span class="kpi-value" title="@_global.DepreciacionAcumulada.ToString("C0", CulturaCOP)">
                         @FormatoValor(_global.DepreciacionAcumulada)
                     </span>
@@ -104,7 +104,7 @@
             <div class="kpi-card kpi-cyan">
                 <div class="kpi-icon"><i class="bi bi-box-seam-fill"></i></div>
                 <div class="kpi-body">
-                    <span class="kpi-label">Stock consumo (CPP)</span>
+                    <span class="kpi-label">Stock consumo</span>
                     <span class="kpi-value" title="@_global.ValorStockConsumo.ToString("C0", CulturaCOP)">
                         @FormatoValor(_global.ValorStockConsumo)
                     </span>

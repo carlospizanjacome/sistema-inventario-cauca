@@ -31,6 +31,10 @@
     white-space: nowrap;
 }
 
+::deep .kpi-card .kpi-label {
+    font-size: 0.72rem;
+}
+
 /* ═══ KPI HERO — Total activo en libros ═══ */
 .kpi-hero {
     display: flex;
@@ -115,7 +119,6 @@
         flex-shrink: 0;
     }
 
-    /* La tabla scrollea INTERNAMENTE sin empujar el padre */
     ::deep .card-table .table-responsive {
         overflow-x: auto;
         max-width: 100%;
