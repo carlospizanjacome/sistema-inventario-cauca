@@ -38,7 +38,7 @@ public class DepreciacionRepository : IDepreciacionRepository
                 b.valor_neto               AS ValorNeto
             FROM bienes b
             LEFT JOIN categorias c ON c.id = b.categoria_id
-            LEFT JOIN vidas_utiles v ON v.id = b.vida_util_id
+            LEFT JOIN catalogo_cgn v ON v.id = b.vida_util_id
             WHERE b.activo = TRUE
               AND b.tipo_bien = 'devolutivo'
               AND b.vida_util_id IS NOT NULL

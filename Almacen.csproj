@@ -17,6 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="Scripts\migrations\" />
     <Folder Include="Security\" />
   </ItemGroup>
 
