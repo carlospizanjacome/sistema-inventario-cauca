@@ -44,16 +44,19 @@ namespace Almacen.Repositories
                 b.depreciacion_acumulada AS DepreciacionAcumulada,
                 b.valor_neto AS ValorNeto,
                 c.nombre  AS CategoriaNombre,
+                c.codigo_cgn AS CodigoCgn,
+                vu.vida_util_meses AS VidaUtilMeses,
                 a.nombre  AS AulaNombre,
                 bl.nombre AS BloqueNombre,
                 s.nombre  AS SedeNombre,
                 f.nombre_completo AS FuncionarioNombre
             FROM bienes b
-            LEFT JOIN categorias c   ON c.id = b.categoria_id
-            LEFT JOIN aulas a        ON a.id = b.aula_id
-            LEFT JOIN bloques bl     ON bl.id = a.bloque_id
-            LEFT JOIN sedes s        ON s.id = bl.sede_id
-            LEFT JOIN funcionarios f ON f.id = b.funcionario_id";
+            LEFT JOIN categorias c    ON c.id = b.categoria_id
+            LEFT JOIN catalogo_cgn vu ON vu.id = b.vida_util_id
+            LEFT JOIN aulas a         ON a.id = b.aula_id
+            LEFT JOIN bloques bl      ON bl.id = a.bloque_id
+            LEFT JOIN sedes s         ON s.id = bl.sede_id
+            LEFT JOIN funcionarios f  ON f.id = b.funcionario_id";
 
         public async Task<IEnumerable<Bien>> ObtenerTodosAsync()
         {
@@ -181,7 +184,7 @@ namespace Almacen.Repositories
         }
 
         // ═══════════════════════════════════════════════════════════
-        // ✨ NUEVO — Verificar si el bien tiene historia
+        // Verificar si el bien tiene historia
         // ═══════════════════════════════════════════════════════════
         public async Task<CompromisoDTO> VerificarCompromisoAsync(int bienId)
         {
@@ -219,6 +222,24 @@ namespace Almacen.Repositories
 
                 SELECT 'Depreciación', COUNT(*)::int, NULL
                 FROM depreciacion WHERE bien_id = @BienId
+                HAVING COUNT(*) > 0
+
+                UNION ALL
+
+                SELECT 'Préstamo', COUNT(*)::int, NULL
+                FROM prestamos WHERE bien_id = @BienId
+                HAVING COUNT(*) > 0
+
+                UNION ALL
+
+                SELECT 'Mantenimiento', COUNT(*)::int, NULL
+                FROM mantenimientos WHERE bien_id = @BienId
+                HAVING COUNT(*) > 0
+
+                UNION ALL
+
+                SELECT 'Garantía', COUNT(*)::int, MAX(numero_garantia)
+                FROM garantias WHERE bien_id = @BienId
                 HAVING COUNT(*) > 0;";
 
             using var connection = Connection;
@@ -243,6 +264,9 @@ namespace Almacen.Repositories
                         "Movimiento de kárdex" => "bi-journal-text",
                         "Toma física" => "bi-clipboard-check",
                         "Depreciación" => "bi-graph-down-arrow",
+                        "Préstamo" => "bi-arrow-repeat",
+                        "Mantenimiento" => "bi-tools",
+                        "Garantía" => "bi-shield-check",
                         _ => "bi-info-circle"
                     }
                 });

@@ -20,6 +20,11 @@ QuestPDF.Settings.UseSystemFonts = false;
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+builder.Services.Configure<Microsoft.AspNetCore.SignalR.HubOptions>(options =>
+{
+    options.MaximumReceiveMessageSize = 50 * 1024 * 1024; // 50 MB
+});
+
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<UsuarioSesionService>();
 builder.Services.AddScoped<SeguridadService>();

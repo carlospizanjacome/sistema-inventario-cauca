@@ -72,7 +72,7 @@ public class ExcelExportService
         int fila = filaHeader + 1;
         foreach (var b in bienes)
         {
-            ws.Cell(fila, 1).Value = "-";                       // Código CGN se llena manualmente según catálogo
+            ws.Cell(fila, 1).Value = b.CodigoCgn ?? "-";
             ws.Cell(fila, 2).Value = b.Codigo ?? "";
             ws.Cell(fila, 3).Value = b.Nombre ?? "";
             ws.Cell(fila, 4).Value = b.CategoriaNombre ?? "";
@@ -84,7 +84,7 @@ public class ExcelExportService
             ws.Cell(fila, 9).Style.NumberFormat.Format = "#,##0.00";
             ws.Cell(fila, 10).Value = b.FechaAdquisicion?.ToString("dd/MM/yyyy") ?? "";
             ws.Cell(fila, 11).Value = b.EstadoFisico ?? "";
-            ws.Cell(fila, 12).Value = 0;                         // Vida útil (se puede traer en query)
+            ws.Cell(fila, 12).Value = b.VidaUtilMeses ?? 0;
             ws.Cell(fila, 13).Value = b.DepreciacionAcumulada;
             ws.Cell(fila, 13).Style.NumberFormat.Format = "#,##0.00";
             ws.Cell(fila, 14).Value = b.ValorNeto;
@@ -177,9 +177,13 @@ public class ExcelExportService
         ws.Columns().AdjustToContents();
         wsResumen.Columns().AdjustToContents();
 
-        // Convertir a bytes
+        // ✅ FIX — Convertir a bytes correctamente
         using var ms = new MemoryStream();
         workbook.SaveAs(ms);
-        return ms.ToArray();
+        ms.Flush();
+        ms.Position = 0;
+        var bytes = ms.ToArray();
+        ms.Close();
+        return bytes;
     }
 }
