@@ -1,4 +1,6 @@
-﻿namespace Almacen.Models
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace Almacen.Models
 {
     public class Categoria
     {
@@ -8,11 +10,16 @@
 
         public string? Descripcion { get; set; }
 
-        /// <summary>Código CGN según Resolución 533/2015 (ej: 163507)</summary>
         public string? CodigoCgn { get; set; }
+
+        // ✨ NUEVO — tipo de bien (devolutivo/consumo/ambos)
+        public string? TipoBien { get; set; }
 
         public bool Estado { get; set; }
 
         public DateTime FechaCreacion { get; set; }
+
+        // ✨ NUEVO — contador de bienes activos en esta categoría
+        public int TotalBienes { get; set; }
     }
 }

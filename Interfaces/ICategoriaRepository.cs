@@ -7,11 +7,15 @@ namespace Almacen.Interfaces
     {
         Task<IEnumerable<Categoria>> ObtenerTodosAsync();
 
+        // ✨ NUEVO — filtra por tipo_bien (devolutivo | consumo | ambos)
+        Task<IEnumerable<Categoria>> ObtenerPorTipoBienAsync(string tipoBien);
+
         Task<ResultadoPaginado<Categoria>> ObtenerPaginadoAsync(
             int pagina = 1,
             int tamano = 25,
             string? filtroTexto = null,
-            bool? estado = null);
+            bool? estado = null,
+            string? tipoBien = null);
 
         Task<Categoria?> ObtenerPorIdAsync(int id);
         Task<int> CrearAsync(Categoria categoria);

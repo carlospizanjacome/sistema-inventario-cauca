@@ -72,7 +72,9 @@
                         <label>Código CGN</label>
                         <div class="input-icon">
                             <i class="bi bi-upc-scan"></i>
-                            <InputSelect class="form-control" @bind-Value="categoriaDTO.CodigoCgn">
+                            <InputSelect class="form-control"
+                                         @bind-Value="categoriaDTO.CodigoCgn"
+                                         @bind-Value:after="OnCodigoCgnChanged">
                                 <option value="">— Sin código CGN —</option>
                                 @foreach (var grupo in CodigosCgnAgrupados)
                                 {
@@ -87,7 +89,20 @@
                                 }
                             </InputSelect>
                         </div>
-                        <small class="form-hint">Opcional. Deje vacío para bienes de consumo.</small>
+                        <small class="form-hint">Al seleccionar, se sugiere el tipo de bien automáticamente.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Tipo de bien *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-diagram-3"></i>
+                            <InputSelect class="form-control" @bind-Value="categoriaDTO.TipoBien">
+                                <option value="devolutivo">Devolutivo (PPE)</option>
+                                <option value="consumo">Consumo (Inventario)</option>
+                                <option value="ambos">Ambos</option>
+                            </InputSelect>
+                        </div>
+                        <small class="form-hint">Determina en qué módulos aparecerá la categoría.</small>
                     </div>
 
                     <div class="form-group">
@@ -111,7 +126,7 @@
                         </div>
                     </div>
 
-                    <div class="form-group form-group-full">
+                    <div class="form-group form-group-full" style="grid-column: span 2;">
                         <label>Descripción</label>
                         <div class="input-icon">
                             <i class="bi bi-chat-left-text"></i>
@@ -155,6 +170,60 @@
 
             <div class="filtros-tabla-derecha">
 
+                @* ═══ Dropdown Tipo ═══ *@
+                <details class="dropdown-filtro" id="dropdown-tipo-cat">
+                    <summary class="dropdown-filtro-trigger">
+                        <i class="bi bi-diagram-3"></i>
+                        <span>@(_filtroTipo switch { "devolutivo" => "Devolutivos", "consumo" => "Consumo", "ambos" => "Ambos", _ => "Todos los tipos" })</span>
+                        <i class="bi bi-chevron-down dropdown-filtro-chevron"></i>
+                    </summary>
+
+                    <div class="dropdown-filtro-panel">
+                        <div class="dropdown-filtro-item @(string.IsNullOrEmpty(_filtroTipo) ? "active" : "")"
+                             @onclick="SeleccionarTipoTodos">
+                            <i class="bi bi-grid-3x3"></i>
+                            <span>Todos los tipos</span>
+                            @if (string.IsNullOrEmpty(_filtroTipo))
+                            {
+                                <i class="bi bi-check2 dropdown-filtro-check"></i>
+                            }
+                        </div>
+
+                        <div class="dropdown-filtro-divider"></div>
+
+                        <div class="dropdown-filtro-item @(_filtroTipo == "devolutivo" ? "active" : "")"
+                             @onclick="SeleccionarTipoDevolutivo">
+                            <i class="bi bi-box-seam"></i>
+                            <span>Devolutivos</span>
+                            @if (_filtroTipo == "devolutivo")
+                            {
+                                <i class="bi bi-check2 dropdown-filtro-check"></i>
+                            }
+                        </div>
+
+                        <div class="dropdown-filtro-item @(_filtroTipo == "consumo" ? "active" : "")"
+                             @onclick="SeleccionarTipoConsumo">
+                            <i class="bi bi-boxes"></i>
+                            <span>Consumo</span>
+                            @if (_filtroTipo == "consumo")
+                            {
+                                <i class="bi bi-check2 dropdown-filtro-check"></i>
+                            }
+                        </div>
+
+                        <div class="dropdown-filtro-item @(_filtroTipo == "ambos" ? "active" : "")"
+                             @onclick="SeleccionarTipoAmbos">
+                            <i class="bi bi-arrow-left-right"></i>
+                            <span>Ambos</span>
+                            @if (_filtroTipo == "ambos")
+                            {
+                                <i class="bi bi-check2 dropdown-filtro-check"></i>
+                            }
+                        </div>
+                    </div>
+                </details>
+
+                @* ═══ Dropdown Estado ═══ *@
                 <details class="dropdown-filtro" id="dropdown-estado-cat">
                     <summary class="dropdown-filtro-trigger">
                         <i class="bi bi-toggle-on"></i>
@@ -164,7 +233,7 @@
 
                     <div class="dropdown-filtro-panel">
                         <div class="dropdown-filtro-item @(_filtroEstado is null ? "active" : "")"
-                             @onclick="() => SeleccionarEstado(null)">
+                             @onclick="SeleccionarEstadoTodos">
                             <i class="bi bi-list-ul"></i>
                             <span>Activas e inactivas</span>
                             @if (_filtroEstado is null)
@@ -176,7 +245,7 @@
                         <div class="dropdown-filtro-divider"></div>
 
                         <div class="dropdown-filtro-item @(_filtroEstado == true ? "active" : "")"
-                             @onclick="() => SeleccionarEstado(true)">
+                             @onclick="SeleccionarEstadoActivas">
                             <i class="bi bi-check-circle"></i>
                             <span>Solo activas</span>
                             @if (_filtroEstado == true)
@@ -186,7 +255,7 @@
                         </div>
 
                         <div class="dropdown-filtro-item @(_filtroEstado == false ? "active" : "")"
-                             @onclick="() => SeleccionarEstado(false)">
+                             @onclick="SeleccionarEstadoInactivas">
                             <i class="bi bi-x-circle"></i>
                             <span>Solo inactivas</span>
                             @if (_filtroEstado == false)
@@ -200,7 +269,7 @@
                 <span class="badge-total">
                     <i class="bi bi-tags"></i>
                     <strong>@(_pagina?.TotalRegistros ?? 0)</strong> categorías
-                    @if (!string.IsNullOrEmpty(_filtroTexto) || _filtroEstado.HasValue)
+                    @if (HayFiltros())
                     {
                         <span class="filtro-activo-tag">· Filtrado</span>
                     }
@@ -214,7 +283,9 @@
                     <tr>
                         <th>CGN</th>
                         <th>Nombre</th>
+                        <th>Tipo</th>
                         <th>Descripción</th>
+                        <th class="text-end">Bienes</th>
                         <th>Estado</th>
                         <th class="text-center">Acciones</th>
                     </tr>
@@ -222,12 +293,12 @@
                 <tbody>
                     @if (_pagina is null)
                     {
-                        <tr><td colspan="5" class="text-center py-3 text-muted">Cargando categorías…</td></tr>
+                        <tr><td colspan="7" class="text-center py-3 text-muted">Cargando categorías…</td></tr>
                     }
                     else if (!_pagina.Items.Any())
                     {
                         <tr>
-                            <td colspan="5" class="text-center py-3 text-muted">
+                            <td colspan="7" class="text-center py-3 text-muted">
                                 @(SinFiltros()
                                     ? "Sin categorías registradas."
                                     : "Sin resultados para los filtros aplicados.")
@@ -238,7 +309,7 @@
                     {
                         @foreach (var categoria in _pagina.Items)
                         {
-                            <tr class="table-row-hover">
+                            <tr class="table-row-hover" @key="categoria.Id">
                                 <td>
                                     @if (!string.IsNullOrWhiteSpace(categoria.CodigoCgn))
                                     {
@@ -250,7 +321,23 @@
                                     }
                                 </td>
                                 <td><strong>@categoria.Nombre</strong></td>
+                                <td>
+                                    <span class="badge @GetClaseBadgeTipo(categoria.TipoBien)">
+                                        <i class="bi @GetIconoTipo(categoria.TipoBien)"></i>
+                                        @GetTexto(categoria.TipoBien)
+                                    </span>
+                                </td>
                                 <td>@categoria.Descripcion</td>
+                                <td class="text-end num">
+                                    @if (categoria.TotalBienes > 0)
+                                    {
+                                        <strong>@categoria.TotalBienes</strong>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">0</span>
+                                    }
+                                </td>
                                 <td>
                                     <span class="badge @(categoria.Estado ? "badge-ok" : "badge-off")">
                                         @(categoria.Estado ? "Activa" : "Inactiva")
@@ -298,13 +385,13 @@
     private int _tamanoPagina = 25;
     private string _filtroTexto = string.Empty;
     private bool? _filtroEstado;
+    private string? _filtroTipo;
     private CancellationTokenSource? _debounceCts;
 
     private bool puedeCrear;
     private bool puedeEditar;
     private bool puedeEliminar;
 
-    // ═══ Catálogo CGN (cargado desde BD, cero hardcodeo) ═══
     private List<VidaUtilDTO> _catalogoCgn = new();
 
     private Dictionary<string, List<VidaUtilDTO>> CodigosCgnAgrupados =>
@@ -334,7 +421,6 @@
             puedeEditar = await Seguridad.TienePermisoAsync("categorias.editar");
             puedeEliminar = await Seguridad.TienePermisoAsync("categorias.eliminar");
 
-            // Cargar catálogo CGN (con protección)
             try
             {
                 _catalogoCgn = (await VidaUtilRepo.ObtenerTodosAsync()).ToList();
@@ -360,11 +446,16 @@
             _paginaActual,
             _tamanoPagina,
             string.IsNullOrWhiteSpace(_filtroTexto) ? null : _filtroTexto,
-            _filtroEstado);
+            _filtroEstado,
+            _filtroTipo);
     }
 
     private bool SinFiltros()
-        => string.IsNullOrEmpty(_filtroTexto) && _filtroEstado is null;
+        => string.IsNullOrEmpty(_filtroTexto)
+           && _filtroEstado is null
+           && string.IsNullOrEmpty(_filtroTipo);
+
+    private bool HayFiltros() => !SinFiltros();
 
     private async Task BuscarConDebounce()
     {
@@ -392,6 +483,11 @@
         StateHasChanged();
     }
 
+    // ═══ Dropdown Estado — métodos dedicados ═══
+    private Task SeleccionarEstadoTodos() => SeleccionarEstado(null);
+    private Task SeleccionarEstadoActivas() => SeleccionarEstado(true);
+    private Task SeleccionarEstadoInactivas() => SeleccionarEstado(false);
+
     private async Task SeleccionarEstado(bool? estado)
     {
         _filtroEstado = estado;
@@ -401,6 +497,28 @@
         {
             await JS.InvokeVoidAsync("eval",
                 "document.getElementById('dropdown-estado-cat')?.removeAttribute('open')");
+        }
+        catch { }
+
+        await Cargar();
+        StateHasChanged();
+    }
+
+    // ═══ Dropdown Tipo — métodos dedicados ═══
+    private Task SeleccionarTipoTodos() => SeleccionarTipo(null);
+    private Task SeleccionarTipoDevolutivo() => SeleccionarTipo("devolutivo");
+    private Task SeleccionarTipoConsumo() => SeleccionarTipo("consumo");
+    private Task SeleccionarTipoAmbos() => SeleccionarTipo("ambos");
+
+    private async Task SeleccionarTipo(string? tipo)
+    {
+        _filtroTipo = tipo;
+        _paginaActual = 1;
+
+        try
+        {
+            await JS.InvokeVoidAsync("eval",
+                "document.getElementById('dropdown-tipo-cat')?.removeAttribute('open')");
         }
         catch { }
 
@@ -435,6 +553,20 @@
         Limpiar();
     }
 
+    // ✅ Se dispara DESPUÉS de que cambia categoriaDTO.CodigoCgn
+    private void OnCodigoCgnChanged()
+    {
+        var nuevoCodigo = categoriaDTO.CodigoCgn;
+
+        if (!string.IsNullOrWhiteSpace(nuevoCodigo))
+        {
+            if (nuevoCodigo == "1905")
+                categoriaDTO.TipoBien = "consumo";
+            else if (nuevoCodigo.StartsWith("1635"))
+                categoriaDTO.TipoBien = "devolutivo";
+        }
+    }
+
     private async Task GuardarCategoria()
     {
         if (!_editando && !puedeCrear)
@@ -449,6 +581,12 @@
             return;
         }
 
+        if (string.IsNullOrWhiteSpace(categoriaDTO.TipoBien))
+        {
+            Toast.Error("Debe seleccionar el tipo de bien.");
+            return;
+        }
+
         try
         {
             if (_editando)
@@ -459,9 +597,10 @@
                     Nombre = categoriaDTO.Nombre,
                     Descripcion = categoriaDTO.Descripcion,
                     CodigoCgn = string.IsNullOrWhiteSpace(categoriaDTO.CodigoCgn) ? null : categoriaDTO.CodigoCgn.Trim(),
+                    TipoBien = categoriaDTO.TipoBien,
                     Estado = categoriaDTO.Estado
                 });
-                Toast.Exito($"Categoría '{categoriaDTO.Nombre}' actualizada. Puede seguir editando.");
+                Toast.Exito($"Categoría '{categoriaDTO.Nombre}' actualizada.");
             }
             else
             {
@@ -470,11 +609,12 @@
                     Nombre = categoriaDTO.Nombre,
                     Descripcion = categoriaDTO.Descripcion,
                     CodigoCgn = string.IsNullOrWhiteSpace(categoriaDTO.CodigoCgn) ? null : categoriaDTO.CodigoCgn.Trim(),
+                    TipoBien = categoriaDTO.TipoBien,
                     Estado = categoriaDTO.Estado
                 });
-                Toast.Exito($"Categoría '{categoriaDTO.Nombre}' creada. Puede continuar registrando.");
+                Toast.Exito($"Categoría '{categoriaDTO.Nombre}' creada.");
 
-                categoriaDTO = new CategoriaDTO { Estado = true };
+                categoriaDTO = new CategoriaDTO { Estado = true, TipoBien = "devolutivo" };
 
                 try
                 {
@@ -505,6 +645,7 @@
         categoriaDTO.Nombre = categoria.Nombre;
         categoriaDTO.Descripcion = categoria.Descripcion;
         categoriaDTO.CodigoCgn = categoria.CodigoCgn;
+        categoriaDTO.TipoBien = categoria.TipoBien ?? "devolutivo";
         categoriaDTO.Estado = categoria.Estado;
 
         StateHasChanged();
@@ -529,7 +670,15 @@
         }
         catch (Exception ex)
         {
-            Toast.Error($"Error: {ex.Message}");
+            var msg = ex.Message;
+            if (msg.Contains("23503") || msg.Contains("foreign key"))
+            {
+                Toast.Warning("No se puede eliminar: tiene bienes asociados.");
+            }
+            else
+            {
+                Toast.Error($"Error: {msg}");
+            }
         }
     }
 
@@ -539,9 +688,32 @@
         categoriaDTO.Nombre = string.Empty;
         categoriaDTO.Descripcion = string.Empty;
         categoriaDTO.CodigoCgn = null;
+        categoriaDTO.TipoBien = "devolutivo";
         categoriaDTO.Estado = true;
 
         _editando = false;
         categoriaEditandoId = 0;
     }
+
+    // ═══ Helpers de badge/ícono por tipo ═══
+    private static string GetClaseBadgeTipo(string? tipo) => tipo switch
+    {
+        "consumo" => "badge-info",
+        "ambos" => "badge-neutral",
+        _ => "badge-ok"
+    };
+
+    private static string GetIconoTipo(string? tipo) => tipo switch
+    {
+        "consumo" => "bi-boxes",
+        "ambos" => "bi-arrow-left-right",
+        _ => "bi-box-seam"
+    };
+
+    private static string GetTexto(string? tipo) => tipo switch
+    {
+        "consumo" => "Consumo",
+        "ambos" => "Ambos",
+        _ => "Devolutivo"
+    };
 }

@@ -1,6 +1,7 @@
 ﻿using Almacen.Helpers;
 using Almacen.Interfaces;
 using Almacen.Models;
+using Almacen.Services;
 using Dapper;
 using Npgsql;
 
@@ -9,10 +10,12 @@ namespace Almacen.Repositories
     public class CategoriaRepository : ICategoriaRepository
     {
         private readonly IConfiguration _configuration;
+        private readonly UsuarioSesionService _sesion;
 
-        public CategoriaRepository(IConfiguration configuration)
+        public CategoriaRepository(IConfiguration configuration, UsuarioSesionService sesion)
         {
             _configuration = configuration;
+            _sesion = sesion;
         }
 
         private NpgsqlConnection Connection
@@ -26,26 +29,48 @@ namespace Almacen.Repositories
 
         private const string BaseSelect = @"
             SELECT
-                id,
-                nombre,
-                descripcion,
-                codigo_cgn AS CodigoCgn,
-                estado,
-                fecha_creacion AS FechaCreacion
-            FROM categorias";
+                c.id,
+                c.nombre,
+                c.descripcion,
+                c.codigo_cgn AS CodigoCgn,
+                c.tipo_bien AS TipoBien,
+                c.estado,
+                c.fecha_creacion AS FechaCreacion,
+                (SELECT COUNT(*)::int FROM bienes b
+                 WHERE b.categoria_id = c.id 
+                   AND b.activo = TRUE
+                   AND b.institucion_id = @InstitucionId) AS TotalBienes
+            FROM categorias c";
 
         public async Task<IEnumerable<Categoria>> ObtenerTodosAsync()
         {
-            var sql = $"{BaseSelect} ORDER BY nombre;";
+            var sql = $"{BaseSelect} ORDER BY c.nombre;";
             using var connection = Connection;
-            return await connection.QueryAsync<Categoria>(sql);
+            return await connection.QueryAsync<Categoria>(sql,
+                new { InstitucionId = _sesion.InstitucionId });
+        }
+
+        public async Task<IEnumerable<Categoria>> ObtenerPorTipoBienAsync(string tipoBien)
+        {
+            var sql = $@"{BaseSelect} 
+                WHERE c.estado = TRUE
+                  AND c.tipo_bien IN (@Tipo, 'ambos')
+                ORDER BY c.nombre;";
+
+            using var connection = Connection;
+            return await connection.QueryAsync<Categoria>(sql, new
+            {
+                Tipo = tipoBien,
+                InstitucionId = _sesion.InstitucionId
+            });
         }
 
         public async Task<ResultadoPaginado<Categoria>> ObtenerPaginadoAsync(
             int pagina = 1,
             int tamano = 25,
             string? filtroTexto = null,
-            bool? estado = null)
+            bool? estado = null,
+            string? tipoBien = null)
         {
             if (pagina < 1) pagina = 1;
             if (tamano < 1) tamano = 25;
@@ -53,17 +78,24 @@ namespace Almacen.Repositories
 
             var condiciones = new List<string>();
             var parametros = new DynamicParameters();
+            parametros.Add("InstitucionId", _sesion.InstitucionId);
 
             if (!string.IsNullOrWhiteSpace(filtroTexto))
             {
-                condiciones.Add("(nombre ILIKE @Buscar OR descripcion ILIKE @Buscar OR codigo_cgn ILIKE @Buscar)");
+                condiciones.Add("(c.nombre ILIKE @Buscar OR c.descripcion ILIKE @Buscar OR c.codigo_cgn ILIKE @Buscar)");
                 parametros.Add("Buscar", $"%{filtroTexto}%");
             }
 
             if (estado.HasValue)
             {
-                condiciones.Add("estado = @Estado");
+                condiciones.Add("c.estado = @Estado");
                 parametros.Add("Estado", estado.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(tipoBien))
+            {
+                condiciones.Add("c.tipo_bien = @TipoBien");
+                parametros.Add("TipoBien", tipoBien);
             }
 
             var whereExtra = condiciones.Any()
@@ -73,8 +105,8 @@ namespace Almacen.Repositories
             parametros.Add("Tamano", tamano);
             parametros.Add("Offset", (pagina - 1) * tamano);
 
-            var sqlCount = $"SELECT COUNT(*) FROM categorias {whereExtra};";
-            var sqlData = $"{BaseSelect} {whereExtra} ORDER BY nombre LIMIT @Tamano OFFSET @Offset;";
+            var sqlCount = $"SELECT COUNT(*) FROM categorias c {whereExtra};";
+            var sqlData = $"{BaseSelect} {whereExtra} ORDER BY c.nombre LIMIT @Tamano OFFSET @Offset;";
 
             using var connection = Connection;
 
@@ -92,16 +124,20 @@ namespace Almacen.Repositories
 
         public async Task<Categoria?> ObtenerPorIdAsync(int id)
         {
-            var sql = $"{BaseSelect} WHERE id = @Id;";
+            var sql = $"{BaseSelect} WHERE c.id = @Id;";
             using var connection = Connection;
-            return await connection.QueryFirstOrDefaultAsync<Categoria>(sql, new { Id = id });
+            return await connection.QueryFirstOrDefaultAsync<Categoria>(sql, new
+            {
+                Id = id,
+                InstitucionId = _sesion.InstitucionId
+            });
         }
 
         public async Task<int> CrearAsync(Categoria categoria)
         {
             const string sql = @"
-                INSERT INTO categorias (nombre, descripcion, codigo_cgn, estado)
-                VALUES (@Nombre, @Descripcion, @CodigoCgn, @Estado)
+                INSERT INTO categorias (nombre, descripcion, codigo_cgn, tipo_bien, estado)
+                VALUES (@Nombre, @Descripcion, @CodigoCgn, @TipoBien, @Estado)
                 RETURNING id;";
             using var connection = Connection;
             return await connection.ExecuteScalarAsync<int>(sql, categoria);
@@ -114,6 +150,7 @@ namespace Almacen.Repositories
                 SET nombre = @Nombre,
                     descripcion = @Descripcion,
                     codigo_cgn = @CodigoCgn,
+                    tipo_bien = @TipoBien,
                     estado = @Estado
                 WHERE id = @Id;";
             using var connection = Connection;
