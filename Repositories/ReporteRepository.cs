@@ -28,7 +28,6 @@ public class ReporteRepository : IReporteRepository
         var (filtroUsers, _) = FiltroInstitucion.Construir(
             _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "u");
 
-        // ✅ FIX #38: si NO es super-admin, contar solo su institución
         var filtroInstituciones = _sesion.EsSuperAdmin
             ? string.Empty
             : " AND id = @InstitucionId";
@@ -41,10 +40,19 @@ public class ReporteRepository : IReporteRepository
                 (SELECT COUNT(*) FROM bienes b WHERE b.activo = TRUE AND b.tipo_bien = 'consumo' {filtroBienes}) AS TotalConsumo,
                 (SELECT COUNT(*) FROM funcionarios f WHERE f.activo = TRUE {filtroFuncs}) AS TotalFuncionarios,
                 (SELECT COUNT(*) FROM usuarios u WHERE u.activo = TRUE {filtroUsers}) AS TotalUsuarios,
-                (SELECT COUNT(*) FROM bienes b WHERE b.activo = TRUE AND b.tipo_bien = 'consumo' AND b.stock_actual <= b.stock_minimo {filtroBienes}) AS BienesBajoStock,
-                (SELECT COALESCE(SUM(b.valor_adquisicion), 0) FROM bienes b WHERE b.activo = TRUE {filtroBienes}) AS ValorAdquisicion,
-                (SELECT COALESCE(SUM(b.depreciacion_acumulada), 0) FROM bienes b WHERE b.activo = TRUE {filtroBienes}) AS DepreciacionAcumulada,
-                (SELECT COALESCE(SUM(b.valor_neto), 0) FROM bienes b WHERE b.activo = TRUE {filtroBienes}) AS ValorNeto;";
+                (SELECT COUNT(*) FROM bienes b 
+                 WHERE b.activo = TRUE 
+                   AND b.tipo_bien = 'consumo' 
+                   AND b.stock_minimo > 0 
+                   AND b.stock_actual <= b.stock_minimo {filtroBienes}) AS BienesBajoStock,
+                (SELECT COALESCE(SUM(b.valor_adquisicion), 0) FROM bienes b 
+                 WHERE b.activo = TRUE AND b.tipo_bien = 'devolutivo' {filtroBienes}) AS ValorAdquisicion,
+                (SELECT COALESCE(SUM(b.depreciacion_acumulada), 0) FROM bienes b 
+                 WHERE b.activo = TRUE AND b.tipo_bien = 'devolutivo' {filtroBienes}) AS DepreciacionAcumulada,
+                (SELECT COALESCE(SUM(b.valor_neto), 0) FROM bienes b 
+                 WHERE b.activo = TRUE AND b.tipo_bien = 'devolutivo' {filtroBienes}) AS ValorNeto,
+                (SELECT COALESCE(SUM(b.valor_stock), 0) FROM bienes b 
+                 WHERE b.activo = TRUE AND b.tipo_bien = 'consumo' {filtroBienes}) AS ValorStockConsumo;";
 
         using var cn = new NpgsqlConnection(_cs);
         return await cn.QuerySingleAsync<ConsolidadoGlobalDTO>(sql,
@@ -65,10 +73,20 @@ public class ReporteRepository : IReporteRepository
                 (SELECT COUNT(*) FROM funcionarios f WHERE f.institucion_id = i.id AND f.activo = TRUE) AS TotalFuncionarios,
                 (SELECT COUNT(*) FROM usuarios u WHERE u.institucion_id = i.id AND u.activo = TRUE) AS TotalUsuarios,
                 (SELECT COUNT(*) FROM sedes s WHERE s.institucion_id = i.id AND s.activo = TRUE) AS TotalSedes,
-                (SELECT COUNT(*) FROM bienes b WHERE b.institucion_id = i.id AND b.tipo_bien = 'consumo' AND b.activo = TRUE AND b.stock_actual <= b.stock_minimo) AS BienesBajoStock,
-                (SELECT COALESCE(SUM(b.valor_adquisicion), 0) FROM bienes b WHERE b.institucion_id = i.id AND b.activo = TRUE) AS ValorAdquisicion,
-                (SELECT COALESCE(SUM(b.depreciacion_acumulada), 0) FROM bienes b WHERE b.institucion_id = i.id AND b.activo = TRUE) AS DepreciacionAcumulada,
-                (SELECT COALESCE(SUM(b.valor_neto), 0) FROM bienes b WHERE b.institucion_id = i.id AND b.activo = TRUE) AS ValorNeto
+                (SELECT COUNT(*) FROM bienes b 
+                 WHERE b.institucion_id = i.id 
+                   AND b.tipo_bien = 'consumo' 
+                   AND b.activo = TRUE 
+                   AND b.stock_minimo > 0 
+                   AND b.stock_actual <= b.stock_minimo) AS BienesBajoStock,
+                (SELECT COALESCE(SUM(b.valor_adquisicion), 0) FROM bienes b 
+                 WHERE b.institucion_id = i.id AND b.activo = TRUE AND b.tipo_bien = 'devolutivo') AS ValorAdquisicion,
+                (SELECT COALESCE(SUM(b.depreciacion_acumulada), 0) FROM bienes b 
+                 WHERE b.institucion_id = i.id AND b.activo = TRUE AND b.tipo_bien = 'devolutivo') AS DepreciacionAcumulada,
+                (SELECT COALESCE(SUM(b.valor_neto), 0) FROM bienes b 
+                 WHERE b.institucion_id = i.id AND b.activo = TRUE AND b.tipo_bien = 'devolutivo') AS ValorNeto,
+                (SELECT COALESCE(SUM(b.valor_stock), 0) FROM bienes b 
+                 WHERE b.institucion_id = i.id AND b.activo = TRUE AND b.tipo_bien = 'consumo') AS ValorStockConsumo
             FROM instituciones i
             WHERE i.activo = TRUE";
 

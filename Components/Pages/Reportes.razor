@@ -34,7 +34,7 @@
     }
     else if (_global is not null)
     {
-        @* ═══════════════ KPIs ═══════════════ *@
+        @* ═══════════════ FILA 1 — INVENTARIO ═══════════════ *@
         <section class="kpi-grid">
             <div class="kpi-card kpi-indigo">
                 <div class="kpi-icon"><i class="bi bi-building"></i></div>
@@ -60,10 +60,21 @@
                 </div>
             </div>
 
+            <div class="kpi-card kpi-red">
+                <div class="kpi-icon"><i class="bi bi-exclamation-triangle"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Bajo stock mínimo</span>
+                    <span class="kpi-value">@_global.BienesBajoStock.ToString("N0")</span>
+                </div>
+            </div>
+        </section>
+
+        @* ═══════════════ FILA 2 — CONTABLE NICSP ═══════════════ *@
+        <section class="kpi-grid">
             <div class="kpi-card kpi-green">
                 <div class="kpi-icon"><i class="bi bi-cash-stack"></i></div>
                 <div class="kpi-body">
-                    <span class="kpi-label">Valor histórico</span>
+                    <span class="kpi-label">Valor histórico PPE</span>
                     <span class="kpi-value" title="@_global.ValorAdquisicion.ToString("C0", CulturaCOP)">
                         @FormatoValor(_global.ValorAdquisicion)
                     </span>
@@ -80,12 +91,40 @@
                 </div>
             </div>
 
-            <div class="kpi-card kpi-red">
-                <div class="kpi-icon"><i class="bi bi-exclamation-triangle"></i></div>
+            <div class="kpi-card kpi-green">
+                <div class="kpi-icon"><i class="bi bi-safe"></i></div>
                 <div class="kpi-body">
-                    <span class="kpi-label">Bajo stock mínimo</span>
-                    <span class="kpi-value">@_global.BienesBajoStock.ToString("N0")</span>
+                    <span class="kpi-label">PPE neto</span>
+                    <span class="kpi-value" title="@_global.ValorNeto.ToString("C0", CulturaCOP)">
+                        @FormatoValor(_global.ValorNeto)
+                    </span>
                 </div>
+            </div>
+
+            <div class="kpi-card kpi-cyan">
+                <div class="kpi-icon"><i class="bi bi-box-seam-fill"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Stock consumo (CPP)</span>
+                    <span class="kpi-value" title="@_global.ValorStockConsumo.ToString("C0", CulturaCOP)">
+                        @FormatoValor(_global.ValorStockConsumo)
+                    </span>
+                </div>
+            </div>
+        </section>
+
+        @* ═══════════════ KPI DESTACADO — TOTAL EN LIBROS ═══════════════ *@
+        <section class="kpi-hero">
+            <div class="kpi-hero-icon">
+                <i class="bi bi-calculator-fill"></i>
+            </div>
+            <div class="kpi-hero-body">
+                <span class="kpi-hero-label">TOTAL ACTIVO EN LIBROS</span>
+                <span class="kpi-hero-formula">
+                    PPE neto + Stock consumo (cuentas 1635XX + 1905)
+                </span>
+            </div>
+            <div class="kpi-hero-value" title="@_global.TotalActivoLibros.ToString("C0", CulturaCOP)">
+                @_global.TotalActivoLibros.ToString("C0", CulturaCOP)
             </div>
         </section>
 
@@ -121,10 +160,12 @@
                                 <th>NIT</th>
                                 <th class="text-end">Bienes</th>
                                 <th class="text-end">Consumo</th>
-                                <th class="text-end">Funcionarios</th>
-                                <th class="text-end">Valor hist.</th>
+                                <th class="text-end">Func.</th>
+                                <th class="text-end">Valor PPE</th>
                                 <th class="text-end">Deprec. acum.</th>
-                                <th class="text-end">Valor neto</th>
+                                <th class="text-end">PPE neto</th>
+                                <th class="text-end">Stock consumo</th>
+                                <th class="text-end">Total libros</th>
                                 <th class="text-center">Stock bajo</th>
                             </tr>
                         </thead>
@@ -149,6 +190,10 @@
                                     <td class="text-end num text-warning">@i.DepreciacionAcumulada.ToString("C0", CulturaCOP)</td>
                                     <td class="text-end num text-success">
                                         <strong>@i.ValorNeto.ToString("C0", CulturaCOP)</strong>
+                                    </td>
+                                    <td class="text-end num text-info">@i.ValorStockConsumo.ToString("C0", CulturaCOP)</td>
+                                    <td class="text-end num">
+                                        <strong class="text-primary">@i.TotalActivoLibros.ToString("C0", CulturaCOP)</strong>
                                     </td>
                                     <td class="text-center">
                                         @if (i.BienesBajoStock > 0)
@@ -227,7 +272,6 @@
         }
     }
 
-    // Formato abreviado para KPIs (M = millones, B = billones, K = miles)
     private static string FormatoValor(decimal valor)
     {
         if (valor >= 1_000_000_000)
@@ -256,7 +300,7 @@
         try
         {
             var csv = new System.Text.StringBuilder();
-            csv.AppendLine("Institución;NIT;Código DANE;Bienes;Devolutivos;Consumo;Funcionarios;Usuarios;Sedes;Valor Adquisición;Depreciación;Valor Neto;Bajo Stock");
+            csv.AppendLine("Institución;NIT;Código DANE;Bienes;Devolutivos;Consumo;Funcionarios;Usuarios;Sedes;Valor PPE;Depreciación;PPE Neto;Stock Consumo;Total Libros;Bajo Stock");
 
             foreach (var i in _instituciones)
             {
@@ -273,6 +317,8 @@
                     i.ValorAdquisicion.ToString("F2", CulturaCOP),
                     i.DepreciacionAcumulada.ToString("F2", CulturaCOP),
                     i.ValorNeto.ToString("F2", CulturaCOP),
+                    i.ValorStockConsumo.ToString("F2", CulturaCOP),
+                    i.TotalActivoLibros.ToString("F2", CulturaCOP),
                     i.BienesBajoStock
                 ));
             }
