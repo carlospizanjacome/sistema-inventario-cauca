@@ -10,6 +10,12 @@ public class VidaUtilDTO
     public decimal ValorResidualPct { get; set; }
     public bool Activo { get; set; } = true;
 
+    /// <summary>devolutivo | consumo</summary>
+    public string Tipo { get; set; } = "devolutivo";
+
     public string NombreCompleto =>
+        $"{CodigoCgn} — {Descripcion}";
+
+    public string NombreCompletoConVidaUtil =>
         $"{CodigoCgn} — {Descripcion} ({VidaUtilMeses} meses)";
 }

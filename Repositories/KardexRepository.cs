@@ -61,7 +61,7 @@ public class KardexRepository : IKardexRepository
     }
 
     // ═══════════════════════════════════════════════════════════
-    // NUEVO — Paginado con filtros
+    // PAGINADO CON FILTROS
     // ═══════════════════════════════════════════════════════════
     public async Task<ResultadoPaginado<BienConsumoDTO>> ObtenerBienesConsumoPaginadoAsync(
         int pagina = 1,
@@ -140,7 +140,6 @@ public class KardexRepository : IKardexRepository
 
     // ═══════════════════════════════════════════════════════════
     // CREAR BIEN DE CONSUMO — con autogeneración de código
-    // Formato: CONS-{AÑO}-{D3}
     // ═══════════════════════════════════════════════════════════
     public async Task<int> CrearBienConsumoAsync(BienConsumoDTO dto)
     {
@@ -182,10 +181,6 @@ public class KardexRepository : IKardexRepository
             "No se pudo generar un código único. Intente nuevamente.");
     }
 
-    /// <summary>
-    /// Genera el siguiente código consecutivo de consumo para la institución
-    /// y año actual. Formato: CONS-{AÑO}-{D3}
-    /// </summary>
     private async Task<string> GenerarSiguienteCodigoConsumoAsync()
     {
         var prefijo = "CONS";
@@ -465,5 +460,33 @@ public class KardexRepository : IKardexRepository
 
         using var cn = new NpgsqlConnection(_cs);
         return await cn.QueryAsync<BienConsumoDTO>(sql, param);
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // VERIFICAR COMPROMISO — bien comprometido (no eliminar)
+    // ═══════════════════════════════════════════════════════
+    public async Task<CompromisoDTO> VerificarCompromisoConsumoAsync(int bienId)
+    {
+        const string sql = @"
+            SELECT 'Movimiento de kárdex' AS Tipo, COUNT(*)::int AS Cantidad, NULL AS Referencia
+            FROM movimientos_consumo WHERE bien_id = @BienId
+            HAVING COUNT(*) > 0;";
+
+        using var cn = new NpgsqlConnection(_cs);
+        var rows = (await cn.QueryAsync<(string Tipo, int Cantidad, string? Referencia)>(
+            sql, new { BienId = bienId })).ToList();
+
+        var dto = new CompromisoDTO();
+        foreach (var r in rows)
+        {
+            dto.Detalles.Add(new DetalleCompromiso
+            {
+                Tipo = r.Tipo,
+                Cantidad = r.Cantidad,
+                Referencia = r.Referencia,
+                Icono = "bi-journal-text"
+            });
+        }
+        return dto;
     }
 }

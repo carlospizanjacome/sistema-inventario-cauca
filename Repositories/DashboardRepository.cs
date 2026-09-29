@@ -26,7 +26,7 @@ public class DashboardRepository : IDashboardRepository
         var (filtroUsers, _) = FiltroInstitucion.Construir(
             _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "u");
 
-        // ⚠️ NOTA: categorias y roles son GLOBALES → sin filtro
+        // ⚠️ categorias y roles son GLOBALES → sin filtro
         var sql = $@"
             SELECT
                 (SELECT COUNT(*) FROM bienes b WHERE b.activo = TRUE {filtroBienes}) AS TotalBienes,
@@ -50,7 +50,7 @@ public class DashboardRepository : IDashboardRepository
         var (filtroBienes, _) = FiltroInstitucion.Construir(
             _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "b");
 
-        // ⚠️ Filtramos los BIENES (por institución), no las categorías
+        // ✅ FIX: HAVING COUNT(b.id) > 0 → excluye categorías sin bienes
         var sql = $@"
             SELECT
                 c.id AS CategoriaId,
@@ -66,6 +66,7 @@ public class DashboardRepository : IDashboardRepository
             LEFT JOIN bienes b ON b.categoria_id = c.id AND b.activo = TRUE {filtroBienes}
             WHERE c.estado = TRUE
             GROUP BY c.id, c.nombre
+            HAVING COUNT(b.id) > 0
             ORDER BY Cantidad DESC, c.nombre ASC
             LIMIT @Top;";
 

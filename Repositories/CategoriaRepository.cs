@@ -29,6 +29,7 @@ namespace Almacen.Repositories
                 id,
                 nombre,
                 descripcion,
+                codigo_cgn AS CodigoCgn,
                 estado,
                 fecha_creacion AS FechaCreacion
             FROM categorias";
@@ -55,7 +56,7 @@ namespace Almacen.Repositories
 
             if (!string.IsNullOrWhiteSpace(filtroTexto))
             {
-                condiciones.Add("(nombre ILIKE @Buscar OR descripcion ILIKE @Buscar)");
+                condiciones.Add("(nombre ILIKE @Buscar OR descripcion ILIKE @Buscar OR codigo_cgn ILIKE @Buscar)");
                 parametros.Add("Buscar", $"%{filtroTexto}%");
             }
 
@@ -99,8 +100,8 @@ namespace Almacen.Repositories
         public async Task<int> CrearAsync(Categoria categoria)
         {
             const string sql = @"
-                INSERT INTO categorias (nombre, descripcion, estado)
-                VALUES (@Nombre, @Descripcion, @Estado)
+                INSERT INTO categorias (nombre, descripcion, codigo_cgn, estado)
+                VALUES (@Nombre, @Descripcion, @CodigoCgn, @Estado)
                 RETURNING id;";
             using var connection = Connection;
             return await connection.ExecuteScalarAsync<int>(sql, categoria);
@@ -112,6 +113,7 @@ namespace Almacen.Repositories
                 UPDATE categorias
                 SET nombre = @Nombre,
                     descripcion = @Descripcion,
+                    codigo_cgn = @CodigoCgn,
                     estado = @Estado
                 WHERE id = @Id;";
             using var connection = Connection;

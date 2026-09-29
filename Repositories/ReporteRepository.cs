@@ -28,9 +28,14 @@ public class ReporteRepository : IReporteRepository
         var (filtroUsers, _) = FiltroInstitucion.Construir(
             _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "u");
 
+        // ✅ FIX #38: si NO es super-admin, contar solo su institución
+        var filtroInstituciones = _sesion.EsSuperAdmin
+            ? string.Empty
+            : " AND id = @InstitucionId";
+
         var sql = $@"
             SELECT
-                (SELECT COUNT(*) FROM instituciones WHERE activo = TRUE) AS TotalInstituciones,
+                (SELECT COUNT(*) FROM instituciones WHERE activo = TRUE {filtroInstituciones}) AS TotalInstituciones,
                 (SELECT COUNT(*) FROM bienes b WHERE b.activo = TRUE {filtroBienes}) AS TotalBienes,
                 (SELECT COUNT(*) FROM bienes b WHERE b.activo = TRUE AND b.tipo_bien = 'devolutivo' {filtroBienes}) AS TotalDevolutivos,
                 (SELECT COUNT(*) FROM bienes b WHERE b.activo = TRUE AND b.tipo_bien = 'consumo' {filtroBienes}) AS TotalConsumo,

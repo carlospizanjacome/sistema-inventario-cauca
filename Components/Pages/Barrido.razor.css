@@ -626,3 +626,26 @@
         font-size: 0.72rem;
     }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   HINT DE AUTORRELLENO — indica que el valor vino del snapshot
+   ═══════════════════════════════════════════════════════════ */
+.auto-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 4px;
+    padding: 2px 8px;
+    background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+    color: #4f46e5;
+    border-radius: 999px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    width: fit-content;
+}
+
+    .auto-hint i {
+        font-size: 0.75rem;
+    }

@@ -371,6 +371,10 @@
     private static readonly System.Globalization.CultureInfo CulturaCOP =
         System.Globalization.CultureInfo.GetCultureInfo("es-CO");
 
+    // ✨ NUEVO — Recibe bienId desde /bienes cuando el usuario clickea "Registrar Baja"
+    [SupplyParameterFromQuery(Name = "bienId")]
+    public int? BienIdQuery { get; set; }
+
     private ResultadoPaginado<SalidaDTO>? _pagina;
     private IEnumerable<Bien> bienes = [];
     private IEnumerable<FuncionarioDTO> funcionarios = [];
@@ -406,20 +410,33 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // 1. Verificar permisos
         if (!await Seguridad.TienePermisoAsync("salidas.ver"))
         {
             Navigation.NavigateTo("/");
             return;
         }
 
+        // 2. Cargar permisos
         puedeCrear = await Seguridad.TienePermisoAsync("salidas.crear");
         puedeEditar = await Seguridad.TienePermisoAsync("salidas.editar");
         puedeEliminar = await Seguridad.TienePermisoAsync("salidas.eliminar");
 
+        // 3. Cargar datos base
         bienes = await BienRepo.ObtenerTodosAsync();
         funcionarios = await FuncRepo.ObtenerTodosAsync();
 
+        // 4. Cargar lista paginada
         await Cargar();
+
+        // 5. Si viene bienId por query → abrir form con el bien precargado
+        if (BienIdQuery.HasValue && BienIdQuery.Value > 0)
+        {
+            AbrirFormulario();
+            salidaDTO.BienId = BienIdQuery.Value;
+            await OnBienCambiadoAsync();
+            StateHasChanged();
+        }
     }
 
     private async Task Cargar()

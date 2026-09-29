@@ -9,4 +9,7 @@ public class VidaUtil
     public int VidaUtilMeses { get; set; }
     public decimal ValorResidualPct { get; set; }
     public bool Activo { get; set; } = true;
+
+    /// <summary>devolutivo | consumo</summary>
+    public string Tipo { get; set; } = "devolutivo";
 }

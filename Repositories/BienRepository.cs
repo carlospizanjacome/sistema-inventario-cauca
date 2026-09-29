@@ -24,21 +24,14 @@ namespace Almacen.Repositories
 
         private const string BaseSelect = @"
             SELECT
-                b.id,
-                b.codigo,
-                b.nombre,
-                b.descripcion,
+                b.id, b.codigo, b.nombre, b.descripcion,
                 b.categoria_id AS CategoriaId,
                 b.tipo_bien AS TipoBien,
-                b.marca,
-                b.modelo,
-                b.serie,
+                b.marca, b.modelo, b.serie,
                 b.valor_adquisicion AS ValorAdquisicion,
                 b.fecha_adquisicion::timestamp AS FechaAdquisicion,
                 b.estado_fisico AS EstadoFisico,
-                b.ubicacion,
-                b.responsable,
-                b.activo,
+                b.ubicacion, b.responsable, b.activo,
                 b.created_at AS CreatedAt,
                 b.updated_at AS UpdatedAt,
                 b.institucion_id AS InstitucionId,
@@ -65,9 +58,7 @@ namespace Almacen.Repositories
         public async Task<IEnumerable<Bien>> ObtenerTodosAsync()
         {
             var (filtro, param) = FiltroInstitucion.Construir(
-                _sesion.EsSuperAdmin,
-                _sesion.InstitucionId,
-                tabla: "b");
+                _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "b");
 
             var sql = $"{BaseSelect} WHERE 1=1 {filtro} AND b.tipo_bien = 'devolutivo' ORDER BY b.codigo;";
 
@@ -78,9 +69,7 @@ namespace Almacen.Repositories
         public async Task<Bien?> ObtenerPorIdAsync(int id)
         {
             var (filtro, param) = FiltroInstitucion.Construir(
-                _sesion.EsSuperAdmin,
-                _sesion.InstitucionId,
-                tabla: "b");
+                _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "b");
 
             var sql = $"{BaseSelect} WHERE b.id = @Id {filtro};";
 
@@ -95,23 +84,19 @@ namespace Almacen.Repositories
 
             const string sql = @"
                 INSERT INTO bienes
-                (
-                    codigo, nombre, descripcion, categoria_id, tipo_bien,
-                    marca, modelo, serie, valor_adquisicion, fecha_adquisicion,
-                    estado_fisico, ubicacion, responsable, activo,
-                    institucion_id, aula_id, funcionario_id, vida_util_id,
-                    codigo_qr, valor_residual, cantidad,
-                    created_at, updated_at
-                )
+                (codigo, nombre, descripcion, categoria_id, tipo_bien,
+                 marca, modelo, serie, valor_adquisicion, fecha_adquisicion,
+                 estado_fisico, ubicacion, responsable, activo,
+                 institucion_id, aula_id, funcionario_id, vida_util_id,
+                 codigo_qr, valor_residual, cantidad,
+                 created_at, updated_at)
                 VALUES
-                (
-                    @Codigo, @Nombre, @Descripcion, @CategoriaId, @TipoBien,
-                    @Marca, @Modelo, @Serie, @ValorAdquisicion, @FechaAdquisicion,
-                    @EstadoFisico, @Ubicacion, @Responsable, @Activo,
-                    @InstitucionId, @AulaId, @FuncionarioId, @VidaUtilId,
-                    @CodigoQr, @ValorResidual, @Cantidad,
-                    NOW(), NOW()
-                )
+                (@Codigo, @Nombre, @Descripcion, @CategoriaId, @TipoBien,
+                 @Marca, @Modelo, @Serie, @ValorAdquisicion, @FechaAdquisicion,
+                 @EstadoFisico, @Ubicacion, @Responsable, @Activo,
+                 @InstitucionId, @AulaId, @FuncionarioId, @VidaUtilId,
+                 @CodigoQr, @ValorResidual, @Cantidad,
+                 NOW(), NOW())
                 RETURNING id;";
 
             const int maxIntentos = 3;
@@ -121,8 +106,7 @@ namespace Almacen.Repositories
                 {
                     if (string.IsNullOrWhiteSpace(bien.Codigo))
                     {
-                        bien.Codigo = await GenerarSiguienteCodigoAsync(
-                            bien.TipoBien ?? "devolutivo");
+                        bien.Codigo = await GenerarSiguienteCodigoAsync(bien.TipoBien ?? "devolutivo");
                     }
 
                     using var connection = Connection;
@@ -172,27 +156,15 @@ namespace Almacen.Repositories
         {
             const string sql = @"
                 UPDATE bienes
-                SET
-                    codigo = @Codigo,
-                    nombre = @Nombre,
-                    descripcion = @Descripcion,
-                    categoria_id = @CategoriaId,
-                    tipo_bien = @TipoBien,
-                    marca = @Marca,
-                    modelo = @Modelo,
-                    serie = @Serie,
-                    valor_adquisicion = @ValorAdquisicion,
-                    fecha_adquisicion = @FechaAdquisicion,
-                    estado_fisico = @EstadoFisico,
-                    ubicacion = @Ubicacion,
-                    responsable = @Responsable,
-                    activo = @Activo,
-                    aula_id = @AulaId,
-                    funcionario_id = @FuncionarioId,
-                    vida_util_id = @VidaUtilId,
-                    codigo_qr = @CodigoQr,
-                    valor_residual = @ValorResidual,
-                    cantidad = @Cantidad,
+                SET codigo = @Codigo, nombre = @Nombre, descripcion = @Descripcion,
+                    categoria_id = @CategoriaId, tipo_bien = @TipoBien,
+                    marca = @Marca, modelo = @Modelo, serie = @Serie,
+                    valor_adquisicion = @ValorAdquisicion, fecha_adquisicion = @FechaAdquisicion,
+                    estado_fisico = @EstadoFisico, ubicacion = @Ubicacion,
+                    responsable = @Responsable, activo = @Activo,
+                    aula_id = @AulaId, funcionario_id = @FuncionarioId,
+                    vida_util_id = @VidaUtilId, codigo_qr = @CodigoQr,
+                    valor_residual = @ValorResidual, cantidad = @Cantidad,
                     updated_at = NOW()
                 WHERE id = @Id;";
 
@@ -208,10 +180,79 @@ namespace Almacen.Repositories
             return filas > 0;
         }
 
+        // ═══════════════════════════════════════════════════════════
+        // ✨ NUEVO — Verificar si el bien tiene historia
+        // ═══════════════════════════════════════════════════════════
+        public async Task<CompromisoDTO> VerificarCompromisoAsync(int bienId)
+        {
+            const string sql = @"
+                SELECT 'Entrada'      AS Tipo, COUNT(*)::int AS Cantidad, MAX(numero_factura) AS Referencia
+                FROM entradas WHERE bien_id = @BienId
+                HAVING COUNT(*) > 0
+
+                UNION ALL
+
+                SELECT 'Salida', COUNT(*)::int, MAX(tipo_baja)
+                FROM salidas WHERE bien_id = @BienId
+                HAVING COUNT(*) > 0
+
+                UNION ALL
+
+                SELECT 'Traslado', COUNT(*)::int, NULL
+                FROM traslados WHERE bien_id = @BienId
+                HAVING COUNT(*) > 0
+
+                UNION ALL
+
+                SELECT 'Movimiento de kárdex', COUNT(*)::int, NULL
+                FROM movimientos_consumo WHERE bien_id = @BienId
+                HAVING COUNT(*) > 0
+
+                UNION ALL
+
+                SELECT 'Toma física', COUNT(*)::int, MAX(codigo_snapshot)
+                FROM toma_fisica_detalle
+                WHERE bien_id = @BienId AND tipo <> 'PENDIENTE'
+                HAVING COUNT(*) > 0
+
+                UNION ALL
+
+                SELECT 'Depreciación', COUNT(*)::int, NULL
+                FROM depreciacion WHERE bien_id = @BienId
+                HAVING COUNT(*) > 0;";
+
+            using var connection = Connection;
+
+            var rows = (await connection.QueryAsync<(string Tipo, int Cantidad, string? Referencia)>(
+                sql, new { BienId = bienId })).ToList();
+
+            var dto = new CompromisoDTO();
+
+            foreach (var r in rows)
+            {
+                dto.Detalles.Add(new DetalleCompromiso
+                {
+                    Tipo = r.Tipo,
+                    Cantidad = r.Cantidad,
+                    Referencia = r.Referencia,
+                    Icono = r.Tipo switch
+                    {
+                        "Entrada" => "bi-box-arrow-in-down",
+                        "Salida" => "bi-box-arrow-up",
+                        "Traslado" => "bi-arrow-left-right",
+                        "Movimiento de kárdex" => "bi-journal-text",
+                        "Toma física" => "bi-clipboard-check",
+                        "Depreciación" => "bi-graph-down-arrow",
+                        _ => "bi-info-circle"
+                    }
+                });
+            }
+
+            return dto;
+        }
+
         public async Task<ResultadoPaginado<Bien>> ObtenerPaginadoAsync(
-            int pagina = 1,
-            int tamano = 25,
-            string? filtroTexto = null)
+            int pagina = 1, int tamano = 25, string? filtroTexto = null)
         {
             if (pagina < 1) pagina = 1;
             if (tamano < 1) tamano = 25;
@@ -222,13 +263,10 @@ namespace Almacen.Repositories
 
             var filtroBusqueda = string.Empty;
             if (!string.IsNullOrWhiteSpace(filtroTexto))
-            {
                 filtroBusqueda = " AND (b.codigo ILIKE @Buscar OR b.nombre ILIKE @Buscar)";
-            }
 
             var sqlCount = $@"
-                SELECT COUNT(*)
-                FROM bienes b
+                SELECT COUNT(*) FROM bienes b
                 WHERE 1=1 {filtroInst} {filtroBusqueda}
                   AND b.tipo_bien = 'devolutivo';";
 
@@ -262,9 +300,7 @@ namespace Almacen.Repositories
         }
 
         public async Task<ResultadoPaginado<Bien>> ObtenerPaginadoConFiltrosAsync(
-            FiltroBienDTO filtro,
-            int pagina = 1,
-            int tamano = 25)
+            FiltroBienDTO filtro, int pagina = 1, int tamano = 25)
         {
             if (pagina < 1) pagina = 1;
             if (tamano < 1) tamano = 25;
@@ -273,12 +309,9 @@ namespace Almacen.Repositories
             var (filtroInst, _) = FiltroInstitucion.Construir(
                 _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "b");
 
-            var condiciones = new List<string>();
+            var condiciones = new List<string> { "b.tipo_bien = 'devolutivo'" };
             var parametros = new DynamicParameters();
             parametros.Add("InstitucionId", _sesion.InstitucionId);
-
-            // Forzar tipo_bien = devolutivo
-            condiciones.Add("b.tipo_bien = 'devolutivo'");
 
             if (!string.IsNullOrWhiteSpace(filtro.Texto))
             {
@@ -291,59 +324,49 @@ namespace Almacen.Repositories
                 condiciones.Add("b.categoria_id = @CategoriaId");
                 parametros.Add("CategoriaId", filtro.CategoriaId.Value);
             }
-
             if (filtro.SedeId.HasValue)
             {
                 condiciones.Add("s.id = @SedeId");
                 parametros.Add("SedeId", filtro.SedeId.Value);
             }
-
             if (filtro.AulaId.HasValue)
             {
                 condiciones.Add("b.aula_id = @AulaId");
                 parametros.Add("AulaId", filtro.AulaId.Value);
             }
-
             if (filtro.FuncionarioId.HasValue)
             {
                 condiciones.Add("b.funcionario_id = @FuncionarioId");
                 parametros.Add("FuncionarioId", filtro.FuncionarioId.Value);
             }
-
             if (!string.IsNullOrWhiteSpace(filtro.EstadoFisico))
             {
                 condiciones.Add("b.estado_fisico = @EstadoFisico");
                 parametros.Add("EstadoFisico", filtro.EstadoFisico);
             }
-
             if (filtro.Activo.HasValue)
             {
                 condiciones.Add("b.activo = @Activo");
                 parametros.Add("Activo", filtro.Activo.Value);
             }
-
             if (filtro.FechaDesde.HasValue)
             {
                 condiciones.Add("b.fecha_adquisicion >= @FechaDesde");
                 parametros.Add("FechaDesde", filtro.FechaDesde.Value);
             }
-
             if (filtro.FechaHasta.HasValue)
             {
                 condiciones.Add("b.fecha_adquisicion <= @FechaHasta");
                 parametros.Add("FechaHasta", filtro.FechaHasta.Value);
             }
 
-            var whereExtra = condiciones.Any()
-                ? " AND " + string.Join(" AND ", condiciones)
-                : string.Empty;
+            var whereExtra = " AND " + string.Join(" AND ", condiciones);
 
             parametros.Add("Tamano", tamano);
             parametros.Add("Offset", (pagina - 1) * tamano);
 
             var sqlCount = $@"
-                SELECT COUNT(*)
-                FROM bienes b
+                SELECT COUNT(*) FROM bienes b
                 LEFT JOIN aulas a ON a.id = b.aula_id
                 LEFT JOIN bloques bl ON bl.id = a.bloque_id
                 LEFT JOIN sedes s ON s.id = bl.sede_id

@@ -1,4 +1,4 @@
-﻿@page "/consumo"
+﻿   @page "/consumo"
 @rendermode InteractiveServer
 
 @using Almacen.Components.Shared
@@ -185,7 +185,6 @@
 
     <div class="card-table">
 
-        @* ═══ Barra: buscador + dropdown categoría + dropdown stock + total ═══ *@
         <div class="filtros-tabla">
             <div class="filtro-busqueda">
                 <i class="bi bi-search"></i>
@@ -204,7 +203,6 @@
 
             <div class="filtros-tabla-derecha">
 
-                @* ═══ Dropdown Categoría ═══ *@
                 <details class="dropdown-filtro" id="dropdown-cat-cons">
                     <summary class="dropdown-filtro-trigger">
                         <i class="bi bi-tags"></i>
@@ -240,7 +238,6 @@
                     </div>
                 </details>
 
-                @* ═══ Dropdown Stock ═══ *@
                 <details class="dropdown-filtro" id="dropdown-stock-cons">
                     <summary class="dropdown-filtro-trigger">
                         <i class="bi bi-exclamation-triangle"></i>
@@ -294,7 +291,6 @@
             </div>
         </div>
 
-        @* ═══ Tabla ═══ *@
         <div class="table-responsive">
             <table class="table modern-table">
                 <thead>
@@ -399,7 +395,6 @@
             </table>
         </div>
 
-        @* ═══ Paginador ═══ *@
         @if (_pagina is not null && _pagina.TotalRegistros > 0)
         {
             <Paginador T="BienConsumoDTO"
@@ -425,7 +420,6 @@
     private string _filtroTexto = string.Empty;
     private CancellationTokenSource? _debounceCts;
 
-    // ─── Filtros ───
     private int? _categoriaSeleccionadaId;
     private string _categoriaSeleccionadaNombre = string.Empty;
     private bool? _filtroBajoStock;
@@ -659,11 +653,20 @@
             await KardexRepo.EliminarBienConsumoAsync(b.Id);
             Toast.Exito("Bien eliminado");
             await Cargar();
-            await CargarBajoStock();
+            StateHasChanged();
         }
         catch (Exception ex)
         {
-            Toast.Error($"Error: {ex.Message}");
+            var msg = ex.Message;
+
+            if (msg.Contains("23503") || msg.Contains("llave foránea") || msg.Contains("foreign key"))
+            {
+                Toast.Warning($"No se puede eliminar '{b.Nombre}': tiene movimientos de kárdex registrados.");
+            }
+            else
+            {
+                Toast.Error($"Error: {msg}");
+            }
         }
     }
 

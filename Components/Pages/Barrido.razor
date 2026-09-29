@@ -64,8 +64,8 @@
         <!-- ═══ PANEL DE ESCANEO ═══ -->
         <section class="escaner-section">
             <div class="escaner-tabs">
-               <button class="tab @(_modoEscaner == "camara" ? "active" : "")"
-                      @onclick='() => _modoEscaner = "camara"'>
+                <button class="tab @(_modoEscaner == "camara" ? "active" : "")"
+                        @onclick='() => _modoEscaner = "camara"'>
                     <i class="bi bi-camera-fill"></i> Cámara
                 </button>
                 <button class="tab @(_modoEscaner == "manual" ? "active" : "")"
@@ -73,7 +73,7 @@
                     <i class="bi bi-keyboard-fill"></i> Manual
                 </button>
                 <button class="tab @(_modoEscaner == "lector" ? "active" : "")"
-                  @onclick='() => _modoEscaner = "lector"'>
+                        @onclick='() => _modoEscaner = "lector"'>
                     <i class="bi bi-upc-scan"></i> Lector USB
                 </button>
             </div>
@@ -141,7 +141,7 @@
                 </div>
             }
 
-            <!-- OPCIONES DE ESTADO (para el próximo escaneo) -->
+            <!-- ═══ OPCIONES DE ESTADO (autocompletadas del snapshot) ═══ -->
             <div class="opciones-estado">
                 <label>
                     <span>Funcionario real (opcional):</span>
@@ -152,13 +152,27 @@
                             <option value="@f.Id">@f.NombreCompleto</option>
                         }
                     </select>
+                    @if (_funcionarioAutoCargado)
+                    {
+                        <small class="auto-hint">
+                            <i class="bi bi-magic"></i> Autocompletado del snapshot
+                        </small>
+                    }
                 </label>
+
                 <label>
                     <span>Ubicación real (opcional):</span>
                     <input type="text"
                            placeholder="Ej: Aula 101"
                            @bind="_ubicacionReal" />
+                    @if (_ubicacionAutoCargada)
+                    {
+                        <small class="auto-hint">
+                            <i class="bi bi-magic"></i> Autocompletado del snapshot
+                        </small>
+                    }
                 </label>
+
                 <label>
                     <span>Estado físico:</span>
                     <select @bind="_estadoFisicoReal">
@@ -167,6 +181,12 @@
                         <option value="regular">Regular</option>
                         <option value="malo">Malo</option>
                     </select>
+                    @if (_estadoFisicoAutoCargado)
+                    {
+                        <small class="auto-hint">
+                            <i class="bi bi-magic"></i> Autocompletado del bien
+                        </small>
+                    }
                 </label>
             </div>
         </section>
@@ -186,7 +206,7 @@
                     @if (!string.IsNullOrWhiteSpace(_ultimoEscaneo.UbicacionSnapshot))
                     {
                         <div class="ue-meta">
-                            <i class="bi bi-geo-alt"></i> @_ultimoEscaneo.UbicacionSnapshot
+                            <i class="bi bi-geo-alt"></i> Snapshot: @_ultimoEscaneo.UbicacionSnapshot
                             @if (!string.IsNullOrWhiteSpace(_ultimoEscaneo.FuncionarioSnapshot))
                             {
                                 <span> · <i class="bi bi-person"></i> @_ultimoEscaneo.FuncionarioSnapshot</span>
@@ -215,11 +235,12 @@
                     {
                         <div class="escaneo-item escaneo-@e.Tipo.ToLower()">
                             <div class="escaneo-icono">
-                                <i class="bi @(e.Tipo switch {
-                                    "CONCILIADO" => "bi-check-circle-fill",
-                                    "SOBRANTE" => "bi-exclamation-circle-fill",
-                                    _ => "bi-circle"
-                                })"></i>
+                                <i class="bi @(e.Tipo switch
+                                   {
+                                       "CONCILIADO" => "bi-check-circle-fill",
+                                       "SOBRANTE" => "bi-exclamation-circle-fill",
+                                       _ => "bi-circle"
+                                   })"></i>
                             </div>
                             <div class="escaneo-info">
                                 <code>@e.CodigoSnapshot</code>
@@ -258,6 +279,11 @@
     private string _codigoManual = string.Empty;
     private bool _camaraActiva = false;
     private bool _procesando = false;
+
+    // ═══ Flags para saber si los campos fueron autocompletados ═══
+    private bool _ubicacionAutoCargada = false;
+    private bool _funcionarioAutoCargado = false;
+    private bool _estadoFisicoAutoCargado = false;
 
     private int? _funcionarioRealId;
     private string? _ubicacionReal;
@@ -319,9 +345,6 @@
         _camaraActiva = false;
     }
 
-    /// <summary>
-    /// Callback invocado desde JavaScript cuando se detecta un QR.
-    /// </summary>
     [JSInvokable]
     public async Task OnQrEscaneado(string codigo)
     {
@@ -358,17 +381,60 @@
 
     // ═══════════ PROCESO DE ESCANEO ═══════════
 
-   private async Task ProcesarEscaneo(string codigo)
-{
-    try
+    private async Task ProcesarEscaneo(string codigo)
     {
-        var codigoLimpio = codigo.Trim();
+        try
+        {
+            var codigoLimpio = codigo.Trim();
+            if (codigoLimpio.StartsWith("INV-", StringComparison.OrdinalIgnoreCase))
+                codigoLimpio = codigoLimpio.Substring(4);
 
-        // ⚠️ PASO 1: Verificar si el código es desconocido ANTES de escanear
-       // ⚠️ PASO 1: ¿Este código NO está en el snapshot?
+            // ═══ AUTORRELLENO DESDE SNAPSHOT ═══
+            // Si el usuario no especificó ubicación/funcionario/estado,
+            // tomamos los valores del snapshot del bien.
+            var detalleSnap = await TomaRepo.BuscarPorCodigoAsync(TomaId, codigoLimpio);
+
+            if (detalleSnap is not null)
+            {
+                // Autocompletar ubicación
+                if (string.IsNullOrWhiteSpace(_ubicacionReal)
+                    && !string.IsNullOrWhiteSpace(detalleSnap.UbicacionSnapshot)
+                    && detalleSnap.UbicacionSnapshot != "—")
+                {
+                    _ubicacionReal = detalleSnap.UbicacionSnapshot;
+                    _ubicacionAutoCargada = true;
+                }
+
+                // Autocompletar funcionario (buscar por nombre)
+                if (!_funcionarioRealId.HasValue
+                    && !string.IsNullOrWhiteSpace(detalleSnap.FuncionarioSnapshot)
+                    && detalleSnap.FuncionarioSnapshot != "—")
+                {
+                    var funcEncontrado = _funcionarios.FirstOrDefault(f =>
+                        f.NombreCompleto.Equals(detalleSnap.FuncionarioSnapshot, StringComparison.OrdinalIgnoreCase));
+
+                    if (funcEncontrado is not null)
+                    {
+                        _funcionarioRealId = funcEncontrado.Id;
+                        _funcionarioAutoCargado = true;
+                    }
+                }
+
+                // ✨ Autocompletar estado físico (del bien actual)
+                if (string.IsNullOrWhiteSpace(_estadoFisicoReal)
+                    && !string.IsNullOrWhiteSpace(detalleSnap.EstadoFisicoBien))
+                {
+                    _estadoFisicoReal = detalleSnap.EstadoFisicoBien.ToLower();
+                    _estadoFisicoAutoCargado = true;
+                }
+
+                StateHasChanged();
+            }
+
+            // ═══ CONFIRMACIÓN SI ES SOBRANTE ═══
             var requiereConfirmacion = await TomaRepo.RequiereConfirmacionSobranteAsync(TomaId, codigoLimpio);
 
-            if (requiereConfirmacion)     // ← ¡AQUÍ el fix!
+            if (requiereConfirmacion)
             {
                 var confirmado = await Confirm.Preguntar(new ConfirmOpciones
                 {
@@ -394,56 +460,56 @@
                 }
             }
 
-        // ✅ PASO 2: Proceder con el escaneo normal
-        var dto = new EscaneoDTO
-        {
-            CodigoQr = codigoLimpio,
-            FuncionarioRealId = _funcionarioRealId,
-            UbicacionReal = _ubicacionReal,
-            EstadoFisicoReal = _estadoFisicoReal
-        };
+            // ═══ GUARDAR ESCANEO ═══
+            var dto = new EscaneoDTO
+            {
+                CodigoQr = codigoLimpio,
+                FuncionarioRealId = _funcionarioRealId,
+                UbicacionReal = _ubicacionReal,
+                EstadoFisicoReal = _estadoFisicoReal
+            };
 
-        var usuarioId = Sesion.UsuarioActual?.Id ?? 0;
-        var (ok, mensaje, tipo) = await TomaRepo.EscanearAsync(TomaId, dto, usuarioId);
+            var usuarioId = Sesion.UsuarioActual?.Id ?? 0;
+            var (ok, mensaje, tipo) = await TomaRepo.EscanearAsync(TomaId, dto, usuarioId);
 
-        if (!ok)
-        {
-            Toast.Error(mensaje);
-            return;
+            if (!ok)
+            {
+                Toast.Error(mensaje);
+                return;
+            }
+
+            // Recargar detalles
+            await RecargarDetalle();
+            _ultimoEscaneo = _detalles
+                .Where(d => d.CodigoSnapshot == codigoLimpio || d.CodigoSnapshot == codigoLimpio.Replace("INV-", ""))
+                .OrderByDescending(d => d.FechaEscaneo)
+                .FirstOrDefault();
+
+            // Toast según tipo
+            switch (tipo)
+            {
+                case "CONCILIADO":
+                    Toast.Exito(mensaje);
+                    break;
+                case "SOBRANTE":
+                    Toast.Warning(mensaje);
+                    break;
+                default:
+                    Toast.Info(mensaje);
+                    break;
+            }
+
+            // Vibración en móvil
+            try { await JS.InvokeVoidAsync("navigator.vibrate", 100); }
+            catch { }
+
+            StateHasChanged();
         }
-
-        // Recargar detalles
-        await RecargarDetalle();
-        _ultimoEscaneo = _detalles
-            .Where(d => d.CodigoSnapshot == codigoLimpio || d.CodigoSnapshot == codigoLimpio.Replace("INV-", ""))
-            .OrderByDescending(d => d.FechaEscaneo)
-            .FirstOrDefault();
-
-        // Toast según tipo
-        switch (tipo)
+        catch (Exception ex)
         {
-            case "CONCILIADO":
-                Toast.Exito(mensaje);
-                break;
-            case "SOBRANTE":
-                Toast.Warning(mensaje);
-                break;
-            default:
-                Toast.Info(mensaje);
-                break;
+            Toast.Error($"Error al procesar escaneo: {ex.Message}");
         }
-
-        // Vibración en móvil
-        try { await JS.InvokeVoidAsync("navigator.vibrate", 100); }
-        catch { }
-
-        StateHasChanged();
     }
-    catch (Exception ex)
-    {
-        Toast.Error($"Error al procesar escaneo: {ex.Message}");
-    }
-}
 
     // ═══════════ CERRAR TOMA ═══════════
 

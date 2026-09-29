@@ -27,4 +27,6 @@ public interface IKardexRepository
 
     // ── Alertas ──
     Task<IEnumerable<BienConsumoDTO>> ObtenerBajoStockMinimoAsync();
+
+    Task<CompromisoDTO> VerificarCompromisoConsumoAsync(int bienId);
 }

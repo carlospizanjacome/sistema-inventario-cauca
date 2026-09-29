@@ -11,6 +11,7 @@
 @using Microsoft.JSInterop
 
 @inject ICategoriaRepository CategoriaRepository
+@inject IVidaUtilRepository VidaUtilRepo
 @inject SeguridadService Seguridad
 @inject NavigationManager Navigation
 @inject ToastService Toast
@@ -65,7 +66,30 @@
             <EditForm @key="categoriaEditandoId" Model="categoriaDTO" OnValidSubmit="GuardarCategoria">
                 <DataAnnotationsValidator />
 
-                <div class="form-grid">
+                <div class="form-grid-3">
+
+                    <div class="form-group">
+                        <label>Código CGN</label>
+                        <div class="input-icon">
+                            <i class="bi bi-upc-scan"></i>
+                            <InputSelect class="form-control" @bind-Value="categoriaDTO.CodigoCgn">
+                                <option value="">— Sin código CGN —</option>
+                                @foreach (var grupo in CodigosCgnAgrupados)
+                                {
+                                    <optgroup label="@grupo.Key">
+                                        @foreach (var item in grupo.Value)
+                                        {
+                                            <option value="@item.CodigoCgn">
+                                                @item.CodigoCgn — @item.Descripcion
+                                            </option>
+                                        }
+                                    </optgroup>
+                                }
+                            </InputSelect>
+                        </div>
+                        <small class="form-hint">Opcional. Deje vacío para bienes de consumo.</small>
+                    </div>
+
                     <div class="form-group">
                         <label>Nombre *</label>
                         <div class="input-icon">
@@ -87,7 +111,7 @@
                         </div>
                     </div>
 
-                    <div class="form-group">
+                    <div class="form-group form-group-full">
                         <label>Descripción</label>
                         <div class="input-icon">
                             <i class="bi bi-chat-left-text"></i>
@@ -113,12 +137,11 @@
 
     <div class="card-table">
 
-        @* ═══ Barra: buscador + estado + total ═══ *@
         <div class="filtros-tabla">
             <div class="filtro-busqueda">
                 <i class="bi bi-search"></i>
                 <input type="text"
-                       placeholder="Buscar por nombre o descripción…"
+                       placeholder="Buscar por nombre, código CGN o descripción…"
                        @bind="_filtroTexto"
                        @bind:event="oninput"
                        @bind:after="BuscarConDebounce" />
@@ -132,7 +155,6 @@
 
             <div class="filtros-tabla-derecha">
 
-                @* ═══ Dropdown Estado ═══ *@
                 <details class="dropdown-filtro" id="dropdown-estado-cat">
                     <summary class="dropdown-filtro-trigger">
                         <i class="bi bi-toggle-on"></i>
@@ -186,11 +208,11 @@
             </div>
         </div>
 
-        @* ═══ Tabla ═══ *@
         <div class="table-responsive">
             <table class="table modern-table">
                 <thead>
                     <tr>
+                        <th>CGN</th>
                         <th>Nombre</th>
                         <th>Descripción</th>
                         <th>Estado</th>
@@ -200,12 +222,12 @@
                 <tbody>
                     @if (_pagina is null)
                     {
-                        <tr><td colspan="4" class="text-center py-3 text-muted">Cargando categorías…</td></tr>
+                        <tr><td colspan="5" class="text-center py-3 text-muted">Cargando categorías…</td></tr>
                     }
                     else if (!_pagina.Items.Any())
                     {
                         <tr>
-                            <td colspan="4" class="text-center py-3 text-muted">
+                            <td colspan="5" class="text-center py-3 text-muted">
                                 @(SinFiltros()
                                     ? "Sin categorías registradas."
                                     : "Sin resultados para los filtros aplicados.")
@@ -217,6 +239,16 @@
                         @foreach (var categoria in _pagina.Items)
                         {
                             <tr class="table-row-hover">
+                                <td>
+                                    @if (!string.IsNullOrWhiteSpace(categoria.CodigoCgn))
+                                    {
+                                        <code>@categoria.CodigoCgn</code>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                </td>
                                 <td><strong>@categoria.Nombre</strong></td>
                                 <td>@categoria.Descripcion</td>
                                 <td>
@@ -272,6 +304,16 @@
     private bool puedeEditar;
     private bool puedeEliminar;
 
+    // ═══ Catálogo CGN (cargado desde BD, cero hardcodeo) ═══
+    private List<VidaUtilDTO> _catalogoCgn = new();
+
+    private Dictionary<string, List<VidaUtilDTO>> CodigosCgnAgrupados =>
+        _catalogoCgn
+            .GroupBy(c => (c.Tipo ?? "devolutivo") == "consumo" ? "BIENES DE CONSUMO" : "PROPIEDAD, PLANTA Y EQUIPO")
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderBy(x => x.CodigoCgn).ToList());
+
     private string estadoString
     {
         get => categoriaDTO.Estado.ToString().ToLower();
@@ -280,17 +322,36 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (!await Seguridad.TienePermisoAsync("categorias.ver"))
+        try
         {
-            Navigation.NavigateTo("/");
-            return;
+            if (!await Seguridad.TienePermisoAsync("categorias.ver"))
+            {
+                Navigation.NavigateTo("/");
+                return;
+            }
+
+            puedeCrear = await Seguridad.TienePermisoAsync("categorias.crear");
+            puedeEditar = await Seguridad.TienePermisoAsync("categorias.editar");
+            puedeEliminar = await Seguridad.TienePermisoAsync("categorias.eliminar");
+
+            // Cargar catálogo CGN (con protección)
+            try
+            {
+                _catalogoCgn = (await VidaUtilRepo.ObtenerTodosAsync()).ToList();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Categorias] Error al cargar catálogo CGN: {ex.Message}");
+                _catalogoCgn = new List<VidaUtilDTO>();
+            }
+
+            await Cargar();
         }
-
-        puedeCrear = await Seguridad.TienePermisoAsync("categorias.crear");
-        puedeEditar = await Seguridad.TienePermisoAsync("categorias.editar");
-        puedeEliminar = await Seguridad.TienePermisoAsync("categorias.eliminar");
-
-        await Cargar();
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Categorias] Error crítico: {ex.Message}");
+            Toast.Error($"Error al cargar la página: {ex.Message}");
+        }
     }
 
     private async Task Cargar()
@@ -397,6 +458,7 @@
                     Id = categoriaEditandoId,
                     Nombre = categoriaDTO.Nombre,
                     Descripcion = categoriaDTO.Descripcion,
+                    CodigoCgn = string.IsNullOrWhiteSpace(categoriaDTO.CodigoCgn) ? null : categoriaDTO.CodigoCgn.Trim(),
                     Estado = categoriaDTO.Estado
                 });
                 Toast.Exito($"Categoría '{categoriaDTO.Nombre}' actualizada. Puede seguir editando.");
@@ -407,6 +469,7 @@
                 {
                     Nombre = categoriaDTO.Nombre,
                     Descripcion = categoriaDTO.Descripcion,
+                    CodigoCgn = string.IsNullOrWhiteSpace(categoriaDTO.CodigoCgn) ? null : categoriaDTO.CodigoCgn.Trim(),
                     Estado = categoriaDTO.Estado
                 });
                 Toast.Exito($"Categoría '{categoriaDTO.Nombre}' creada. Puede continuar registrando.");
@@ -441,6 +504,7 @@
         categoriaDTO.Id = categoria.Id;
         categoriaDTO.Nombre = categoria.Nombre;
         categoriaDTO.Descripcion = categoria.Descripcion;
+        categoriaDTO.CodigoCgn = categoria.CodigoCgn;
         categoriaDTO.Estado = categoria.Estado;
 
         StateHasChanged();
@@ -474,6 +538,7 @@
         categoriaDTO.Id = 0;
         categoriaDTO.Nombre = string.Empty;
         categoriaDTO.Descripcion = string.Empty;
+        categoriaDTO.CodigoCgn = null;
         categoriaDTO.Estado = true;
 
         _editando = false;

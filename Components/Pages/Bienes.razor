@@ -123,9 +123,6 @@
                             </div>
                         </div>
 
-                        @* El módulo Bienes solo maneja Devolutivos.
-                           Los bienes de consumo se crean en /consumo. *@
-
                         <div class="form-group">
                             <label>Marca</label>
                             <div class="input-icon">
@@ -418,7 +415,7 @@
                     {
                         @foreach (var bien in _pagina.Items)
                         {
-                            <tr class="table-row-hover">
+                            <tr class="table-row-hover" @key="bien.Id">
                                 <td><code>@bien.Codigo</code></td>
                                 <td>
                                     <div class="table-cell-primary">
@@ -808,10 +805,20 @@
             await BienRepository.EliminarAsync(id);
             Toast.Exito("Bien eliminado correctamente");
             await CargarBienes();
+            StateHasChanged();
         }
         catch (Exception ex)
         {
-            Toast.Error($"Error: {ex.Message}");
+            var msg = ex.Message;
+
+            if (msg.Contains("23503") || msg.Contains("llave foránea") || msg.Contains("foreign key"))
+            {
+                Toast.Warning($"No se puede eliminar '{nombre}': tiene movimientos registrados (entradas, salidas, traslados, kárdex, tomas físicas o depreciación). Para darlo de baja, ve al módulo Salidas / Bajas.");
+            }
+            else
+            {
+                Toast.Error($"Error: {msg}");
+            }
         }
     }
 

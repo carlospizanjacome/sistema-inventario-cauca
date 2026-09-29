@@ -149,7 +149,8 @@ public class TomaFisicaRepository : ITomaFisicaRepository
                 "SELECT institucion_id FROM tomas_fisicas WHERE id = @Id;",
                 new { Id = tomaId }, tx);
 
-            // 3. CONGELAR: copiar todos los bienes activos al detalle
+            // 3. CONGELAR: copiar SOLO bienes devolutivos activos al detalle
+            //    ⚠️ FIX #39: los consumibles NO se auditan con QR
             const string sqlSnapshot = @"
                 INSERT INTO toma_fisica_detalle
                     (toma_fisica_id, bien_id, codigo_snapshot, nombre_snapshot,
@@ -167,7 +168,8 @@ public class TomaFisicaRepository : ITomaFisicaRepository
                 LEFT JOIN aulas a ON a.id = b.aula_id
                 LEFT JOIN funcionarios f ON f.id = b.funcionario_id
                 WHERE b.institucion_id = @InstId
-                  AND b.activo = TRUE;";
+                  AND b.activo = TRUE
+                  AND b.tipo_bien = 'devolutivo';";
 
             var count = await cn.ExecuteAsync(sqlSnapshot,
                 new { TomaId = tomaId, InstId = instId }, tx);
@@ -278,10 +280,12 @@ public class TomaFisicaRepository : ITomaFisicaRepository
                d.fecha_escaneo AS FechaEscaneo,
                d.observaciones,
                f.nombre_completo AS FuncionarioRealNombre,
-               u.nombre_completo AS UsuarioEscaneoNombre
+               u.nombre_completo AS UsuarioEscaneoNombre,
+               b.estado_fisico AS EstadoFisicoBien
         FROM toma_fisica_detalle d
         LEFT JOIN funcionarios f ON f.id = d.funcionario_real_id
-        LEFT JOIN usuarios u ON u.id = d.escaneado_por";
+        LEFT JOIN usuarios u ON u.id = d.escaneado_por
+        LEFT JOIN bienes b ON b.id = d.bien_id";
 
     public async Task<IEnumerable<TomaFisicaDetalleDTO>> ObtenerDetalleAsync(int tomaId)
     {
@@ -508,6 +512,7 @@ public class TomaFisicaRepository : ITomaFisicaRepository
             DetallesSobrantes = sobrantes
         };
     }
+
     public async Task<bool> RequiereConfirmacionSobranteAsync(int tomaId, string codigo)
     {
         using var cn = new NpgsqlConnection(_cs);
@@ -521,7 +526,7 @@ public class TomaFisicaRepository : ITomaFisicaRepository
 
         var enSnapshot = await cn.ExecuteScalarAsync<int>(
             @"SELECT COUNT(*) FROM toma_fisica_detalle
-          WHERE toma_fisica_id = @TomaId AND codigo_snapshot = @Codigo;",
+              WHERE toma_fisica_id = @TomaId AND codigo_snapshot = @Codigo;",
             new { TomaId = tomaId, Codigo = codigoLimpio });
 
         return enSnapshot == 0;

@@ -70,6 +70,9 @@ public class TomaFisicaDetalleDTO
     // Navegación
     public string? FuncionarioRealNombre { get; set; }
     public string? UsuarioEscaneoNombre { get; set; }
+
+    // ✨ NUEVO — estado físico actual del bien (para autocompletar en barrido)
+    public string? EstadoFisicoBien { get; set; }
 }
 
 /// <summary>
