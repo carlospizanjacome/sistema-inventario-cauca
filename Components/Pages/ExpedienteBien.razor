@@ -13,6 +13,20 @@
 
 <PageTitle>Expediente del Bien · Almacén</PageTitle>
 
+<style>
+    /* Ancho completo SOLO cuando la página es el Expediente del Bien */
+    .app-content:has(.page-expediente) {
+        padding-left: 16px !important;
+        padding-right: 16px !important;
+    }
+
+    .page-container.page-expediente {
+        max-width: 100% !important;
+        width: 100% !important;
+        margin: 0 !important;
+    }
+</style>
+
 <div class="page-container page-expediente">
 
     @if (_cargando)
@@ -477,13 +491,10 @@
 
     private void Volver() => Navigation.NavigateTo("/bienes");
 
-    // ═══ Tabs — métodos dedicados (evitan comillas anidadas en Razor) ═══
     private void TabResumen() => _tabActiva = "resumen";
     private void TabMovimientos() => _tabActiva = "movimientos";
     private void TabDepreciacion() => _tabActiva = "depreciacion";
     private void TabTomas() => _tabActiva = "tomas";
-
-    // ═══ Helpers visuales ═══
 
     private static string GetClaseEstadoFisico(string? estado) => estado?.ToLower() switch
     {

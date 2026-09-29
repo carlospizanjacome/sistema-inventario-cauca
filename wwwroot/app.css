@@ -2473,3 +2473,15 @@ body:has(.page-crud) {
         font-size: 1.3rem;
     }
 }
+
+/* ═══ Expediente: ancho completo (solo esa página) ═══ */
+.app-content:has(.page-expediente) {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+}
+
+.page-container.page-expediente {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+}
