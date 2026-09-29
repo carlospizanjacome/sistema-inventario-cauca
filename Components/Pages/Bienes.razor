@@ -455,15 +455,20 @@
                                     </span>
                                 </td>
                                 <td class="text-center">
+                                    <button class="btn-icon me-1"
+                                            @onclick="() => VerExpediente(bien.Id)"
+                                            title="Ver expediente del bien">
+                                        <i class="bi bi-eye-fill"></i>
+                                    </button>
                                     @if (puedeEditar)
                                     {
-                                        <button class="btn-icon me-1" @onclick="() => Editar(bien)">
+                                        <button class="btn-icon me-1" @onclick="() => Editar(bien)" title="Editar">
                                             <i class="bi bi-pencil-fill"></i>
                                         </button>
                                     }
                                     @if (puedeEliminar)
                                     {
-                                        <button class="btn-icon danger" @onclick="() => Eliminar(bien.Id, bien.Nombre)">
+                                        <button class="btn-icon danger" @onclick="() => Eliminar(bien.Id, bien.Nombre)" title="Eliminar">
                                             <i class="bi bi-trash-fill"></i>
                                         </button>
                                     }
@@ -542,7 +547,7 @@
         puedeEditar = await Seguridad.TienePermisoAsync("bienes.editar");
         puedeEliminar = await Seguridad.TienePermisoAsync("bienes.eliminar");
 
-        var t1 = CategoriaRepository.ObtenerTodosAsync();
+        var t1 = CategoriaRepository.ObtenerPorTipoBienAsync("devolutivo");
         var t2 = AulaRepository.ObtenerTodasAsync();
         var t3 = FuncionarioRepository.ObtenerTodosAsync();
         var t4 = VidaUtilRepo.ObtenerTodosAsync();
@@ -793,6 +798,9 @@
 
         StateHasChanged();
     }
+
+    private void VerExpediente(int id)
+        => Navigation.NavigateTo($"/expediente/{id}");
 
     private async Task Eliminar(int id, string nombre)
     {
