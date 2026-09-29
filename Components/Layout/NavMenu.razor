@@ -53,6 +53,8 @@
             new ItemMenu("consumo",           "Consumo",            "bi-boxes",                  "consumo.ver"),
             new ItemMenu("kardex",            "Kárdex",             "bi-journal-text",           "kardex.ver"),
             new ItemMenu("toma-fisica",       "Toma Física",        "bi-clipboard-check",        "toma_fisica.ver"),
+            new ItemMenu("mantenimiento",     "Mantenimiento",      "bi-tools",                  "mantenimiento.ver"),
+            new ItemMenu("garantias",         "Garantías",          "bi-shield-check",           "garantias.ver"),
         })
 
         <!-- MOVIMIENTOS -->
@@ -146,6 +148,7 @@
             "depreciacion.ver",
             "reportes.ver",
             "toma_fisica.ver",
+            "mantenimiento.ver", "garantias.ver",
             "usuarios.ver", "roles.ver", "permisos.ver", "roles.permisos",
             "vidas_utiles.ver"
         };
@@ -175,7 +178,7 @@
         var todas = new Dictionary<string, string[]>
         {
             ["estructura"]    = new[] { "instituciones", "sedes", "bloques", "aulas" },
-            ["inventario"]    = new[] { "categorias", "bienes", "imprimir-qr", "proveedores", "consumo", "kardex", "toma-fisica" },
+            ["inventario"]    = new[] { "categorias", "bienes", "imprimir-qr", "proveedores", "consumo", "kardex", "toma-fisica", "mantenimiento", "garantias" },
             ["movimientos"]   = new[] { "entradas", "salidas", "traslados", "prestamos" },
             ["personal"]      = new[] { "funcionarios" },
             ["contabilidad"]  = new[] { "depreciacion" },

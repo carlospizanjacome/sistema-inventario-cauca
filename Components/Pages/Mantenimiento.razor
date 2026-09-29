@@ -1,0 +1,983 @@
+﻿@page "/mantenimiento"
+@rendermode InteractiveServer
+
+@using Almacen.Components.Shared
+@using Almacen.DTOs
+@using Almacen.Interfaces
+@using Almacen.Services
+@using Almacen.Helpers
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
+@using System.Globalization
+
+@inject IMantenimientoRepository MantRepo
+@inject IBienRepository BienRepo
+@inject IProveedorRepository ProveedorRepo
+@inject IJSRuntime JS
+@inject SeguridadService Seguridad
+@inject NavigationManager Navigation
+@inject ToastService Toast
+@inject ConfirmService Confirm
+@inject UsuarioSesionService Sesion
+
+<PageTitle>Mantenimiento · Almacén</PageTitle>
+
+<div class="page-container page-crud page-mantenimiento @(_mostrarFormulario ? "form-abierto" : "")">
+
+    @if (!_mostrarFormulario)
+    {
+        <div class="page-header">
+            <div>
+                <h1><i class="bi bi-tools"></i> Mantenimiento</h1>
+                <p class="subtitle">Hoja de vida y reparaciones de bienes devolutivos</p>
+            </div>
+
+            @if (puedeCrear)
+            {
+                <div class="header-actions">
+                    <button class="btn-nuevo" @onclick="AbrirFormulario">
+                        <i class="bi bi-plus-lg"></i> Nuevo Mantenimiento
+                    </button>
+                </div>
+            }
+        </div>
+
+        <section class="kpi-grid">
+            <div class="kpi-card kpi-orange kpi-clicable" @onclick="FiltrarAbiertos">
+                <div class="kpi-icon"><i class="bi bi-box-arrow-right"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Abiertos</span>
+                    <span class="kpi-value">@_metricas.Abiertos</span>
+                </div>
+            </div>
+            <div class="kpi-card kpi-blue kpi-clicable" @onclick="FiltrarEnProceso">
+                <div class="kpi-icon"><i class="bi bi-wrench-adjustable"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">En proceso</span>
+                    <span class="kpi-value">@_metricas.EnProceso</span>
+                </div>
+            </div>
+            <div class="kpi-card kpi-green kpi-clicable" @onclick="FiltrarCerrados">
+                <div class="kpi-icon"><i class="bi bi-check-circle-fill"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Cerrados este mes</span>
+                    <span class="kpi-value">@_metricas.CerradosMes</span>
+                </div>
+            </div>
+            <div class="kpi-card kpi-indigo">
+                <div class="kpi-icon"><i class="bi bi-currency-dollar"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Costo del mes</span>
+                    <span class="kpi-value" title="@_metricas.CostoMes.ToString("C0", CulturaCOP)">
+                        @FormatoValor(_metricas.CostoMes)
+                    </span>
+                </div>
+            </div>
+        </section>
+
+        <div class="pills-filter">
+            <button type="button"
+                    class="pill-btn @(_pillActivo is null ? "active-indigo" : "inactive")"
+                    @onclick="FiltrarTodos">
+                <i class="bi bi-list-ul"></i> Todos
+            </button>
+            <button type="button"
+                    class="pill-btn @(_pillActivo == "abiertos" ? "active-orange" : "inactive")"
+                    @onclick="FiltrarAbiertos">
+                <i class="bi bi-box-arrow-right"></i> Abiertos
+            </button>
+            <button type="button"
+                    class="pill-btn @(_pillActivo == "proceso" ? "active-indigo" : "inactive")"
+                    @onclick="FiltrarEnProceso">
+                <i class="bi bi-wrench-adjustable"></i> En proceso
+            </button>
+            <button type="button"
+                    class="pill-btn @(_pillActivo == "cerrados" ? "active-green" : "inactive")"
+                    @onclick="FiltrarCerrados">
+                <i class="bi bi-check-circle-fill"></i> Cerrados
+            </button>
+        </div>
+    }
+
+    @if (_mostrarFormulario)
+    {
+        <div class="card-form">
+            <div class="form-header">
+                <div class="form-header-left">
+                    <i class="bi bi-@(_editando ? "pencil-square" : "plus-circle")"></i>
+                    <span>@(_editando ? "Editar Mantenimiento" : "Nuevo Mantenimiento")</span>
+                </div>
+                <div class="form-header-center">
+                    <i class="bi bi-tools"></i>
+                    <div>
+                        <div class="form-header-title">Mantenimiento</div>
+                        <div class="form-header-subtitle">Registro de ingreso y servicio técnico</div>
+                    </div>
+                </div>
+                <button class="btn-cerrar-form" @onclick="Cancelar" title="Cerrar">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <EditForm Model="dto" OnValidSubmit="Guardar">
+                <DataAnnotationsValidator />
+
+                <div class="form-grid-3">
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label>Bien *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-box-seam"></i>
+                            <InputSelect TValue="int" class="form-select" @bind-Value="dto.BienId" disabled="@_editando">
+                                <option value="0">— Seleccione bien —</option>
+                                @foreach (var b in bienes)
+                                {
+                                    <option value="@b.Id">@b.Codigo — @b.Nombre</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <ValidationMessage For="() => dto.BienId" class="form-error" />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Tipo *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-gear"></i>
+                            <InputSelect TValue="string" class="form-select" @bind-Value="dto.Tipo">
+                                <option value="PREVENTIVO">Preventivo</option>
+                                <option value="CORRECTIVO">Correctivo</option>
+                                <option value="DIAGNOSTICO">Diagnóstico</option>
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Fecha ingreso *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-calendar-check"></i>
+                            <InputDate TValue="DateTime" class="form-control" @bind-Value="dto.FechaIngreso" />
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Devolución prevista</label>
+                        <div class="input-icon">
+                            <i class="bi bi-calendar-x"></i>
+                            <InputDate TValue="DateTime?" class="form-control" @bind-Value="dto.FechaDevolucionPrevista" />
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Proveedor / Taller</label>
+                        <div class="input-icon">
+                            <i class="bi bi-shop"></i>
+                            <InputSelect TValue="int?" class="form-select" @bind-Value="dto.ProveedorId">
+                                <option value="">— Sin asignar —</option>
+                                @foreach (var p in proveedores)
+                                {
+                                    <option value="@p.Id">@p.Nombre</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Técnico responsable</label>
+                        <div class="input-icon">
+                            <i class="bi bi-person-gear"></i>
+                            <InputText class="form-control" @bind-Value="dto.TecnicoResponsable"
+                                       placeholder="Nombre del técnico" />
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Estado del bien al ingreso</label>
+                        <div class="input-icon">
+                            <i class="bi bi-heart-pulse"></i>
+                            <InputSelect TValue="string" class="form-select" @bind-Value="dto.EstadoBienIngreso">
+                                <option value="">— Sin especificar —</option>
+                                <option value="bueno">Bueno</option>
+                                <option value="regular">Regular</option>
+                                <option value="malo">Malo</option>
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Costo estimado</label>
+                        <div class="input-icon">
+                            <i class="bi bi-currency-dollar"></i>
+                            <InputMoneda class="form-control" @bind-Value="dto.Costo" />
+                        </div>
+                    </div>
+
+                    <div class="form-group form-group-full">
+                        <label>Diagnóstico inicial</label>
+                        <div class="input-icon">
+                            <i class="bi bi-clipboard-pulse"></i>
+                            <InputTextArea class="form-control" rows="2" @bind-Value="dto.Diagnostico"
+                                           placeholder="Descripción del problema o motivo del ingreso" />
+                        </div>
+                    </div>
+
+                    <div class="form-group form-group-full">
+                        <label>Observaciones</label>
+                        <div class="input-icon">
+                            <i class="bi bi-chat-left-text"></i>
+                            <InputTextArea class="form-control" rows="2" @bind-Value="dto.Observaciones" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-cancel" @onclick="Cancelar">
+                        <i class="bi bi-x-lg"></i> Cerrar
+                    </button>
+                    <button type="submit" class="btn btn-save">
+                        <i class="bi @(_editando ? "bi-check-circle-fill" : "bi-save-fill")"></i>
+                        @(_editando ? "Actualizar" : "Registrar ingreso")
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    }
+
+    <div class="card-table">
+
+        <div class="filtros-toolbar">
+            <div class="filtro-busqueda-principal">
+                <i class="bi bi-search"></i>
+                <input type="text"
+                       placeholder="Buscar por bien, técnico o diagnóstico…"
+                       @bind="_filtroTexto"
+                       @bind:event="oninput"
+                       @bind:after="BuscarConDebounce" />
+                @if (!string.IsNullOrEmpty(_filtroTexto))
+                {
+                    <button class="filtro-clear" @onclick="LimpiarFiltro" title="Limpiar">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                }
+            </div>
+
+            <div class="filtros-toolbar-actions">
+                <button class="btn-filtros @(_mostrarFiltros ? "active" : "")" @onclick="ToggleFiltros">
+                    <i class="bi bi-sliders"></i>
+                    <span>Filtros</span>
+                    @if (_hayFiltrosAvanzados) { <span class="filtros-badge"></span> }
+                    <i class="bi @(_mostrarFiltros ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                </button>
+            </div>
+        </div>
+
+        @if (_mostrarFiltros)
+        {
+            <div class="panel-filtros">
+                <div class="filtros-grid">
+                    <div class="filtro-select">
+                        <i class="bi bi-circle-square"></i>
+                        <select @bind="_filtroEstado" @bind:after="AplicarFiltrosAvanzados">
+                            <option value="">Todos los estados</option>
+                            <option value="ABIERTO">Abierto</option>
+                            <option value="EN_PROCESO">En proceso</option>
+                            <option value="CERRADO">Cerrado</option>
+                            <option value="ANULADO">Anulado</option>
+                        </select>
+                    </div>
+                    <div class="filtro-select">
+                        <i class="bi bi-gear"></i>
+                        <select @bind="_filtroTipo" @bind:after="AplicarFiltrosAvanzados">
+                            <option value="">Todos los tipos</option>
+                            <option value="PREVENTIVO">Preventivo</option>
+                            <option value="CORRECTIVO">Correctivo</option>
+                            <option value="DIAGNOSTICO">Diagnóstico</option>
+                        </select>
+                    </div>
+                    <div class="filtro-select">
+                        <i class="bi bi-calendar"></i>
+                        <input type="date" @bind="_filtroFechaDesde" @bind:after="AplicarFiltrosAvanzados" />
+                    </div>
+                    <div class="filtro-select">
+                        <i class="bi bi-calendar"></i>
+                        <input type="date" @bind="_filtroFechaHasta" @bind:after="AplicarFiltrosAvanzados" />
+                    </div>
+                </div>
+
+                <div class="filtros-acciones">
+                    <span class="badge-total">
+                        <i class="bi bi-tools"></i>
+                        <strong>@(_pagina?.TotalRegistros ?? 0)</strong> mantenimientos
+                        @if (_hayFiltrosActivos) { <span class="filtro-activo-tag">· Filtrado</span> }
+                    </span>
+                    @if (_hayFiltrosAvanzados)
+                    {
+                        <button class="btn-limpiar-filtros" @onclick="LimpiarTodosLosFiltros">
+                            <i class="bi bi-arrow-counterclockwise"></i>
+                            Limpiar filtros
+                        </button>
+                    }
+                </div>
+            </div>
+        }
+
+        <div class="table-responsive">
+            <table class="table modern-table">
+                <thead>
+                    <tr>
+                        <th>Bien</th>
+                        <th class="text-center">Tipo</th>
+                        <th>Ingreso</th>
+                        <th>Devolución</th>
+                        <th class="text-end">Costo</th>
+                        <th class="text-center">Estado</th>
+                        <th class="text-center" style="width: 220px;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (_pagina is null)
+                    {
+                        <tr><td colspan="7" class="text-center py-3 text-muted">Cargando mantenimientos…</td></tr>
+                    }
+                    else if (!_pagina.Items.Any())
+                    {
+                        <tr><td colspan="7" class="text-center py-3 text-muted">Sin mantenimientos para mostrar.</td></tr>
+                    }
+                    else
+                    {
+                        @foreach (var m in _pagina.Items)
+                        {
+                            <tr class="table-row-hover @(m.EstaVencido ? "row-warning" : "")" @key="m.Id">
+                                <td>
+                                    <div class="table-cell-primary">
+                                        <strong>@m.BienNombre</strong>
+                                        <small><code>@m.BienCodigo</code> · @m.BienCategoriaNombre</small>
+                                    </div>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge @GetClaseBadgeTipo(m.Tipo)">@m.Tipo</span>
+                                </td>
+                                <td class="text-mono">@m.FechaIngreso.ToString("dd/MM/yyyy")</td>
+                                <td>
+                                    <div class="table-cell-primary">
+                                        @if (m.FechaDevolucionPrevista.HasValue)
+                                        {
+                                            <span class="text-mono">@m.FechaDevolucionPrevista.Value.ToString("dd/MM/yyyy")</span>
+                                            @if (m.Estado == "ABIERTO" || m.Estado == "EN_PROCESO")
+                                            {
+                                                <small class="@(m.EstaVencido ? "text-danger" : "text-muted")">
+                                                    @if (m.EstaVencido)
+                                                    {
+                                                        <span>Vencido hace @((DateTime.Today - m.FechaDevolucionPrevista.Value.Date).Days) días</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span>@m.DiasFuera días en taller</span>
+                                                    }
+                                                </small>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">—</span>
+                                        }
+                                    </div>
+                                </td>
+                                <td class="text-end num">@m.Costo.ToString("C0", CulturaCOP)</td>
+                                <td class="text-center">
+                                    <span class="badge @GetClaseBadgeEstado(m.Estado)">@m.Estado</span>
+                                </td>
+                                <td class="text-center">
+                                    <div class="action-buttons">
+                                        <button class="btn-action btn-action-view"
+                                                @onclick="() => VerDetalle(m)" title="Ver detalle">
+                                            <i class="bi bi-eye-fill"></i>
+                                        </button>
+
+                                        @if ((m.Estado == "ABIERTO" || m.Estado == "EN_PROCESO") && puedeCerrar)
+                                        {
+                                            <button class="btn-action btn-action-ok"
+                                                    @onclick="() => AbrirModalCierre(m)" title="Cerrar mantenimiento">
+                                                <i class="bi bi-check-lg"></i>
+                                            </button>
+                                        }
+
+                                        @if ((m.Estado == "ABIERTO" || m.Estado == "EN_PROCESO") && puedeEditar)
+                                        {
+                                            <button class="btn-action btn-action-edit"
+                                                    @onclick="() => Editar(m)" title="Editar">
+                                                <i class="bi bi-pencil-fill"></i>
+                                            </button>
+                                        }
+
+                                        @if ((m.Estado == "CERRADO" || m.Estado == "ANULADO") && puedeEliminar)
+                                        {
+                                            <button class="btn-action btn-action-delete"
+                                                    @onclick="() => Eliminar(m)" title="Eliminar del histórico">
+                                                <i class="bi bi-trash-fill"></i>
+                                            </button>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (_pagina is not null && _pagina.TotalRegistros > 0)
+        {
+            <Paginador T="MantenimientoDTO"
+                       Resultado="_pagina"
+                       OnCambioPagina="CambioPagina"
+                       OnCambioTamano="CambioTamano" />
+        }
+    </div>
+</div>
+
+@* ═══════════════ MODAL — Detalle ═══════════════ *@
+@if (_detalleAbierto && _detalle is not null)
+{
+    var m = _detalle;
+
+    <div class="modal-backdrop-det" @onclick="CerrarDetalle">
+        <div class="modal-det" @onclick:stopPropagation="true">
+
+            <div class="modal-det-header">
+                <div class="modal-det-header-left">
+                    <span class="badge @GetClaseBadgeEstado(m.Estado)">@m.Estado</span>
+                    <h3>Mantenimiento #@m.Id</h3>
+                </div>
+                <button class="modal-det-close" @onclick="CerrarDetalle" title="Cerrar">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <div class="modal-det-body">
+                <div class="det-section">
+                    <h4><i class="bi bi-box-seam"></i> Bien</h4>
+                    <dl class="det-dl">
+                        <dt>Código</dt>
+                        <dd><code>@m.BienCodigo</code></dd>
+                        <dt>Nombre</dt>
+                        <dd><strong>@m.BienNombre</strong></dd>
+                        <dt>Categoría</dt>
+                        <dd>@(m.BienCategoriaNombre ?? "—")</dd>
+                    </dl>
+                </div>
+
+                <div class="det-section">
+                    <h4><i class="bi bi-tools"></i> Servicio</h4>
+                    <dl class="det-dl">
+                        <dt>Tipo</dt>
+                        <dd><span class="badge @GetClaseBadgeTipo(m.Tipo)">@m.Tipo</span></dd>
+                        <dt>Fecha ingreso</dt>
+                        <dd>@m.FechaIngreso.ToString("dd/MM/yyyy")</dd>
+                        <dt>Devolución prevista</dt>
+                        <dd>@(m.FechaDevolucionPrevista?.ToString("dd/MM/yyyy") ?? "—")</dd>
+                        <dt>Fecha salida</dt>
+                        <dd>@(m.FechaSalida?.ToString("dd/MM/yyyy") ?? "En taller")</dd>
+                        <dt>Proveedor</dt>
+                        <dd>@(m.ProveedorNombre ?? "—")</dd>
+                        <dt>Técnico</dt>
+                        <dd>@(m.TecnicoResponsable ?? "—")</dd>
+                        <dt>Estado ingreso</dt>
+                        <dd>@(m.EstadoBienIngreso ?? "—")</dd>
+                        <dt>Estado egreso</dt>
+                        <dd>@(m.EstadoBienEgreso ?? "—")</dd>
+                        <dt>Costo</dt>
+                        <dd class="text-warning"><strong>@m.Costo.ToString("C0", CulturaCOP)</strong></dd>
+                    </dl>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(m.Diagnostico))
+                {
+                    <div class="det-section">
+                        <h4><i class="bi bi-clipboard-pulse"></i> Diagnóstico</h4>
+                        <div class="det-note"><p>@m.Diagnostico</p></div>
+                    </div>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(m.TrabajoRealizado))
+                {
+                    <div class="det-section">
+                        <h4><i class="bi bi-wrench-adjustable"></i> Trabajo realizado</h4>
+                        <div class="det-note"><p>@m.TrabajoRealizado</p></div>
+                    </div>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(m.RepuestosUtilizados))
+                {
+                    <div class="det-section">
+                        <h4><i class="bi bi-nut"></i> Repuestos utilizados</h4>
+                        <div class="det-note"><p>@m.RepuestosUtilizados</p></div>
+                    </div>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(m.Observaciones))
+                {
+                    <div class="det-section">
+                        <h4><i class="bi bi-chat-left-text"></i> Observaciones</h4>
+                        <div class="det-note"><p>@m.Observaciones</p></div>
+                    </div>
+                }
+            </div>
+
+            <div class="modal-det-footer">
+                <button class="btn-det-cerrar" @onclick="CerrarDetalle">
+                    <i class="bi bi-x-lg"></i> Cerrar
+                </button>
+            </div>
+
+        </div>
+    </div>
+}
+
+@* ═══════════════ MODAL — Cierre ═══════════════ *@
+@if (_modalCierreAbierto && _paraCerrar is not null)
+{
+    var m = _paraCerrar;
+
+    <div class="modal-backdrop-det" @onclick="CancelarCierre">
+        <div class="modal-det" @onclick:stopPropagation="true">
+
+            <div class="modal-det-header">
+                <div class="modal-det-header-left">
+                    <span class="badge badge-ok">Cerrar mantenimiento</span>
+                    <h3>@m.BienNombre</h3>
+                </div>
+                <button class="modal-det-close" @onclick="CancelarCierre" title="Cerrar">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <div class="modal-det-body">
+                <EditForm Model="cierreDto" OnValidSubmit="ConfirmarCierre">
+                    <DataAnnotationsValidator />
+
+                    <div class="form-grid-3">
+                        <div class="form-group">
+                            <label>Fecha salida *</label>
+                            <div class="input-icon">
+                                <i class="bi bi-calendar-check"></i>
+                                <InputDate TValue="DateTime?" class="form-control" @bind-Value="cierreDto.FechaSalida" />
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Estado del bien al egreso</label>
+                            <div class="input-icon">
+                                <i class="bi bi-heart-pulse"></i>
+                                <InputSelect TValue="string" class="form-select" @bind-Value="cierreDto.EstadoBienEgreso">
+                                    <option value="">— Sin especificar —</option>
+                                    <option value="bueno">Bueno</option>
+                                    <option value="regular">Regular</option>
+                                    <option value="malo">Malo</option>
+                                </InputSelect>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Costo final *</label>
+                            <div class="input-icon">
+                                <i class="bi bi-currency-dollar"></i>
+                                <InputMoneda class="form-control" @bind-Value="cierreDto.Costo" />
+                            </div>
+                        </div>
+
+                        <div class="form-group form-group-full">
+                            <label>Trabajo realizado *</label>
+                            <div class="input-icon">
+                                <i class="bi bi-wrench-adjustable"></i>
+                                <InputTextArea class="form-control" rows="3"
+                                               @bind-Value="cierreDto.TrabajoRealizado"
+                                               placeholder="Descripción del trabajo realizado" />
+                            </div>
+                        </div>
+
+                        <div class="form-group form-group-full">
+                            <label>Repuestos utilizados</label>
+                            <div class="input-icon">
+                                <i class="bi bi-nut"></i>
+                                <InputTextArea class="form-control" rows="2"
+                                               @bind-Value="cierreDto.RepuestosUtilizados"
+                                               placeholder="Lista de repuestos o materiales utilizados" />
+                            </div>
+                        </div>
+
+                        <div class="form-group form-group-full">
+                            <label>Observaciones finales</label>
+                            <div class="input-icon">
+                                <i class="bi bi-chat-left-text"></i>
+                                <InputTextArea class="form-control" rows="2"
+                                               @bind-Value="cierreDto.Observaciones" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-cancel" @onclick="CancelarCierre">
+                            <i class="bi bi-x-lg"></i> Cancelar
+                        </button>
+                        <button type="submit" class="btn btn-save">
+                            <i class="bi bi-check-circle-fill"></i> Cerrar mantenimiento
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+
+        </div>
+    </div>
+}
+
+@code {
+    private static readonly CultureInfo CulturaCOP = CultureInfo.GetCultureInfo("es-CO");
+
+    private ResultadoPaginado<MantenimientoDTO>? _pagina;
+    private List<Bien> bienes = new();
+    private List<ProveedorDTO> proveedores = new();
+    private MantenimientoDTO dto = new();
+    private MantenimientoDTO cierreDto = new();
+    private (int Abiertos, int EnProceso, int CerradosMes, decimal CostoMes) _metricas;
+
+    private bool _mostrarFormulario = false;
+    private bool _editando = false;
+    private int _editandoId = 0;
+    private bool _mostrarFiltros = false;
+    private int _paginaActual = 1;
+    private int _tamanoPagina = 25;
+    private string _filtroTexto = string.Empty;
+    private string? _filtroEstado;
+    private string? _filtroTipo;
+    private DateTime? _filtroFechaDesde;
+    private DateTime? _filtroFechaHasta;
+    private string? _pillActivo;
+    private CancellationTokenSource? _debounceCts;
+
+    private bool _detalleAbierto = false;
+    private MantenimientoDTO? _detalle;
+
+    private bool _modalCierreAbierto = false;
+    private MantenimientoDTO? _paraCerrar;
+
+    private bool puedeCrear;
+    private bool puedeEditar;
+    private bool puedeCerrar;
+    private bool puedeEliminar;
+
+    private bool _hayFiltrosActivos =>
+        !string.IsNullOrEmpty(_filtroTexto) ||
+        !string.IsNullOrEmpty(_filtroEstado) ||
+        !string.IsNullOrEmpty(_filtroTipo) ||
+        !string.IsNullOrEmpty(_pillActivo) ||
+        _filtroFechaDesde.HasValue || _filtroFechaHasta.HasValue;
+
+    private bool _hayFiltrosAvanzados =>
+        !string.IsNullOrEmpty(_filtroEstado) ||
+        !string.IsNullOrEmpty(_filtroTipo) ||
+        _filtroFechaDesde.HasValue || _filtroFechaHasta.HasValue;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await Seguridad.TienePermisoAsync("mantenimiento.ver"))
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+
+        puedeCrear    = await Seguridad.TienePermisoAsync("mantenimiento.crear");
+        puedeEditar   = await Seguridad.TienePermisoAsync("mantenimiento.editar");
+        puedeCerrar   = await Seguridad.TienePermisoAsync("mantenimiento.cerrar");
+        puedeEliminar = await Seguridad.TienePermisoAsync("mantenimiento.eliminar");
+
+        var t1 = BienRepo.ObtenerTodosAsync();
+        var t2 = ProveedorRepo.ObtenerTodosAsync();
+        await Task.WhenAll(t1, t2);
+
+        bienes = (await t1).ToList();
+        proveedores = (await t2).ToList();
+
+        await Cargar();
+    }
+
+    private async Task Cargar()
+    {
+        var estadoFinal = !string.IsNullOrEmpty(_filtroEstado) ? _filtroEstado : null;
+
+        if (!string.IsNullOrEmpty(_pillActivo))
+        {
+            estadoFinal = _pillActivo switch
+            {
+                "abiertos" => "ABIERTO",
+                "proceso"  => "EN_PROCESO",
+                "cerrados" => "CERRADO",
+                _ => estadoFinal
+            };
+        }
+
+        _pagina = await MantRepo.ObtenerPaginadoAsync(
+            _paginaActual, _tamanoPagina,
+            string.IsNullOrWhiteSpace(_filtroTexto) ? null : _filtroTexto,
+            estadoFinal,
+            _filtroTipo,
+            _filtroFechaDesde,
+            _filtroFechaHasta);
+
+        _metricas = await MantRepo.ObtenerMetricasAsync();
+    }
+
+    private Task FiltrarTodos()    => FiltrarPorPill(null);
+    private Task FiltrarAbiertos() => FiltrarPorPill("abiertos");
+    private Task FiltrarEnProceso() => FiltrarPorPill("proceso");
+    private Task FiltrarCerrados() => FiltrarPorPill("cerrados");
+
+    private async Task FiltrarPorPill(string? pill)
+    {
+        _pillActivo = pill;
+        _filtroEstado = null;
+        _paginaActual = 1;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private void VerDetalle(MantenimientoDTO m)
+    {
+        _detalle = m;
+        _detalleAbierto = true;
+        StateHasChanged();
+    }
+
+    private void CerrarDetalle()
+    {
+        _detalleAbierto = false;
+        _detalle = null;
+    }
+
+    private void AbrirModalCierre(MantenimientoDTO m)
+    {
+        _paraCerrar = m;
+        cierreDto = new MantenimientoDTO
+        {
+            Id = m.Id,
+            FechaSalida = DateTime.Today,
+            Costo = m.Costo,
+            EstadoBienEgreso = m.EstadoBienEgreso ?? "bueno"
+        };
+        _modalCierreAbierto = true;
+    }
+
+    private void CancelarCierre()
+    {
+        _modalCierreAbierto = false;
+        _paraCerrar = null;
+        cierreDto = new MantenimientoDTO();
+    }
+
+    private async Task ConfirmarCierre()
+    {
+        if (_paraCerrar is null) return;
+        if (string.IsNullOrWhiteSpace(cierreDto.TrabajoRealizado))
+        {
+            Toast.Error("Debe describir el trabajo realizado.");
+            return;
+        }
+
+        try
+        {
+            await MantRepo.CerrarAsync(
+                _paraCerrar.Id,
+                cierreDto.FechaSalida ?? DateTime.Today,
+                cierreDto.TrabajoRealizado,
+                cierreDto.RepuestosUtilizados,
+                cierreDto.Costo,
+                cierreDto.EstadoBienEgreso,
+                cierreDto.Observaciones);
+
+            Toast.Exito("Mantenimiento cerrado.");
+            CancelarCierre();
+            await Cargar();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+    }
+
+    private async Task BuscarConDebounce()
+    {
+        _debounceCts?.Cancel();
+        _debounceCts = new CancellationTokenSource();
+        var token = _debounceCts.Token;
+
+        try
+        {
+            await Task.Delay(350, token);
+            if (token.IsCancellationRequested) return;
+            _paginaActual = 1;
+            await Cargar();
+            StateHasChanged();
+        }
+        catch (TaskCanceledException) { }
+    }
+
+    private async Task LimpiarFiltro()
+    {
+        _filtroTexto = string.Empty;
+        _paginaActual = 1;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task LimpiarTodosLosFiltros()
+    {
+        _filtroTexto = string.Empty;
+        _filtroEstado = null;
+        _filtroTipo = null;
+        _pillActivo = null;
+        _filtroFechaDesde = null;
+        _filtroFechaHasta = null;
+        _paginaActual = 1;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task AplicarFiltrosAvanzados()
+    {
+        _pillActivo = null;
+        _paginaActual = 1;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task CambioPagina(int nuevaPagina)
+    {
+        _paginaActual = nuevaPagina;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task CambioTamano(int nuevoTamano)
+    {
+        _tamanoPagina = nuevoTamano;
+        _paginaActual = 1;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private void ToggleFiltros()
+    {
+        if (_mostrarFormulario) _mostrarFormulario = false;
+        _mostrarFiltros = !_mostrarFiltros;
+    }
+
+    private void AbrirFormulario()
+    {
+        dto = new MantenimientoDTO
+        {
+            FechaIngreso = DateTime.Today,
+            FechaDevolucionPrevista = DateTime.Today.AddDays(15),
+            Tipo = "CORRECTIVO"
+        };
+        _editando = false;
+        _editandoId = 0;
+        _mostrarFormulario = true;
+        _mostrarFiltros = false;
+    }
+
+    private void Editar(MantenimientoDTO m)
+    {
+        dto = new MantenimientoDTO
+        {
+            Id = m.Id,
+            BienId = m.BienId,
+            Tipo = m.Tipo,
+            FechaIngreso = m.FechaIngreso,
+            FechaDevolucionPrevista = m.FechaDevolucionPrevista,
+            ProveedorId = m.ProveedorId,
+            TecnicoResponsable = m.TecnicoResponsable,
+            Diagnostico = m.Diagnostico,
+            Costo = m.Costo,
+            EstadoBienIngreso = m.EstadoBienIngreso,
+            Observaciones = m.Observaciones
+        };
+        _editando = true;
+        _editandoId = m.Id;
+        _mostrarFormulario = true;
+        _mostrarFiltros = false;
+    }
+
+    private void Cancelar()
+    {
+        _mostrarFormulario = false;
+        dto = new MantenimientoDTO();
+        _editando = false;
+        _editandoId = 0;
+        StateHasChanged();
+    }
+
+    private async Task Guardar()
+    {
+        if (!_editando && !puedeCrear) { Toast.Error("No tiene permiso."); return; }
+        if (_editando && !puedeEditar) { Toast.Error("No tiene permiso."); return; }
+        if (dto.BienId <= 0) { Toast.Error("Debe seleccionar un bien."); return; }
+
+        try
+        {
+            if (_editando)
+            {
+                await MantRepo.ActualizarAsync(dto);
+                Toast.Exito("Mantenimiento actualizado.");
+            }
+            else
+            {
+                await MantRepo.CrearAsync(dto);
+                Toast.Exito("Ingreso registrado.");
+            }
+
+            Cancelar();
+            await Cargar();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+    }
+
+    private async Task Eliminar(MantenimientoDTO m)
+    {
+        var ok = await Confirm.Peligroso($"¿Eliminar del histórico el mantenimiento de '{m.BienNombre}'?");
+        if (!ok) return;
+
+        try
+        {
+            await MantRepo.EliminarAsync(m.Id);
+            Toast.Exito("Mantenimiento eliminado.");
+            await Cargar();
+        }
+        catch (Exception ex) { Toast.Error($"Error: {ex.Message}"); }
+    }
+
+    private static string GetClaseBadgeTipo(string tipo) => tipo switch
+    {
+        "PREVENTIVO"  => "badge-info",
+        "CORRECTIVO"  => "badge-warn",
+        "DIAGNOSTICO" => "badge-neutral",
+        _             => "badge-neutral"
+    };
+
+    private static string GetClaseBadgeEstado(string estado) => estado switch
+    {
+        "ABIERTO"    => "badge-warn",
+        "EN_PROCESO" => "badge-info",
+        "CERRADO"    => "badge-ok",
+        "ANULADO"    => "badge-off",
+        _            => "badge-neutral"
+    };
+
+    private static string FormatoValor(decimal valor)
+    {
+        if (valor >= 1_000_000_000) return (valor / 1_000_000_000m).ToString("0.0", CulturaCOP) + "B";
+        if (valor >= 1_000_000) return (valor / 1_000_000m).ToString("0.0", CulturaCOP) + "M";
+        if (valor >= 1_000) return (valor / 1_000m).ToString("0", CulturaCOP) + "K";
+        return valor.ToString("C0", CulturaCOP);
+    }
+}

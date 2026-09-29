@@ -1,0 +1,649 @@
+﻿@page "/garantias"
+@rendermode InteractiveServer
+
+@using Almacen.Components.Shared
+@using Almacen.DTOs
+@using Almacen.Interfaces
+@using Almacen.Services
+@using Almacen.Helpers
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
+
+@inject IGarantiaRepository GarantiaRepo
+@inject IBienRepository BienRepo
+@inject IProveedorRepository ProveedorRepo
+@inject IJSRuntime JS
+@inject SeguridadService Seguridad
+@inject NavigationManager Navigation
+@inject ToastService Toast
+@inject ConfirmService Confirm
+@inject UsuarioSesionService Sesion
+
+<PageTitle>Garantías · Almacén</PageTitle>
+
+<div class="page-container page-crud page-garantias @(_mostrarFormulario ? "form-abierto" : "")">
+
+    @if (!_mostrarFormulario)
+    {
+        <div class="page-header">
+            <div>
+                <h1><i class="bi bi-shield-check"></i> Garantías</h1>
+                <p class="subtitle">Control de garantías vigentes y por vencer</p>
+            </div>
+
+            @if (puedeCrear)
+            {
+                <div class="header-actions">
+                    <button class="btn-nuevo" @onclick="AbrirFormulario">
+                        <i class="bi bi-plus-lg"></i> Nueva Garantía
+                    </button>
+                </div>
+            }
+        </div>
+
+        <section class="kpi-grid">
+            <div class="kpi-card kpi-green kpi-clicable" @onclick="FiltrarVigentes">
+                <div class="kpi-icon"><i class="bi bi-shield-fill-check"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Vigentes</span>
+                    <span class="kpi-value">@_metricas.Vigentes</span>
+                </div>
+            </div>
+            <div class="kpi-card kpi-orange kpi-clicable" @onclick="FiltrarPorVencer">
+                <div class="kpi-icon"><i class="bi bi-clock-history"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Por vencer (30 días)</span>
+                    <span class="kpi-value">@_metricas.PorVencer</span>
+                </div>
+            </div>
+            <div class="kpi-card kpi-red kpi-clicable" @onclick="FiltrarVencidas">
+                <div class="kpi-icon"><i class="bi bi-shield-slash"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Vencidas</span>
+                    <span class="kpi-value">@_metricas.Vencidas</span>
+                </div>
+            </div>
+            <div class="kpi-card kpi-blue kpi-clicable" @onclick="FiltrarTodas">
+                <div class="kpi-icon"><i class="bi bi-list-ul"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Total histórico</span>
+                    <span class="kpi-value">@_metricas.Total</span>
+                </div>
+            </div>
+        </section>
+
+        <div class="pills-filter">
+            <button type="button"
+                    class="pill-btn @(_pillActivo is null ? "active-indigo" : "inactive")"
+                    @onclick="FiltrarTodas">
+                <i class="bi bi-list-ul"></i> Todas
+            </button>
+            <button type="button"
+                    class="pill-btn @(_pillActivo == "vigentes" ? "active-green" : "inactive")"
+                    @onclick="FiltrarVigentes">
+                <i class="bi bi-shield-fill-check"></i> Vigentes
+            </button>
+            <button type="button"
+                    class="pill-btn @(_pillActivo == "por_vencer" ? "active-orange" : "inactive")"
+                    @onclick="FiltrarPorVencer">
+                <i class="bi bi-clock-history"></i> Por vencer
+            </button>
+            <button type="button"
+                    class="pill-btn @(_pillActivo == "vencidas" ? "active-red" : "inactive")"
+                    @onclick="FiltrarVencidas">
+                <i class="bi bi-shield-slash"></i> Vencidas
+            </button>
+        </div>
+    }
+
+    @if (_mostrarFormulario)
+    {
+        <div class="card-form">
+            <div class="form-header">
+                <div class="form-header-left">
+                    <i class="bi bi-@(_editando ? "pencil-square" : "plus-circle")"></i>
+                    <span>@(_editando ? "Editar Garantía" : "Nueva Garantía")</span>
+                </div>
+                <div class="form-header-center">
+                    <i class="bi bi-shield-check"></i>
+                    <div>
+                        <div class="form-header-title">Garantías</div>
+                        <div class="form-header-subtitle">Registro de cobertura y vigencia</div>
+                    </div>
+                </div>
+                <button class="btn-cerrar-form" @onclick="Cancelar" title="Cerrar">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <EditForm Model="dto" OnValidSubmit="Guardar">
+                <DataAnnotationsValidator />
+
+                <div class="form-grid-3">
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label>Bien *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-box-seam"></i>
+                            <InputSelect TValue="int" class="form-select" @bind-Value="dto.BienId" disabled="@_editando">
+                                <option value="0">— Seleccione bien —</option>
+                                @foreach (var b in bienes)
+                                {
+                                    <option value="@b.Id">@b.Codigo — @b.Nombre</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <ValidationMessage For="() => dto.BienId" class="form-error" />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Tipo *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-shield"></i>
+                            <InputSelect TValue="string" class="form-select" @bind-Value="dto.Tipo">
+                                <option value="FABRICA">Fábrica</option>
+                                <option value="EXTENDIDA">Extendida</option>
+                                <option value="PROVEEDOR">Proveedor</option>
+                                <option value="OTRA">Otra</option>
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>N° Garantía / Póliza</label>
+                        <div class="input-icon">
+                            <i class="bi bi-hash"></i>
+                            <InputText class="form-control" @bind-Value="dto.NumeroGarantia"
+                                       placeholder="Ej: GAR-2026-001" />
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Proveedor</label>
+                        <div class="input-icon">
+                            <i class="bi bi-shop"></i>
+                            <InputSelect TValue="int?" class="form-select" @bind-Value="dto.ProveedorId">
+                                <option value="">— Sin asignar —</option>
+                                @foreach (var p in proveedores)
+                                {
+                                    <option value="@p.Id">@p.Nombre</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Fecha inicio *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-calendar-check"></i>
+                            <InputDate TValue="DateTime" class="form-control" @bind-Value="dto.FechaInicio" />
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Fecha vencimiento *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-calendar-x"></i>
+                            <InputDate TValue="DateTime" class="form-control" @bind-Value="dto.FechaVencimiento" />
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Contacto del proveedor</label>
+                        <div class="input-icon">
+                            <i class="bi bi-telephone"></i>
+                            <InputText class="form-control" @bind-Value="dto.ContactoProveedor"
+                                       placeholder="Teléfono o email" />
+                        </div>
+                    </div>
+
+                    <div class="form-group form-group-full">
+                        <label>Condiciones</label>
+                        <div class="input-icon">
+                            <i class="bi bi-file-text"></i>
+                            <InputTextArea class="form-control" rows="2" @bind-Value="dto.Condiciones"
+                                           placeholder="Condiciones de la garantía" />
+                        </div>
+                    </div>
+
+                    <div class="form-group form-group-full">
+                        <label>Observaciones</label>
+                        <div class="input-icon">
+                            <i class="bi bi-chat-left-text"></i>
+                            <InputTextArea class="form-control" rows="2" @bind-Value="dto.Observaciones" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-cancel" @onclick="Cancelar">
+                        <i class="bi bi-x-lg"></i> Cerrar
+                    </button>
+                    <button type="submit" class="btn btn-save">
+                        <i class="bi @(_editando ? "bi-check-circle-fill" : "bi-save-fill")"></i>
+                        @(_editando ? "Actualizar" : "Guardar")
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    }
+
+    <div class="card-table">
+
+        <div class="filtros-toolbar">
+            <div class="filtro-busqueda-principal">
+                <i class="bi bi-search"></i>
+                <input type="text"
+                       placeholder="Buscar por bien, N° garantía o proveedor…"
+                       @bind="_filtroTexto"
+                       @bind:event="oninput"
+                       @bind:after="BuscarConDebounce" />
+                @if (!string.IsNullOrEmpty(_filtroTexto))
+                {
+                    <button class="filtro-clear" @onclick="LimpiarFiltro" title="Limpiar">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                }
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table modern-table">
+                <thead>
+                    <tr>
+                        <th>Bien</th>
+                        <th>N° Garantía</th>
+                        <th class="text-center">Tipo</th>
+                        <th>Proveedor</th>
+                        <th>Vence</th>
+                        <th class="text-center">Estado</th>
+                        <th class="text-center" style="width: 130px;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (_pagina is null)
+                    {
+                        <tr><td colspan="7" class="text-center py-3 text-muted">Cargando garantías…</td></tr>
+                    }
+                    else if (!_pagina.Items.Any())
+                    {
+                        <tr><td colspan="7" class="text-center py-3 text-muted">Sin garantías para mostrar.</td></tr>
+                    }
+                    else
+                    {
+                        @foreach (var g in _pagina.Items)
+                        {
+                            <tr class="table-row-hover @(g.EstaVencida ? "row-danger" : g.PorVencer ? "row-warning" : "")" @key="g.Id">
+                                <td>
+                                    <div class="table-cell-primary">
+                                        <strong>@g.BienNombre</strong>
+                                        <small><code>@g.BienCodigo</code></small>
+                                    </div>
+                                </td>
+                                <td class="text-mono">@(g.NumeroGarantia ?? "—")</td>
+                                <td class="text-center">
+                                    <span class="badge @GetClaseBadgeTipo(g.Tipo)">@g.Tipo</span>
+                                </td>
+                                <td>@(g.ProveedorNombre ?? "—")</td>
+                                <td>
+                                    <div class="table-cell-primary">
+                                        <span class="text-mono">@g.FechaVencimiento.ToString("dd/MM/yyyy")</span>
+                                        <small class="@(g.EstaVencida ? "text-danger" : g.PorVencer ? "text-warning" : "text-muted")">
+                                            @if (g.EstaVencida)
+                                            {
+                                                <span>Vencida hace @Math.Abs(g.DiasRestantes) días</span>
+                                            }
+                                            else
+                                            {
+                                                <span>@g.DiasRestantes días</span>
+                                            }
+                                        </small>
+                                    </div>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge @GetClaseBadgeEstado(g.EstadoCalculado)">@g.EstadoCalculado</span>
+                                </td>
+                                <td class="text-center">
+                                    <div class="action-buttons">
+                                        <button class="btn-action btn-action-view"
+                                                @onclick="() => VerDetalle(g)" title="Ver detalle">
+                                            <i class="bi bi-eye-fill"></i>
+                                        </button>
+
+                                        @if (puedeEditar)
+                                        {
+                                            <button class="btn-action btn-action-edit"
+                                                    @onclick="() => Editar(g)" title="Editar">
+                                                <i class="bi bi-pencil-fill"></i>
+                                            </button>
+                                        }
+
+                                        @if (puedeEliminar)
+                                        {
+                                            <button class="btn-action btn-action-delete"
+                                                    @onclick="() => Eliminar(g)" title="Eliminar">
+                                                <i class="bi bi-trash-fill"></i>
+                                            </button>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (_pagina is not null && _pagina.TotalRegistros > 0)
+        {
+            <Paginador T="GarantiaDTO"
+                       Resultado="_pagina"
+                       OnCambioPagina="CambioPagina"
+                       OnCambioTamano="CambioTamano" />
+        }
+    </div>
+</div>
+
+@if (_detalleAbierto && _detalle is not null)
+{
+    var g = _detalle;
+
+    <div class="modal-backdrop-det" @onclick="CerrarDetalle">
+        <div class="modal-det" @onclick:stopPropagation="true">
+            <div class="modal-det-header">
+                <div class="modal-det-header-left">
+                    <span class="badge @GetClaseBadgeEstado(g.EstadoCalculado)">@g.EstadoCalculado</span>
+                    <h3>Garantía #@g.Id</h3>
+                </div>
+                <button class="modal-det-close" @onclick="CerrarDetalle">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <div class="modal-det-body">
+                <div class="det-section">
+                    <h4><i class="bi bi-box-seam"></i> Bien</h4>
+                    <dl class="det-dl">
+                        <dt>Código</dt>
+                        <dd><code>@g.BienCodigo</code></dd>
+                        <dt>Nombre</dt>
+                        <dd><strong>@g.BienNombre</strong></dd>
+                        <dt>Categoría</dt>
+                        <dd>@(g.BienCategoriaNombre ?? "—")</dd>
+                    </dl>
+                </div>
+
+                <div class="det-section">
+                    <h4><i class="bi bi-shield-check"></i> Garantía</h4>
+                    <dl class="det-dl">
+                        <dt>Tipo</dt>
+                        <dd>@g.Tipo</dd>
+                        <dt>N°</dt>
+                        <dd>@(g.NumeroGarantia ?? "—")</dd>
+                        <dt>Proveedor</dt>
+                        <dd>@(g.ProveedorNombre ?? "—")</dd>
+                        <dt>Contacto</dt>
+                        <dd>@(g.ContactoProveedor ?? "—")</dd>
+                        <dt>Inicio</dt>
+                        <dd>@g.FechaInicio.ToString("dd/MM/yyyy")</dd>
+                        <dt>Vence</dt>
+                        <dd>@g.FechaVencimiento.ToString("dd/MM/yyyy")</dd>
+                    </dl>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(g.Condiciones))
+                {
+                    <div class="det-section">
+                        <h4><i class="bi bi-file-text"></i> Condiciones</h4>
+                        <div class="det-note"><p>@g.Condiciones</p></div>
+                    </div>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(g.Observaciones))
+                {
+                    <div class="det-section">
+                        <h4><i class="bi bi-chat-left-text"></i> Observaciones</h4>
+                        <div class="det-note"><p>@g.Observaciones</p></div>
+                    </div>
+                }
+            </div>
+
+            <div class="modal-det-footer">
+                <button class="btn-det-cerrar" @onclick="CerrarDetalle">
+                    <i class="bi bi-x-lg"></i> Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private ResultadoPaginado<GarantiaDTO>? _pagina;
+    private List<Bien> bienes = new();
+    private List<ProveedorDTO> proveedores = new();
+    private GarantiaDTO dto = new();
+    private (int Vigentes, int PorVencer, int Vencidas, int Total) _metricas;
+
+    private bool _mostrarFormulario = false;
+    private bool _editando = false;
+    private int _editandoId = 0;
+    private int _paginaActual = 1;
+    private int _tamanoPagina = 25;
+    private string _filtroTexto = string.Empty;
+    private string? _pillActivo;
+    private CancellationTokenSource? _debounceCts;
+
+    private bool _detalleAbierto = false;
+    private GarantiaDTO? _detalle;
+
+    private bool puedeCrear;
+    private bool puedeEditar;
+    private bool puedeEliminar;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await Seguridad.TienePermisoAsync("garantias.ver"))
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+
+        puedeCrear    = await Seguridad.TienePermisoAsync("garantias.crear");
+        puedeEditar   = await Seguridad.TienePermisoAsync("garantias.editar");
+        puedeEliminar = await Seguridad.TienePermisoAsync("garantias.eliminar");
+
+        var t1 = BienRepo.ObtenerTodosAsync();
+        var t2 = ProveedorRepo.ObtenerTodosAsync();
+        await Task.WhenAll(t1, t2);
+
+        bienes = (await t1).ToList();
+        proveedores = (await t2).ToList();
+
+        await Cargar();
+    }
+
+    private async Task Cargar()
+    {
+        var estadoFinal = _pillActivo switch
+        {
+            "vigentes"   => "VIGENTE",
+            "por_vencer" => "POR_VENCER",
+            "vencidas"   => "VENCIDA",
+            _ => null
+        };
+
+        _pagina = await GarantiaRepo.ObtenerPaginadoAsync(
+            _paginaActual, _tamanoPagina,
+            string.IsNullOrWhiteSpace(_filtroTexto) ? null : _filtroTexto,
+            estadoFinal,
+            null);
+
+        _metricas = await GarantiaRepo.ObtenerMetricasAsync();
+    }
+
+    private Task FiltrarTodas()   => FiltrarPorPill(null);
+    private Task FiltrarVigentes() => FiltrarPorPill("vigentes");
+    private Task FiltrarPorVencer() => FiltrarPorPill("por_vencer");
+    private Task FiltrarVencidas() => FiltrarPorPill("vencidas");
+
+    private async Task FiltrarPorPill(string? pill)
+    {
+        _pillActivo = pill;
+        _paginaActual = 1;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private void VerDetalle(GarantiaDTO g)
+    {
+        _detalle = g;
+        _detalleAbierto = true;
+        StateHasChanged();
+    }
+
+    private void CerrarDetalle()
+    {
+        _detalleAbierto = false;
+        _detalle = null;
+    }
+
+    private async Task BuscarConDebounce()
+    {
+        _debounceCts?.Cancel();
+        _debounceCts = new CancellationTokenSource();
+        var token = _debounceCts.Token;
+
+        try
+        {
+            await Task.Delay(350, token);
+            if (token.IsCancellationRequested) return;
+            _paginaActual = 1;
+            await Cargar();
+            StateHasChanged();
+        }
+        catch (TaskCanceledException) { }
+    }
+
+    private async Task LimpiarFiltro()
+    {
+        _filtroTexto = string.Empty;
+        _paginaActual = 1;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task CambioPagina(int nuevaPagina)
+    {
+        _paginaActual = nuevaPagina;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task CambioTamano(int nuevoTamano)
+    {
+        _tamanoPagina = nuevoTamano;
+        _paginaActual = 1;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private void AbrirFormulario()
+    {
+        dto = new GarantiaDTO
+        {
+            FechaInicio = DateTime.Today,
+            FechaVencimiento = DateTime.Today.AddYears(1),
+            Tipo = "FABRICA"
+        };
+        _editando = false;
+        _editandoId = 0;
+        _mostrarFormulario = true;
+    }
+
+    private void Editar(GarantiaDTO g)
+    {
+        dto = new GarantiaDTO
+        {
+            Id = g.Id,
+            BienId = g.BienId,
+            ProveedorId = g.ProveedorId,
+            NumeroGarantia = g.NumeroGarantia,
+            Tipo = g.Tipo,
+            FechaInicio = g.FechaInicio,
+            FechaVencimiento = g.FechaVencimiento,
+            Condiciones = g.Condiciones,
+            ContactoProveedor = g.ContactoProveedor,
+            Observaciones = g.Observaciones
+        };
+        _editando = true;
+        _editandoId = g.Id;
+        _mostrarFormulario = true;
+    }
+
+    private void Cancelar()
+    {
+        _mostrarFormulario = false;
+        dto = new GarantiaDTO();
+        _editando = false;
+        _editandoId = 0;
+        StateHasChanged();
+    }
+
+    private async Task Guardar()
+    {
+        if (!_editando && !puedeCrear) { Toast.Error("No tiene permiso."); return; }
+        if (_editando && !puedeEditar) { Toast.Error("No tiene permiso."); return; }
+        if (dto.BienId <= 0) { Toast.Error("Debe seleccionar un bien."); return; }
+
+        try
+        {
+            if (_editando)
+            {
+                await GarantiaRepo.ActualizarAsync(dto);
+                Toast.Exito("Garantía actualizada.");
+            }
+            else
+            {
+                await GarantiaRepo.CrearAsync(dto);
+                Toast.Exito("Garantía registrada.");
+            }
+
+            Cancelar();
+            await Cargar();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+    }
+
+    private async Task Eliminar(GarantiaDTO g)
+    {
+        var ok = await Confirm.Peligroso($"¿Eliminar la garantía de '{g.BienNombre}'?");
+        if (!ok) return;
+
+        try
+        {
+            await GarantiaRepo.EliminarAsync(g.Id);
+            Toast.Exito("Garantía eliminada.");
+            await Cargar();
+        }
+        catch (Exception ex) { Toast.Error($"Error: {ex.Message}"); }
+    }
+
+    private static string GetClaseBadgeTipo(string tipo) => tipo switch
+    {
+        "FABRICA"    => "badge-ok",
+        "EXTENDIDA"  => "badge-info",
+        "PROVEEDOR"  => "badge-neutral",
+        "OTRA"       => "badge-neutral",
+        _            => "badge-neutral"
+    };
+
+    private static string GetClaseBadgeEstado(string estado) => estado switch
+    {
+        "VIGENTE"    => "badge-ok",
+        "POR_VENCER" => "badge-warn",
+        "VENCIDA"    => "badge-danger",
+        _            => "badge-neutral"
+    };
+}
