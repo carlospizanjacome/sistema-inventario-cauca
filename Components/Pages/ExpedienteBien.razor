@@ -1,543 +1,657 @@
-﻿@page "/expediente/{Id:int}"
+﻿@page "/garantias"
 @rendermode InteractiveServer
 
+@using Almacen.Components.Shared
 @using Almacen.DTOs
 @using Almacen.Interfaces
 @using Almacen.Services
-@using System.Globalization
+@using Almacen.Helpers
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
 
-@inject IExpedienteRepository ExpedienteRepo
+@inject IGarantiaRepository GarantiaRepo
+@inject IBienRepository BienRepo
+@inject IProveedorRepository ProveedorRepo
+@inject IJSRuntime JS
 @inject SeguridadService Seguridad
 @inject NavigationManager Navigation
 @inject ToastService Toast
+@inject ConfirmService Confirm
+@inject UsuarioSesionService Sesion
 
-<PageTitle>Expediente del Bien · Almacén</PageTitle>
+<PageTitle>Garantías · Almacén</PageTitle>
 
-<style>
-    /* Ancho completo SOLO cuando la página es el Expediente del Bien */
-    .app-content:has(.page-expediente) {
-        padding-left: 16px !important;
-        padding-right: 16px !important;
-    }
+<div class="page-container page-crud page-garantias @(_mostrarFormulario ? "form-abierto" : "")">
 
-    .page-container.page-expediente {
-        max-width: 100% !important;
-        width: 100% !important;
-        margin: 0 !important;
-    }
-</style>
-
-<div class="page-container page-expediente">
-
-    @if (_cargando)
+    @if (!_mostrarFormulario)
     {
-        <div class="loading">
-            <div class="spinner"></div>
-            <p>Cargando expediente…</p>
-        </div>
-    }
-    else if (_expediente is null)
-    {
-        <div class="card-table">
-            <div class="empty-state">
-                <i class="bi bi-inbox"></i>
-                <h4>Bien no encontrado</h4>
-                <p>El bien solicitado no existe o no pertenece a su institución.</p>
-                <button class="btn-nuevo" style="margin-top:16px;" @onclick="Volver">
-                    <i class="bi bi-arrow-left"></i> Volver a Bienes
-                </button>
+        <div class="page-header">
+            <div>
+                <h1><i class="bi bi-shield-check"></i> Garantías</h1>
+                <p class="subtitle">Control de garantías vigentes y por vencer</p>
             </div>
-        </div>
-    }
-    else
-    {
-        var e = _expediente;
 
-        @* ═══════════════ HEADER ═══════════════ *@
-        <div class="exp-header">
-            <button class="btn-back" @onclick="Volver" title="Volver">
-                <i class="bi bi-arrow-left"></i>
-            </button>
-
-            <div class="exp-header-main">
-                <div class="exp-header-codigo">
-                    <code>@e.Codigo</code>
-                    @if (!string.IsNullOrEmpty(e.CodigoQr))
-                    {
-                        <span class="exp-header-qr" title="Código QR: @e.CodigoQr">
-                            <i class="bi bi-qr-code"></i>
-                        </span>
-                    }
+            @if (puedeCrear)
+            {
+                <div class="header-actions">
+                    <button class="btn-nuevo" @onclick="AbrirFormulario">
+                        <i class="bi bi-plus-lg"></i> Nueva Garantía
+                    </button>
                 </div>
-                <h1>@e.Nombre</h1>
-                @if (!string.IsNullOrWhiteSpace(e.Descripcion))
-                {
-                    <p class="exp-header-desc">@e.Descripcion</p>
-                }
-            </div>
-
-            <div class="exp-header-badges">
-                <span class="badge @GetClaseEstadoFisico(e.EstadoFisico)">
-                    <i class="bi bi-heart-pulse-fill"></i>
-                    @GetTextoEstadoFisico(e.EstadoFisico)
-                </span>
-                <span class="badge @(e.Activo ? "badge-ok" : "badge-off")">
-                    <i class="bi @(e.Activo ? "bi-check-circle-fill" : "bi-x-circle-fill")"></i>
-                    @(e.Activo ? "Activo" : "Inactivo")
-                </span>
-                <span class="badge @GetClaseTipoBien(e.TipoBien)">
-                    <i class="bi @GetIconoTipoBien(e.TipoBien)"></i>
-                    @GetTextoTipoBien(e.TipoBien)
-                </span>
-            </div>
+            }
         </div>
 
-        @* ═══════════════ KPIs ═══════════════ *@
         <section class="kpi-grid">
-            <div class="kpi-card kpi-blue">
-                <div class="kpi-icon"><i class="bi bi-currency-dollar"></i></div>
+            <div class="kpi-card kpi-green kpi-clicable" @onclick="FiltrarVigentes">
+                <div class="kpi-icon"><i class="bi bi-shield-fill-check"></i></div>
                 <div class="kpi-body">
-                    <span class="kpi-label">Valor adquisición</span>
-                    <span class="kpi-value">@e.ValorAdquisicion.ToString("C0", CulturaCOP)</span>
+                    <span class="kpi-label">Vigentes</span>
+                    <span class="kpi-value">@_metricas.Vigentes</span>
                 </div>
             </div>
-
-            <div class="kpi-card kpi-orange">
-                <div class="kpi-icon"><i class="bi bi-graph-down-arrow"></i></div>
+            <div class="kpi-card kpi-orange kpi-clicable" @onclick="FiltrarPorVencer">
+                <div class="kpi-icon"><i class="bi bi-clock-history"></i></div>
                 <div class="kpi-body">
-                    <span class="kpi-label">Depreciación acumulada</span>
-                    <span class="kpi-value">@e.DepreciacionAcumulada.ToString("C0", CulturaCOP)</span>
+                    <span class="kpi-label">Por vencer (30 días)</span>
+                    <span class="kpi-value">@_metricas.PorVencer</span>
                 </div>
             </div>
-
-            <div class="kpi-card kpi-green">
-                <div class="kpi-icon"><i class="bi bi-safe"></i></div>
+            <div class="kpi-card kpi-red kpi-clicable" @onclick="FiltrarVencidas">
+                <div class="kpi-icon"><i class="bi bi-shield-slash"></i></div>
                 <div class="kpi-body">
-                    <span class="kpi-label">Valor neto en libros</span>
-                    <span class="kpi-value">@e.ValorNeto.ToString("C0", CulturaCOP)</span>
+                    <span class="kpi-label">Vencidas</span>
+                    <span class="kpi-value">@_metricas.Vencidas</span>
                 </div>
             </div>
-
-            <div class="kpi-card kpi-indigo">
-                <div class="kpi-icon"><i class="bi bi-activity"></i></div>
+            <div class="kpi-card kpi-blue kpi-clicable" @onclick="FiltrarTodas">
+                <div class="kpi-icon"><i class="bi bi-list-ul"></i></div>
                 <div class="kpi-body">
-                    <span class="kpi-label">% Depreciado</span>
-                    <span class="kpi-value">@e.PorcentajeDepreciado.ToString("N2")%</span>
+                    <span class="kpi-label">Total histórico</span>
+                    <span class="kpi-value">@_metricas.Total</span>
                 </div>
             </div>
         </section>
 
-        @* ═══════════════ TABS ═══════════════ *@
-        <div class="exp-tabs">
-            <button class="exp-tab @(_tabActiva == "resumen" ? "active" : "")" @onclick="TabResumen">
-                <i class="bi bi-card-heading"></i> Resumen
+        <div class="pills-filter">
+            <button type="button"
+                    class="pill-btn @(_pillActivo is null ? "active-indigo" : "inactive")"
+                    @onclick="FiltrarTodas">
+                <i class="bi bi-list-ul"></i> Todas
             </button>
-            <button class="exp-tab @(_tabActiva == "movimientos" ? "active" : "")" @onclick="TabMovimientos">
-                <i class="bi bi-arrow-left-right"></i> Movimientos
-                <span class="tab-badge">@e.TotalMovimientos</span>
+            <button type="button"
+                    class="pill-btn @(_pillActivo == "vigentes" ? "active-green" : "inactive")"
+                    @onclick="FiltrarVigentes">
+                <i class="bi bi-shield-fill-check"></i> Vigentes
             </button>
-            <button class="exp-tab @(_tabActiva == "depreciacion" ? "active" : "")" @onclick="TabDepreciacion">
-                <i class="bi bi-graph-down-arrow"></i> Depreciación
-                <span class="tab-badge">@e.Depreciaciones.Count</span>
+            <button type="button"
+                    class="pill-btn @(_pillActivo == "por_vencer" ? "active-orange" : "inactive")"
+                    @onclick="FiltrarPorVencer">
+                <i class="bi bi-clock-history"></i> Por vencer
             </button>
-            <button class="exp-tab @(_tabActiva == "tomas" ? "active" : "")" @onclick="TabTomas">
-                <i class="bi bi-clipboard-check"></i> Tomas físicas
-                <span class="tab-badge">@e.TomasFisicas.Count</span>
+            <button type="button"
+                    class="pill-btn @(_pillActivo == "vencidas" ? "active-red" : "inactive")"
+                    @onclick="FiltrarVencidas">
+                <i class="bi bi-shield-slash"></i> Vencidas
             </button>
         </div>
-
-        @* ═══════════════ TAB: RESUMEN ═══════════════ *@
-        @if (_tabActiva == "resumen")
-        {
-            <div class="exp-grid-2">
-
-                <div class="exp-card">
-                    <div class="exp-card-header">
-                        <i class="bi bi-card-list"></i>
-                        <h3>Identificación</h3>
-                    </div>
-                    <dl class="exp-dl">
-                        <dt>Código</dt>
-                        <dd><code>@e.Codigo</code></dd>
-                        <dt>Categoría</dt>
-                        <dd>@(e.CategoriaNombre ?? "—")</dd>
-                        <dt>Código CGN</dt>
-                        <dd>@(string.IsNullOrEmpty(e.CodigoCgn) ? "—" : e.CodigoCgn)</dd>
-                        <dt>Marca</dt>
-                        <dd>@(e.Marca ?? "—")</dd>
-                        <dt>Modelo</dt>
-                        <dd>@(e.Modelo ?? "—")</dd>
-                        <dt>Serie</dt>
-                        <dd>@(e.Serie ?? "—")</dd>
-                        <dt>Cantidad</dt>
-                        <dd>@e.Cantidad</dd>
-                    </dl>
-                </div>
-
-                <div class="exp-card">
-                    <div class="exp-card-header">
-                        <i class="bi bi-geo-alt"></i>
-                        <h3>Ubicación y Responsable</h3>
-                    </div>
-                    <dl class="exp-dl">
-                        <dt>Institución</dt>
-                        <dd>@(e.InstitucionNombre ?? "—")</dd>
-                        <dt>Sede</dt>
-                        <dd>@(e.SedeNombre ?? "—")</dd>
-                        <dt>Bloque</dt>
-                        <dd>@(e.BloqueNombre ?? "—")</dd>
-                        <dt>Aula</dt>
-                        <dd>@(e.AulaNombre ?? "—")</dd>
-                        <dt>Responsable</dt>
-                        <dd>@(e.FuncionarioNombre ?? "—")</dd>
-                        <dt>Cédula</dt>
-                        <dd>@(e.FuncionarioCedula ?? "—")</dd>
-                        <dt>Cargo</dt>
-                        <dd>@(e.FuncionarioCargo ?? "—")</dd>
-                    </dl>
-                </div>
-
-                <div class="exp-card">
-                    <div class="exp-card-header">
-                        <i class="bi bi-calculator"></i>
-                        <h3>Valoración</h3>
-                    </div>
-                    <dl class="exp-dl">
-                        <dt>Valor adquisición</dt>
-                        <dd>@e.ValorAdquisicion.ToString("C0", CulturaCOP)</dd>
-                        <dt>Valor residual</dt>
-                        <dd>@e.ValorResidual.ToString("C0", CulturaCOP)</dd>
-                        <dt>Depreciación acumulada</dt>
-                        <dd class="text-warning">@e.DepreciacionAcumulada.ToString("C0", CulturaCOP)</dd>
-                        <dt>Valor neto</dt>
-                        <dd class="text-success"><strong>@e.ValorNeto.ToString("C0", CulturaCOP)</strong></dd>
-                        <dt>Vida útil</dt>
-                        <dd>@(e.VidaUtilMeses.HasValue ? $"{e.VidaUtilMeses.Value} meses ({e.AniosVidaUtil} años)" : "—")</dd>
-                        <dt>Fecha adquisición</dt>
-                        <dd>@(e.FechaAdquisicion?.ToString("dd/MM/yyyy") ?? "—")</dd>
-                        <dt>Último cálculo</dt>
-                        <dd>@(e.FechaUltimoCalculo?.ToString("dd/MM/yyyy HH:mm") ?? "Sin calcular")</dd>
-                    </dl>
-                </div>
-
-                <div class="exp-card">
-                    <div class="exp-card-header">
-                        <i class="bi bi-clock-history"></i>
-                        <h3>Auditoría</h3>
-                    </div>
-                    <dl class="exp-dl">
-                        <dt>Creado</dt>
-                        <dd>@e.CreatedAt.ToString("dd/MM/yyyy HH:mm")</dd>
-                        <dt>Última modificación</dt>
-                        <dd>@e.UpdatedAt.ToString("dd/MM/yyyy HH:mm")</dd>
-                        <dt>Total movimientos</dt>
-                        <dd><strong>@e.TotalMovimientos</strong></dd>
-                        <dt>Tomas físicas</dt>
-                        <dd><strong>@e.TomasFisicas.Count</strong></dd>
-                        <dt>Registros depreciación</dt>
-                        <dd><strong>@e.Depreciaciones.Count</strong></dd>
-                    </dl>
-                </div>
-            </div>
-        }
-
-        @* ═══════════════ TAB: MOVIMIENTOS ═══════════════ *@
-        @if (_tabActiva == "movimientos")
-        {
-            @if (e.TotalMovimientos == 0)
-            {
-                <div class="exp-empty">
-                    <i class="bi bi-inbox"></i>
-                    <p>Sin movimientos registrados para este bien.</p>
-                </div>
-            }
-            else
-            {
-                <div class="exp-timeline">
-
-                    @* ─── Entradas ─── *@
-                    @foreach (var en in e.Entradas)
-                    {
-                        <div class="exp-tl-item exp-tl-entrada">
-                            <div class="exp-tl-icon"><i class="bi bi-box-arrow-in-down"></i></div>
-                            <div class="exp-tl-body">
-                                <div class="exp-tl-head">
-                                    <strong>Entrada — @en.TipoFuente</strong>
-                                    <span class="exp-tl-date">@(en.FechaEntrada?.ToString("dd/MM/yyyy") ?? "—")</span>
-                                </div>
-                                <div class="exp-tl-details">
-                                    @if (!string.IsNullOrEmpty(en.NumeroFactura))
-                                    {
-                                        <span><i class="bi bi-receipt"></i> Factura: <code>@en.NumeroFactura</code></span>
-                                    }
-                                    @if (!string.IsNullOrEmpty(en.ProveedorNombre))
-                                    {
-                                        <span><i class="bi bi-shop"></i> @en.ProveedorNombre</span>
-                                    }
-                                    @if (!string.IsNullOrEmpty(en.FuncionarioNombre))
-                                    {
-                                        <span><i class="bi bi-person-check"></i> Recibió: @en.FuncionarioNombre</span>
-                                    }
-                                    <span><i class="bi bi-currency-dollar"></i> Valor: @en.Valor.ToString("C0", CulturaCOP)</span>
-                                </div>
-                                @if (!string.IsNullOrWhiteSpace(en.Observaciones))
-                                {
-                                    <p class="exp-tl-obs">@en.Observaciones</p>
-                                }
-                            </div>
-                        </div>
-                    }
-
-                    @* ─── Traslados ─── *@
-                    @foreach (var tr in e.Traslados)
-                    {
-                        <div class="exp-tl-item exp-tl-traslado">
-                            <div class="exp-tl-icon"><i class="bi bi-arrow-left-right"></i></div>
-                            <div class="exp-tl-body">
-                                <div class="exp-tl-head">
-                                    <strong>Traslado</strong>
-                                    <span class="exp-tl-date">@(tr.FechaTraslado?.ToString("dd/MM/yyyy") ?? "—")</span>
-                                </div>
-                                <div class="exp-tl-details">
-                                    <span>
-                                        <i class="bi bi-geo-alt"></i>
-                                        @(tr.AulaOrigenNombre ?? "—") → <strong>@(tr.AulaDestinoNombre ?? "—")</strong>
-                                    </span>
-                                    @if (!string.IsNullOrEmpty(tr.FuncionarioAnteriorNombre) || !string.IsNullOrEmpty(tr.FuncionarioNuevoNombre))
-                                    {
-                                        <span>
-                                            <i class="bi bi-person"></i>
-                                            @(tr.FuncionarioAnteriorNombre ?? "—") → <strong>@(tr.FuncionarioNuevoNombre ?? "—")</strong>
-                                        </span>
-                                    }
-                                </div>
-                                @if (!string.IsNullOrWhiteSpace(tr.Motivo))
-                                {
-                                    <p class="exp-tl-obs">@tr.Motivo</p>
-                                }
-                            </div>
-                        </div>
-                    }
-
-                    @* ─── Salidas ─── *@
-                    @foreach (var sa in e.Salidas)
-                    {
-                        <div class="exp-tl-item exp-tl-salida">
-                            <div class="exp-tl-icon"><i class="bi bi-box-arrow-up"></i></div>
-                            <div class="exp-tl-body">
-                                <div class="exp-tl-head">
-                                    <strong>Salida / Baja — @sa.TipoBaja</strong>
-                                    <span class="exp-tl-date">@(sa.FechaSalida?.ToString("dd/MM/yyyy") ?? "—")</span>
-                                </div>
-                                <div class="exp-tl-details">
-                                    @if (!string.IsNullOrEmpty(sa.NumeroActaComite))
-                                    {
-                                        <span><i class="bi bi-file-earmark-text"></i> Acta: <code>@sa.NumeroActaComite</code></span>
-                                    }
-                                    @if (!string.IsNullOrEmpty(sa.NumeroDenuncia))
-                                    {
-                                        <span class="text-danger"><i class="bi bi-shield-exclamation"></i> Denuncia: <code>@sa.NumeroDenuncia</code></span>
-                                    }
-                                    @if (!string.IsNullOrEmpty(sa.FuncionarioApruebaNombre))
-                                    {
-                                        <span><i class="bi bi-person-check"></i> Aprobó: @sa.FuncionarioApruebaNombre</span>
-                                    }
-                                    <span><i class="bi bi-currency-dollar"></i> Valor: @sa.ValorSalida.ToString("C0", CulturaCOP)</span>
-                                </div>
-                                @if (!string.IsNullOrWhiteSpace(sa.Motivo))
-                                {
-                                    <p class="exp-tl-obs">@sa.Motivo</p>
-                                }
-                            </div>
-                        </div>
-                    }
-
-                </div>
-            }
-        }
-
-        @* ═══════════════ TAB: DEPRECIACIÓN ═══════════════ *@
-        @if (_tabActiva == "depreciacion")
-        {
-            @if (!e.Depreciaciones.Any())
-            {
-                <div class="exp-empty">
-                    <i class="bi bi-inbox"></i>
-                    <p>Sin registros de depreciación. Ejecute el cálculo en el módulo Depreciación.</p>
-                </div>
-            }
-            else
-            {
-                <div class="exp-card">
-                    <div class="table-responsive">
-                        <table class="table modern-table">
-                            <thead>
-                                <tr>
-                                    <th>Periodo</th>
-                                    <th class="text-end">Valor inicial</th>
-                                    <th class="text-end">Deprec. mes</th>
-                                    <th class="text-end">Deprec. acum.</th>
-                                    <th class="text-end">Valor neto</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var d in e.Depreciaciones)
-                                {
-                                    <tr @key="d.Id">
-                                        <td><strong>@d.PeriodoMes.ToString("00")/@d.PeriodoAnio</strong></td>
-                                        <td class="text-end num">@d.ValorInicial.ToString("C0", CulturaCOP)</td>
-                                        <td class="text-end num text-warning">@d.DepreciacionMes.ToString("C0", CulturaCOP)</td>
-                                        <td class="text-end num">@d.DepreciacionAcumulada.ToString("C0", CulturaCOP)</td>
-                                        <td class="text-end num text-success"><strong>@d.ValorNeto.ToString("C0", CulturaCOP)</strong></td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            }
-        }
-
-        @* ═══════════════ TAB: TOMAS FÍSICAS ═══════════════ *@
-        @if (_tabActiva == "tomas")
-        {
-            @if (!e.TomasFisicas.Any())
-            {
-                <div class="exp-empty">
-                    <i class="bi bi-inbox"></i>
-                    <p>Este bien no ha participado en ninguna toma física.</p>
-                </div>
-            }
-            else
-            {
-                <div class="exp-card">
-                    <div class="table-responsive">
-                        <table class="table modern-table">
-                            <thead>
-                                <tr>
-                                    <th>Toma</th>
-                                    <th>Resultado</th>
-                                    <th>Fecha escaneo</th>
-                                    <th>Ubicación real</th>
-                                    <th>Funcionario real</th>
-                                    <th>Observaciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var t in e.TomasFisicas)
-                                {
-                                    <tr @key="t.Id">
-                                        <td>
-                                            <div class="table-cell-primary">
-                                                <strong>@t.TomaNombre</strong>
-                                                <small><code>@t.TomaCodigo</code></small>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <span class="badge @GetClaseBadgeToma(t.Tipo)">@t.Tipo</span>
-                                        </td>
-                                        <td class="text-mono">@(t.FechaEscaneo?.ToString("dd/MM/yyyy HH:mm") ?? "—")</td>
-                                        <td>@(t.UbicacionReal ?? "—")</td>
-                                        <td>@(t.FuncionarioRealNombre ?? "—")</td>
-                                        <td class="text-muted">@(t.Observaciones ?? "—")</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            }
-        }
     }
+
+    @if (_mostrarFormulario)
+    {
+        <div class="card-form">
+            <div class="form-header">
+                <div class="form-header-left">
+                    <i class="bi bi-@(_editando ? "pencil-square" : "plus-circle")"></i>
+                    <span>@(_editando ? "Editar Garantía" : "Nueva Garantía")</span>
+                </div>
+                <div class="form-header-center">
+                    <i class="bi bi-shield-check"></i>
+                    <div>
+                        <div class="form-header-title">Garantías</div>
+                        <div class="form-header-subtitle">Registro de cobertura y vigencia</div>
+                    </div>
+                </div>
+                <button class="btn-cerrar-form" @onclick="Cancelar" title="Cerrar">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <EditForm Model="dto" OnValidSubmit="Guardar">
+                <DataAnnotationsValidator />
+
+                <div class="form-grid-3">
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label>Bien *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-box-seam"></i>
+                            <InputSelect TValue="int" class="form-select" @bind-Value="dto.BienId" disabled="@_editando">
+                                <option value="0">— Seleccione bien —</option>
+                                @foreach (var b in bienes)
+                                {
+                                    <option value="@b.Id">@b.Codigo — @b.Nombre</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <ValidationMessage For="() => dto.BienId" class="form-error" />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Tipo *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-shield"></i>
+                            <InputSelect TValue="string" class="form-select" @bind-Value="dto.Tipo">
+                                <option value="FABRICA">Fábrica</option>
+                                <option value="EXTENDIDA">Extendida</option>
+                                <option value="PROVEEDOR">Proveedor</option>
+                                <option value="OTRA">Otra</option>
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>N° Garantía / Póliza</label>
+                        <div class="input-icon">
+                            <i class="bi bi-hash"></i>
+                            <InputText class="form-control" @bind-Value="dto.NumeroGarantia"
+                                       placeholder="Ej: GAR-2026-001" />
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Proveedor</label>
+                        <div class="input-icon">
+                            <i class="bi bi-shop"></i>
+                            <InputSelect TValue="int?" class="form-select" @bind-Value="dto.ProveedorId">
+                                <option value="">— Sin asignar —</option>
+                                @foreach (var p in proveedores)
+                                {
+                                    <option value="@p.Id">@p.Nombre</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Fecha inicio *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-calendar-check"></i>
+                            <InputDate TValue="DateTime" class="form-control" @bind-Value="dto.FechaInicio" />
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Fecha vencimiento *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-calendar-x"></i>
+                            <InputDate TValue="DateTime" class="form-control" @bind-Value="dto.FechaVencimiento" />
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Contacto del proveedor</label>
+                        <div class="input-icon">
+                            <i class="bi bi-telephone"></i>
+                            <InputText class="form-control" @bind-Value="dto.ContactoProveedor"
+                                       placeholder="Teléfono o email" />
+                        </div>
+                    </div>
+
+                    <div class="form-group form-group-full">
+                        <label>Condiciones</label>
+                        <div class="input-icon">
+                            <i class="bi bi-file-text"></i>
+                            <InputTextArea class="form-control" rows="2" @bind-Value="dto.Condiciones"
+                                           placeholder="Condiciones de la garantía" />
+                        </div>
+                    </div>
+
+                    <div class="form-group form-group-full">
+                        <label>Observaciones</label>
+                        <div class="input-icon">
+                            <i class="bi bi-chat-left-text"></i>
+                            <InputTextArea class="form-control" rows="2" @bind-Value="dto.Observaciones" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-cancel" @onclick="Cancelar">
+                        <i class="bi bi-x-lg"></i> Cerrar
+                    </button>
+                    <button type="submit" class="btn btn-save">
+                        <i class="bi @(_editando ? "bi-check-circle-fill" : "bi-save-fill")"></i>
+                        @(_editando ? "Actualizar" : "Guardar")
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    }
+
+    <div class="card-table">
+
+        <div class="filtros-toolbar">
+            <div class="filtro-busqueda-principal">
+                <i class="bi bi-search"></i>
+                <input type="text"
+                       placeholder="Buscar por bien, N° garantía o proveedor…"
+                       @bind="_filtroTexto"
+                       @bind:event="oninput"
+                       @bind:after="BuscarConDebounce" />
+                @if (!string.IsNullOrEmpty(_filtroTexto))
+                {
+                    <button class="filtro-clear" @onclick="LimpiarFiltro" title="Limpiar">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                }
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table modern-table">
+                <thead>
+                    <tr>
+                        <th>Bien</th>
+                        <th>N° Garantía</th>
+                        <th class="text-center">Tipo</th>
+                        <th>Proveedor</th>
+                        <th>Vence</th>
+                        <th class="text-center">Estado</th>
+                        <th class="text-center" style="width: 170px;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (_pagina is null)
+                    {
+                        <tr><td colspan="7" class="text-center py-3 text-muted">Cargando garantías…</td></tr>
+                    }
+                    else if (!_pagina.Items.Any())
+                    {
+                        <tr><td colspan="7" class="text-center py-3 text-muted">Sin garantías para mostrar.</td></tr>
+                    }
+                    else
+                    {
+                        @foreach (var g in _pagina.Items)
+                        {
+                            <tr class="table-row-hover @(g.EstaVencida ? "row-danger" : g.PorVencer ? "row-warning" : "")" @key="g.Id">
+                                <td>
+                                    <div class="table-cell-primary">
+                                        <strong>@g.BienNombre</strong>
+                                        <small><code>@g.BienCodigo</code></small>
+                                    </div>
+                                </td>
+                                <td class="text-mono">@(g.NumeroGarantia ?? "—")</td>
+                                <td class="text-center">
+                                    <span class="badge @GetClaseBadgeTipo(g.Tipo)">@g.Tipo</span>
+                                </td>
+                                <td>@(g.ProveedorNombre ?? "—")</td>
+                                <td>
+                                    <div class="table-cell-primary">
+                                        <span class="text-mono">@g.FechaVencimiento.ToString("dd/MM/yyyy")</span>
+                                        <small class="@(g.EstaVencida ? "text-danger" : g.PorVencer ? "text-warning" : "text-muted")">
+                                            @if (g.EstaVencida)
+                                            {
+                                                <span>Vencida hace @Math.Abs(g.DiasRestantes) días</span>
+                                            }
+                                            else
+                                            {
+                                                <span>@g.DiasRestantes días</span>
+                                            }
+                                        </small>
+                                    </div>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge @GetClaseBadgeEstado(g.EstadoCalculado)">@g.EstadoCalculado</span>
+                                </td>
+                                <td class="text-center">
+                                    <div class="action-buttons">
+                                        <button class="btn-action btn-action-view"
+                                                @onclick="() => VerDetalle(g)" title="Ver detalle">
+                                            <i class="bi bi-eye-fill"></i>
+                                        </button>
+
+                                        <button class="btn-action btn-action-exp"
+                                                @onclick="() => IrAlExpediente(g.BienId)" title="Ver expediente del bien">
+                                            <i class="bi bi-box-arrow-up-right"></i>
+                                        </button>
+
+                                        @if (puedeEditar)
+                                        {
+                                            <button class="btn-action btn-action-edit"
+                                                    @onclick="() => Editar(g)" title="Editar">
+                                                <i class="bi bi-pencil-fill"></i>
+                                            </button>
+                                        }
+
+                                        @if (puedeEliminar)
+                                        {
+                                            <button class="btn-action btn-action-delete"
+                                                    @onclick="() => Eliminar(g)" title="Eliminar">
+                                                <i class="bi bi-trash-fill"></i>
+                                            </button>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (_pagina is not null && _pagina.TotalRegistros > 0)
+        {
+            <Paginador T="GarantiaDTO"
+                       Resultado="_pagina"
+                       OnCambioPagina="CambioPagina"
+                       OnCambioTamano="CambioTamano" />
+        }
+    </div>
 </div>
 
+@if (_detalleAbierto && _detalle is not null)
+{
+    var g = _detalle;
+
+    <div class="modal-backdrop-det" @onclick="CerrarDetalle">
+        <div class="modal-det" @onclick:stopPropagation="true">
+            <div class="modal-det-header">
+                <div class="modal-det-header-left">
+                    <span class="badge @GetClaseBadgeEstado(g.EstadoCalculado)">@g.EstadoCalculado</span>
+                    <h3>Garantía #@g.Id</h3>
+                </div>
+                <button class="modal-det-close" @onclick="CerrarDetalle">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <div class="modal-det-body">
+                <div class="det-section">
+                    <h4><i class="bi bi-box-seam"></i> Bien</h4>
+                    <dl class="det-dl">
+                        <dt>Código</dt>
+                        <dd><code>@g.BienCodigo</code></dd>
+                        <dt>Nombre</dt>
+                        <dd><strong>@g.BienNombre</strong></dd>
+                        <dt>Categoría</dt>
+                        <dd>@(g.BienCategoriaNombre ?? "—")</dd>
+                    </dl>
+                </div>
+
+                <div class="det-section">
+                    <h4><i class="bi bi-shield-check"></i> Garantía</h4>
+                    <dl class="det-dl">
+                        <dt>Tipo</dt>
+                        <dd>@g.Tipo</dd>
+                        <dt>N°</dt>
+                        <dd>@(g.NumeroGarantia ?? "—")</dd>
+                        <dt>Proveedor</dt>
+                        <dd>@(g.ProveedorNombre ?? "—")</dd>
+                        <dt>Contacto</dt>
+                        <dd>@(g.ContactoProveedor ?? "—")</dd>
+                        <dt>Inicio</dt>
+                        <dd>@g.FechaInicio.ToString("dd/MM/yyyy")</dd>
+                        <dt>Vence</dt>
+                        <dd>@g.FechaVencimiento.ToString("dd/MM/yyyy")</dd>
+                    </dl>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(g.Condiciones))
+                {
+                    <div class="det-section">
+                        <h4><i class="bi bi-file-text"></i> Condiciones</h4>
+                        <div class="det-note"><p>@g.Condiciones</p></div>
+                    </div>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(g.Observaciones))
+                {
+                    <div class="det-section">
+                        <h4><i class="bi bi-chat-left-text"></i> Observaciones</h4>
+                        <div class="det-note"><p>@g.Observaciones</p></div>
+                    </div>
+                }
+            </div>
+
+            <div class="modal-det-footer">
+                <button class="btn-det-cerrar" @onclick="CerrarDetalle">
+                    <i class="bi bi-x-lg"></i> Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
-    [Parameter] public int Id { get; set; }
+    private ResultadoPaginado<GarantiaDTO>? _pagina;
+    private List<Bien> bienes = new();
+    private List<ProveedorDTO> proveedores = new();
+    private GarantiaDTO dto = new();
+    private (int Vigentes, int PorVencer, int Vencidas, int Total) _metricas;
 
-    private ExpedienteBienDTO? _expediente;
-    private bool _cargando = true;
-    private string _tabActiva = "resumen";
+    private bool _mostrarFormulario = false;
+    private bool _editando = false;
+    private int _editandoId = 0;
+    private int _paginaActual = 1;
+    private int _tamanoPagina = 25;
+    private string _filtroTexto = string.Empty;
+    private string? _pillActivo;
+    private CancellationTokenSource? _debounceCts;
 
-    private static readonly CultureInfo CulturaCOP =
-        CultureInfo.GetCultureInfo("es-CO");
+    private bool _detalleAbierto = false;
+    private GarantiaDTO? _detalle;
+
+    private bool puedeCrear;
+    private bool puedeEditar;
+    private bool puedeEliminar;
 
     protected override async Task OnInitializedAsync()
     {
-        if (!await Seguridad.TienePermisoAsync("bienes.ver"))
+        if (!await Seguridad.TienePermisoAsync("garantias.ver"))
         {
             Navigation.NavigateTo("/");
             return;
         }
+
+        puedeCrear    = await Seguridad.TienePermisoAsync("garantias.crear");
+        puedeEditar   = await Seguridad.TienePermisoAsync("garantias.editar");
+        puedeEliminar = await Seguridad.TienePermisoAsync("garantias.eliminar");
+
+        var t1 = BienRepo.ObtenerTodosAsync();
+        var t2 = ProveedorRepo.ObtenerTodosAsync();
+        await Task.WhenAll(t1, t2);
+
+        bienes = (await t1).ToList();
+        proveedores = (await t2).ToList();
 
         await Cargar();
     }
 
     private async Task Cargar()
     {
-        _cargando = true;
+        var estadoFinal = _pillActivo switch
+        {
+            "vigentes"   => "VIGENTE",
+            "por_vencer" => "POR_VENCER",
+            "vencidas"   => "VENCIDA",
+            _ => null
+        };
+
+        _pagina = await GarantiaRepo.ObtenerPaginadoAsync(
+            _paginaActual, _tamanoPagina,
+            string.IsNullOrWhiteSpace(_filtroTexto) ? null : _filtroTexto,
+            estadoFinal,
+            null);
+
+        _metricas = await GarantiaRepo.ObtenerMetricasAsync();
+    }
+
+    private Task FiltrarTodas()   => FiltrarPorPill(null);
+    private Task FiltrarVigentes() => FiltrarPorPill("vigentes");
+    private Task FiltrarPorVencer() => FiltrarPorPill("por_vencer");
+    private Task FiltrarVencidas() => FiltrarPorPill("vencidas");
+
+    private async Task FiltrarPorPill(string? pill)
+    {
+        _pillActivo = pill;
+        _paginaActual = 1;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private void VerDetalle(GarantiaDTO g)
+    {
+        _detalle = g;
+        _detalleAbierto = true;
+        StateHasChanged();
+    }
+
+    private void CerrarDetalle()
+    {
+        _detalleAbierto = false;
+        _detalle = null;
+    }
+
+    private void IrAlExpediente(int bienId)
+        => Navigation.NavigateTo($"/expediente/{bienId}");
+
+    private async Task BuscarConDebounce()
+    {
+        _debounceCts?.Cancel();
+        _debounceCts = new CancellationTokenSource();
+        var token = _debounceCts.Token;
+
         try
         {
-            _expediente = await ExpedienteRepo.ObtenerExpedienteAsync(Id);
+            await Task.Delay(350, token);
+            if (token.IsCancellationRequested) return;
+            _paginaActual = 1;
+            await Cargar();
+            StateHasChanged();
+        }
+        catch (TaskCanceledException) { }
+    }
+
+    private async Task LimpiarFiltro()
+    {
+        _filtroTexto = string.Empty;
+        _paginaActual = 1;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task CambioPagina(int nuevaPagina)
+    {
+        _paginaActual = nuevaPagina;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task CambioTamano(int nuevoTamano)
+    {
+        _tamanoPagina = nuevoTamano;
+        _paginaActual = 1;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private void AbrirFormulario()
+    {
+        dto = new GarantiaDTO
+        {
+            FechaInicio = DateTime.Today,
+            FechaVencimiento = DateTime.Today.AddYears(1),
+            Tipo = "FABRICA"
+        };
+        _editando = false;
+        _editandoId = 0;
+        _mostrarFormulario = true;
+    }
+
+    private void Editar(GarantiaDTO g)
+    {
+        dto = new GarantiaDTO
+        {
+            Id = g.Id,
+            BienId = g.BienId,
+            ProveedorId = g.ProveedorId,
+            NumeroGarantia = g.NumeroGarantia,
+            Tipo = g.Tipo,
+            FechaInicio = g.FechaInicio,
+            FechaVencimiento = g.FechaVencimiento,
+            Condiciones = g.Condiciones,
+            ContactoProveedor = g.ContactoProveedor,
+            Observaciones = g.Observaciones
+        };
+        _editando = true;
+        _editandoId = g.Id;
+        _mostrarFormulario = true;
+    }
+
+    private void Cancelar()
+    {
+        _mostrarFormulario = false;
+        dto = new GarantiaDTO();
+        _editando = false;
+        _editandoId = 0;
+        StateHasChanged();
+    }
+
+    private async Task Guardar()
+    {
+        if (!_editando && !puedeCrear) { Toast.Error("No tiene permiso."); return; }
+        if (_editando && !puedeEditar) { Toast.Error("No tiene permiso."); return; }
+        if (dto.BienId <= 0) { Toast.Error("Debe seleccionar un bien."); return; }
+
+        try
+        {
+            if (_editando)
+            {
+                await GarantiaRepo.ActualizarAsync(dto);
+                Toast.Exito("Garantía actualizada.");
+            }
+            else
+            {
+                await GarantiaRepo.CrearAsync(dto);
+                Toast.Exito("Garantía registrada.");
+            }
+
+            Cancelar();
+            await Cargar();
         }
         catch (Exception ex)
         {
-            Toast.Error($"Error al cargar expediente: {ex.Message}");
-        }
-        finally
-        {
-            _cargando = false;
+            Toast.Error($"Error: {ex.Message}");
         }
     }
 
-    private void Volver() => Navigation.NavigateTo("/bienes");
-
-    private void TabResumen() => _tabActiva = "resumen";
-    private void TabMovimientos() => _tabActiva = "movimientos";
-    private void TabDepreciacion() => _tabActiva = "depreciacion";
-    private void TabTomas() => _tabActiva = "tomas";
-
-    private static string GetClaseEstadoFisico(string? estado) => estado?.ToLower() switch
+    private async Task Eliminar(GarantiaDTO g)
     {
-        "bueno"   => "badge-ok",
-        "regular" => "badge-warn",
-        "malo"    => "badge-danger",
-        "baja"    => "badge-off",
-        _         => "badge-neutral"
+        var ok = await Confirm.Peligroso($"¿Eliminar la garantía de '{g.BienNombre}'?");
+        if (!ok) return;
+
+        try
+        {
+            await GarantiaRepo.EliminarAsync(g.Id);
+            Toast.Exito("Garantía eliminada.");
+            await Cargar();
+        }
+        catch (Exception ex) { Toast.Error($"Error: {ex.Message}"); }
+    }
+
+    private static string GetClaseBadgeTipo(string tipo) => tipo switch
+    {
+        "FABRICA"    => "badge-ok",
+        "EXTENDIDA"  => "badge-info",
+        "PROVEEDOR"  => "badge-neutral",
+        "OTRA"       => "badge-neutral",
+        _            => "badge-neutral"
     };
 
-    private static string GetTextoEstadoFisico(string? estado) => estado?.ToLower() switch
+    private static string GetClaseBadgeEstado(string estado) => estado switch
     {
-        "bueno"   => "Bueno",
-        "regular" => "Regular",
-        "malo"    => "Malo",
-        "baja"    => "Baja",
-        _         => "—"
-    };
-
-    private static string GetClaseTipoBien(string? tipo) => tipo switch
-    {
-        "consumo" => "badge-info",
-        _         => "badge-ok"
-    };
-
-    private static string GetIconoTipoBien(string? tipo) => tipo switch
-    {
-        "consumo" => "bi-boxes",
-        _         => "bi-box-seam"
-    };
-
-    private static string GetTextoTipoBien(string? tipo) => tipo switch
-    {
-        "consumo" => "Consumo",
-        _         => "Devolutivo"
-    };
-
-    private static string GetClaseBadgeToma(string? tipo) => tipo switch
-    {
-        "CONCILIADO" => "badge-ok",
-        "FALTANTE"   => "badge-danger",
-        "SOBRANTE"   => "badge-warn",
-        "PENDIENTE"  => "badge-neutral",
+        "VIGENTE"    => "badge-ok",
+        "POR_VENCER" => "badge-warn",
+        "VENCIDA"    => "badge-danger",
         _            => "badge-neutral"
     };
 }
