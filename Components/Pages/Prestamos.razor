@@ -1,0 +1,673 @@
+﻿@page "/prestamos"
+@rendermode InteractiveServer
+
+@using Almacen.DTOs
+@using Almacen.Interfaces
+@using Almacen.Services
+@using Almacen.Helpers
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
+@using System.Globalization
+
+@inject IPrestamoRepository PrestamoRepo
+@inject IBienRepository BienRepo
+@inject IFuncionarioRepository FuncRepo
+@inject IJSRuntime JS
+@inject SeguridadService Seguridad
+@inject NavigationManager Navigation
+@inject ToastService Toast
+@inject ConfirmService Confirm
+@inject UsuarioSesionService Sesion
+
+<PageTitle>Préstamos · Almacén</PageTitle>
+
+<style>
+    .app-content:has(.page-prestamos) {
+        padding-left: 16px !important;
+        padding-right: 16px !important;
+    }
+    .page-container.page-prestamos {
+        max-width: 100% !important;
+        width: 100% !important;
+        margin: 0 !important;
+    }
+</style>
+
+<div class="page-container page-crud page-prestamos @(_mostrarFormulario ? "form-abierto" : "")">
+
+    @if (!_mostrarFormulario)
+    {
+        <div class="page-header">
+            <div>
+                <h1><i class="bi bi-arrow-left-right"></i> Préstamos</h1>
+                <p class="subtitle">Gestión de préstamos temporales de bienes devolutivos</p>
+            </div>
+
+            @if (puedeCrear)
+            {
+                <div class="header-actions">
+                    <button class="btn-nuevo" @onclick="AbrirFormulario">
+                        <i class="bi bi-plus-lg"></i> Nuevo Préstamo
+                    </button>
+                </div>
+            }
+        </div>
+
+        @* ═══ KPIs ═══ *@
+        <section class="kpi-grid">
+            <div class="kpi-card kpi-indigo">
+                <div class="kpi-icon"><i class="bi bi-hourglass-split"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Activos</span>
+                    <span class="kpi-value">@_metricas.Activos</span>
+                </div>
+            </div>
+            <div class="kpi-card kpi-red">
+                <div class="kpi-icon"><i class="bi bi-exclamation-triangle-fill"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Vencidos</span>
+                    <span class="kpi-value">@_metricas.Vencidos</span>
+                </div>
+            </div>
+            <div class="kpi-card kpi-blue">
+                <div class="kpi-icon"><i class="bi bi-list-ul"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Total histórico</span>
+                    <span class="kpi-value">@_metricas.Total</span>
+                </div>
+            </div>
+        </section>
+    }
+
+    @if (_mostrarFormulario)
+    {
+        <div class="card-form">
+            <div class="form-header">
+                <div class="form-header-left">
+                    <i class="bi bi-plus-circle"></i>
+                    <span>Nuevo Préstamo</span>
+                </div>
+                <div class="form-header-center">
+                    <i class="bi bi-arrow-left-right"></i>
+                    <div>
+                        <div class="form-header-title">Préstamos</div>
+                        <div class="form-header-subtitle">Solicitud de préstamo temporal</div>
+                    </div>
+                </div>
+                <button class="btn-cerrar-form" @onclick="Cancelar" title="Cerrar">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <EditForm Model="dto" OnValidSubmit="Guardar">
+                <DataAnnotationsValidator />
+
+                <div class="form-grid-3">
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label>Bien a prestar *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-box-seam"></i>
+                            <InputSelect class="form-select" @bind-Value="dto.BienId">
+                                <option value="0">— Seleccione bien —</option>
+                                @foreach (var b in bienes)
+                                {
+                                    <option value="@b.Id">@b.Codigo — @b.Nombre</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <ValidationMessage For="() => dto.BienId" class="form-error" />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Solicitante *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-person-fill"></i>
+                            <InputSelect class="form-select" @bind-Value="dto.FuncionarioSolicitaId">
+                                <option value="0">— Seleccione funcionario —</option>
+                                @foreach (var f in funcionarios)
+                                {
+                                    <option value="@f.Id">@f.NombreCompleto (@f.Cedula)</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <ValidationMessage For="() => dto.FuncionarioSolicitaId" class="form-error" />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Fecha devolución prevista *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-calendar-check"></i>
+                            <InputDate class="form-control" @bind-Value="dto.FechaDevolucionPrevista" />
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label>Motivo del préstamo *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-chat-left-text"></i>
+                            <InputText class="form-control" @bind-Value="dto.Motivo"
+                                       placeholder="Ej: Capacitación docente, evento institucional…" />
+                        </div>
+                        <ValidationMessage For="() => dto.Motivo" class="form-error" />
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-cancel" @onclick="Cancelar">
+                        <i class="bi bi-x-lg"></i> Cerrar
+                    </button>
+                    <button type="submit" class="btn btn-save">
+                        <i class="bi bi-save-fill"></i> Crear solicitud
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    }
+
+    <div class="card-table">
+
+        <div class="filtros-toolbar">
+            <div class="filtro-busqueda-principal">
+                <i class="bi bi-search"></i>
+                <input type="text"
+                       placeholder="Buscar por bien, funcionario o motivo…"
+                       @bind="_filtroTexto"
+                       @bind:event="oninput"
+                       @bind:after="BuscarConDebounce" />
+                @if (!string.IsNullOrEmpty(_filtroTexto))
+                {
+                    <button class="filtro-clear" @onclick="LimpiarFiltro" title="Limpiar">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                }
+            </div>
+
+            <div class="filtros-toolbar-actions">
+                <button class="btn-filtros @(_mostrarFiltros ? "active" : "")" @onclick="ToggleFiltros">
+                    <i class="bi bi-sliders"></i>
+                    <span>Filtros</span>
+                    @if (_hayFiltrosAvanzados) { <span class="filtros-badge"></span> }
+                    <i class="bi @(_mostrarFiltros ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                </button>
+            </div>
+        </div>
+
+        @if (_mostrarFiltros)
+        {
+            <div class="panel-filtros">
+                <div class="filtros-grid">
+                    <div class="filtro-select">
+                        <i class="bi bi-circle-square"></i>
+                        <select @bind="_filtroEstado" @bind:after="AplicarFiltrosAvanzados">
+                            <option value="">Todos los estados</option>
+                            <option value="SOLICITADO">Solicitado</option>
+                            <option value="APROBADO">Aprobado</option>
+                            <option value="PRESTADO">Prestado</option>
+                            <option value="VENCIDO">Vencido</option>
+                            <option value="DEVUELTO">Devuelto</option>
+                            <option value="RECHAZADO">Rechazado</option>
+                            <option value="ANULADO">Anulado</option>
+                        </select>
+                    </div>
+                    <div class="filtro-select">
+                        <i class="bi bi-calendar"></i>
+                        <input type="date" @bind="_filtroFechaDesde" @bind:after="AplicarFiltrosAvanzados" />
+                    </div>
+                    <div class="filtro-select">
+                        <i class="bi bi-calendar"></i>
+                        <input type="date" @bind="_filtroFechaHasta" @bind:after="AplicarFiltrosAvanzados" />
+                    </div>
+                </div>
+
+                <div class="filtros-acciones">
+                    <span class="badge-total">
+                        <i class="bi bi-arrow-left-right"></i>
+                        <strong>@(_pagina?.TotalRegistros ?? 0)</strong> préstamos
+                        @if (_hayFiltrosActivos) { <span class="filtro-activo-tag">· Filtrado</span> }
+                    </span>
+                    @if (_hayFiltrosAvanzados)
+                    {
+                        <button class="btn-limpiar-filtros" @onclick="LimpiarTodosLosFiltros">
+                            <i class="bi bi-arrow-counterclockwise"></i>
+                            Limpiar filtros
+                        </button>
+                    }
+                </div>
+            </div>
+        }
+
+        <div class="table-responsive">
+            <table class="table modern-table">
+                <thead>
+                    <tr>
+                        <th>Bien</th>
+                        <th>Solicitante</th>
+                        <th>Solicitado</th>
+                        <th>Devolución prevista</th>
+                        <th class="text-center">Estado</th>
+                        <th class="text-center" style="width: 200px;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (_pagina is null)
+                    {
+                        <tr><td colspan="6" class="text-center py-3 text-muted">Cargando préstamos…</td></tr>
+                    }
+                    else if (!_pagina.Items.Any())
+                    {
+                        <tr><td colspan="6" class="text-center py-3 text-muted">Sin préstamos para mostrar.</td></tr>
+                    }
+                    else
+                    {
+                        @foreach (var p in _pagina.Items)
+                        {
+                            <tr class="table-row-hover @(p.Estado == "VENCIDO" ? "row-warning" : "")" @key="p.Id">
+                                <td>
+                                    <div class="table-cell-primary">
+                                        <strong>@p.BienNombre</strong>
+                                        <small><code>@p.BienCodigo</code> · @p.BienCategoriaNombre</small>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="table-cell-primary">
+                                        <strong>@p.FuncionarioSolicitaNombre</strong>
+                                        <small>@p.FuncionarioSolicitaCedula</small>
+                                    </div>
+                                </td>
+                                <td class="text-mono">@p.FechaSolicitud.ToString("dd/MM/yyyy")</td>
+                                <td>
+                                    <div class="table-cell-primary">
+                                        <span class="text-mono">@p.FechaDevolucionPrevista.ToString("dd/MM/yyyy")</span>
+                                        @if (p.DiasRestantes.HasValue && p.Estado == "PRESTADO")
+                                        {
+                                            <small class="@(p.DiasRestantes < 0 ? "text-danger" : "text-muted")">
+                                                @if (p.DiasRestantes < 0)
+                                                {
+                                                    <span>@Math.Abs(p.DiasRestantes.Value) días vencido</span>
+                                                }
+                                                else
+                                                {
+                                                    <span>@p.DiasRestantes.Value días restantes</span>
+                                                }
+                                            </small>
+                                        }
+                                    </div>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge @GetClaseBadgeEstado(p.Estado)">@p.Estado</span>
+                                </td>
+                                <td class="text-center">
+                                    <div class="action-buttons">
+                                        @if (p.Estado == "SOLICITADO" && puedeAprobar)
+                                        {
+                                            <button class="btn-action btn-action-ok"
+                                                    @onclick="() => Aprobar(p)" title="Aprobar">
+                                                <i class="bi bi-check-lg"></i>
+                                            </button>
+                                            <button class="btn-action btn-action-delete"
+                                                    @onclick="() => Rechazar(p)" title="Rechazar">
+                                                <i class="bi bi-x-lg"></i>
+                                            </button>
+                                        }
+
+                                        @if (p.Estado == "APROBADO" && puedeEntregar)
+                                        {
+                                            <button class="btn-action btn-action-ok"
+                                                    @onclick="() => Entregar(p)" title="Registrar entrega">
+                                                <i class="bi bi-box-arrow-up-right"></i>
+                                            </button>
+                                        }
+
+                                        @if ((p.Estado == "PRESTADO" || p.Estado == "VENCIDO") && puedeDevolver)
+                                        {
+                                            <button class="btn-action btn-action-ok"
+                                                    @onclick="() => Devolver(p)" title="Registrar devolución">
+                                                <i class="bi bi-box-arrow-in-down"></i>
+                                            </button>
+                                        }
+
+                                        @if ((p.Estado == "SOLICITADO" || p.Estado == "APROBADO") && puedeAprobar)
+                                        {
+                                            <button class="btn-action btn-action-delete"
+                                                    @onclick="() => Anular(p)" title="Anular">
+                                                <i class="bi bi-slash-circle"></i>
+                                            </button>
+                                        }
+
+                                        @if ((p.Estado == "RECHAZADO" || p.Estado == "ANULADO" || p.Estado == "DEVUELTO") && puedeEliminar)
+                                        {
+                                            <button class="btn-action btn-action-delete"
+                                                    @onclick="() => Eliminar(p)" title="Eliminar del histórico">
+                                                <i class="bi bi-trash-fill"></i>
+                                            </button>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (_pagina is not null && _pagina.TotalRegistros > 0)
+        {
+            <Paginador T="PrestamoDTO"
+                       Resultado="_pagina"
+                       OnCambioPagina="CambioPagina"
+                       OnCambioTamano="CambioTamano" />
+        }
+    </div>
+</div>
+
+@code {
+    private static readonly CultureInfo CulturaCOP = CultureInfo.GetCultureInfo("es-CO");
+
+    private ResultadoPaginado<PrestamoDTO>? _pagina;
+    private List<Bien> bienes = new();
+    private List<FuncionarioDTO> funcionarios = new();
+    private PrestamoDTO dto = new();
+    private (int Activos, int Vencidos, int Total) _metricas;
+
+    private bool _mostrarFormulario = false;
+    private bool _mostrarFiltros = false;
+    private int _paginaActual = 1;
+    private int _tamanoPagina = 25;
+    private string _filtroTexto = string.Empty;
+    private string? _filtroEstado;
+    private DateTime? _filtroFechaDesde;
+    private DateTime? _filtroFechaHasta;
+    private CancellationTokenSource? _debounceCts;
+
+    private bool puedeCrear;
+    private bool puedeAprobar;
+    private bool puedeEntregar;
+    private bool puedeDevolver;
+    private bool puedeEliminar;
+
+    private bool _hayFiltrosActivos =>
+        !string.IsNullOrEmpty(_filtroTexto) ||
+        !string.IsNullOrEmpty(_filtroEstado) ||
+        _filtroFechaDesde.HasValue || _filtroFechaHasta.HasValue;
+
+    private bool _hayFiltrosAvanzados =>
+        !string.IsNullOrEmpty(_filtroEstado) ||
+        _filtroFechaDesde.HasValue || _filtroFechaHasta.HasValue;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await Seguridad.TienePermisoAsync("prestamos.ver"))
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+
+        puedeCrear    = await Seguridad.TienePermisoAsync("prestamos.crear");
+        puedeAprobar  = await Seguridad.TienePermisoAsync("prestamos.aprobar");
+        puedeEntregar = await Seguridad.TienePermisoAsync("prestamos.entregar");
+        puedeDevolver = await Seguridad.TienePermisoAsync("prestamos.devolver");
+        puedeEliminar = await Seguridad.TienePermisoAsync("prestamos.eliminar");
+
+        // Marca vencidos antes de cargar
+        await PrestamoRepo.ActualizarVencidosAsync();
+
+        var t1 = BienRepo.ObtenerTodosAsync();
+        var t2 = FuncRepo.ObtenerTodosAsync();
+        await Task.WhenAll(t1, t2);
+
+        bienes = (await t1).ToList();
+        funcionarios = (await t2).ToList();
+
+        await Cargar();
+    }
+
+    private async Task Cargar()
+    {
+        _pagina = await PrestamoRepo.ObtenerPaginadoAsync(
+            _paginaActual, _tamanoPagina,
+            string.IsNullOrWhiteSpace(_filtroTexto) ? null : _filtroTexto,
+            _filtroEstado,
+            _filtroFechaDesde,
+            _filtroFechaHasta);
+
+        _metricas = await PrestamoRepo.ObtenerMetricasAsync();
+    }
+
+    private async Task BuscarConDebounce()
+    {
+        _debounceCts?.Cancel();
+        _debounceCts = new CancellationTokenSource();
+        var token = _debounceCts.Token;
+
+        try
+        {
+            await Task.Delay(350, token);
+            if (token.IsCancellationRequested) return;
+            _paginaActual = 1;
+            await Cargar();
+            StateHasChanged();
+        }
+        catch (TaskCanceledException) { }
+    }
+
+    private async Task LimpiarFiltro()
+    {
+        _filtroTexto = string.Empty;
+        _paginaActual = 1;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task LimpiarTodosLosFiltros()
+    {
+        _filtroTexto = string.Empty;
+        _filtroEstado = null;
+        _filtroFechaDesde = null;
+        _filtroFechaHasta = null;
+        _paginaActual = 1;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task AplicarFiltrosAvanzados()
+    {
+        _paginaActual = 1;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task CambioPagina(int nuevaPagina)
+    {
+        _paginaActual = nuevaPagina;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task CambioTamano(int nuevoTamano)
+    {
+        _tamanoPagina = nuevoTamano;
+        _paginaActual = 1;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private void ToggleFiltros()
+    {
+        if (_mostrarFormulario)
+        {
+            _mostrarFormulario = false;
+        }
+        _mostrarFiltros = !_mostrarFiltros;
+    }
+
+    private void AbrirFormulario()
+    {
+        dto = new PrestamoDTO
+        {
+            FechaDevolucionPrevista = DateTime.Today.AddDays(7)
+        };
+        _mostrarFormulario = true;
+        _mostrarFiltros = false;
+    }
+
+    private void Cancelar()
+    {
+        _mostrarFormulario = false;
+        dto = new PrestamoDTO();
+        StateHasChanged();
+    }
+
+    private async Task Guardar()
+    {
+        if (!puedeCrear) { Toast.Error("No tiene permiso."); return; }
+        if (dto.BienId <= 0) { Toast.Error("Debe seleccionar un bien."); return; }
+        if (dto.FuncionarioSolicitaId <= 0) { Toast.Error("Debe seleccionar el solicitante."); return; }
+        if (dto.FechaDevolucionPrevista.Date < DateTime.Today) { Toast.Error("La fecha prevista no puede ser anterior a hoy."); return; }
+
+        try
+        {
+            await PrestamoRepo.CrearAsync(dto);
+            Toast.Exito("Solicitud creada. Pendiente de aprobación.");
+            Cancelar();
+            await Cargar();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+    }
+
+    private async Task Aprobar(PrestamoDTO p)
+    {
+        var ok = await Confirm.Preguntar(new ConfirmOpciones
+        {
+            Titulo = "Aprobar préstamo",
+            Mensaje = $"¿Aprobar el préstamo del bien '{p.BienNombre}' a {p.FuncionarioSolicitaNombre}?",
+            Icono = "bi-check-circle-fill",
+            ColorBoton = "#16a34a",
+            TextoConfirmar = "Sí, aprobar"
+        });
+        if (!ok) return;
+
+        try
+        {
+            var funcId = Sesion.UsuarioActual?.Id ?? 0;
+            // El funcionario que aprueba es el usuario actual (mapeo por usuario_id en funcionarios)
+            var funcionarioAprueba = funcionarios.FirstOrDefault();
+            if (funcionarioAprueba is null)
+            {
+                Toast.Error("No hay funcionarios registrados.");
+                return;
+            }
+
+            await PrestamoRepo.AprobarAsync(p.Id, funcionarioAprueba.Id);
+            Toast.Exito("Préstamo aprobado.");
+            await Cargar();
+        }
+        catch (Exception ex) { Toast.Error($"Error: {ex.Message}"); }
+    }
+
+    private async Task Rechazar(PrestamoDTO p)
+    {
+        var ok = await Confirm.Preguntar(new ConfirmOpciones
+        {
+            Titulo = "Rechazar solicitud",
+            Mensaje = $"¿Rechazar la solicitud de '{p.FuncionarioSolicitaNombre}' para el bien '{p.BienNombre}'?",
+            Icono = "bi-x-circle-fill",
+            ColorBoton = "#dc2626",
+            EsPeligroso = true,
+            TextoConfirmar = "Sí, rechazar"
+        });
+        if (!ok) return;
+
+        try
+        {
+            await PrestamoRepo.RechazarAsync(p.Id, "Rechazado por el administrador");
+            Toast.Warning("Solicitud rechazada.");
+            await Cargar();
+        }
+        catch (Exception ex) { Toast.Error($"Error: {ex.Message}"); }
+    }
+
+    private async Task Entregar(PrestamoDTO p)
+    {
+        var ok = await Confirm.Preguntar(new ConfirmOpciones
+        {
+            Titulo = "Registrar entrega",
+            Mensaje = $"Confirma la entrega física del bien '{p.BienNombre}' a {p.FuncionarioSolicitaNombre}.",
+            Icono = "bi-box-arrow-up-right",
+            ColorBoton = "#4f46e5",
+            TextoConfirmar = "Sí, entregar"
+        });
+        if (!ok) return;
+
+        try
+        {
+            await PrestamoRepo.EntregarAsync(p.Id, "bueno", "Entregado en buen estado");
+            Toast.Exito("Entrega registrada. El bien está en préstamo.");
+            await Cargar();
+        }
+        catch (Exception ex) { Toast.Error($"Error: {ex.Message}"); }
+    }
+
+    private async Task Devolver(PrestamoDTO p)
+    {
+        var ok = await Confirm.Preguntar(new ConfirmOpciones
+        {
+            Titulo = "Registrar devolución",
+            Mensaje = $"Confirma la devolución del bien '{p.BienNombre}' por {p.FuncionarioSolicitaNombre}.",
+            Icono = "bi-box-arrow-in-down",
+            ColorBoton = "#16a34a",
+            TextoConfirmar = "Sí, devolver"
+        });
+        if (!ok) return;
+
+        try
+        {
+            await PrestamoRepo.DevolverAsync(p.Id, "bueno", "Devuelto en buen estado");
+            Toast.Exito("Devolución registrada.");
+            await Cargar();
+        }
+        catch (Exception ex) { Toast.Error($"Error: {ex.Message}"); }
+    }
+
+    private async Task Anular(PrestamoDTO p)
+    {
+        var ok = await Confirm.Peligroso($"¿Anular el préstamo del bien '{p.BienNombre}'?");
+        if (!ok) return;
+
+        try
+        {
+            await PrestamoRepo.AnularAsync(p.Id);
+            Toast.Warning("Préstamo anulado.");
+            await Cargar();
+        }
+        catch (Exception ex) { Toast.Error($"Error: {ex.Message}"); }
+    }
+
+    private async Task Eliminar(PrestamoDTO p)
+    {
+        var ok = await Confirm.Peligroso($"¿Eliminar del histórico el préstamo del bien '{p.BienNombre}'?");
+        if (!ok) return;
+
+        try
+        {
+            await PrestamoRepo.EliminarAsync(p.Id);
+            Toast.Exito("Préstamo eliminado.");
+            await Cargar();
+        }
+        catch (Exception ex) { Toast.Error($"Error: {ex.Message}"); }
+    }
+
+    private static string GetClaseBadgeEstado(string estado) => estado switch
+    {
+        "SOLICITADO" => "badge-info",
+        "APROBADO"   => "badge-neutral",
+        "PRESTADO"   => "badge-ok",
+        "VENCIDO"    => "badge-danger",
+        "DEVUELTO"   => "badge-ok",
+        "RECHAZADO"  => "badge-off",
+        "ANULADO"    => "badge-off",
+        _            => "badge-neutral"
+    };
+}

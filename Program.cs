@@ -49,6 +49,8 @@ builder.Services.AddScoped<IReporteRepository, ReporteRepository>();
 builder.Services.AddScoped<ITomaFisicaRepository, TomaFisicaRepository>();
 builder.Services.AddScoped<IExpedienteRepository, ExpedienteRepository>();
 
+builder.Services.AddScoped<IPrestamoRepository, PrestamoRepository>();
+
 builder.Services.AddScoped<QrService>();
 builder.Services.AddScoped<ArchivoService>();
 builder.Services.AddScoped<NpgsqlConnectionFactory>();

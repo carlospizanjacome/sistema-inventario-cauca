@@ -44,17 +44,16 @@
         })
 
         <!-- INVENTARIO -->
-                 @RenderSeccion("inventario", "Inventario", "bi-boxes", new[]
-            {
-                new ItemMenu("categorias",        "Categorías",         "bi-tags-fill",              "categorias.ver"),
-                new ItemMenu("bienes",            "Bienes",             "bi-box-fill",               "bienes.ver"),
-                new ItemMenu("imprimir-qr",       "Imprimir QRs",       "bi-qr-code",                "bienes.ver"),   // ⬅️ NUEVA
-                new ItemMenu("proveedores",       "Proveedores",        "bi-shop",                   "proveedores.ver"),
-                new ItemMenu("consumo",           "Consumo",            "bi-boxes",                  "consumo.ver"),
-                new ItemMenu("kardex",            "Kárdex",             "bi-journal-text",           "kardex.ver"),
-
-                new ItemMenu("toma-fisica",       "Toma Física",        "bi-clipboard-check",        "toma_fisica.ver"),
-            })
+        @RenderSeccion("inventario", "Inventario", "bi-boxes", new[]
+        {
+            new ItemMenu("categorias",        "Categorías",         "bi-tags-fill",              "categorias.ver"),
+            new ItemMenu("bienes",            "Bienes",             "bi-box-fill",               "bienes.ver"),
+            new ItemMenu("imprimir-qr",       "Imprimir QRs",       "bi-qr-code",                "bienes.ver"),
+            new ItemMenu("proveedores",       "Proveedores",        "bi-shop",                   "proveedores.ver"),
+            new ItemMenu("consumo",           "Consumo",            "bi-boxes",                  "consumo.ver"),
+            new ItemMenu("kardex",            "Kárdex",             "bi-journal-text",           "kardex.ver"),
+            new ItemMenu("toma-fisica",       "Toma Física",        "bi-clipboard-check",        "toma_fisica.ver"),
+        })
 
         <!-- MOVIMIENTOS -->
         @RenderSeccion("movimientos", "Movimientos", "bi-arrow-left-right", new[]
@@ -62,10 +61,11 @@
             new ItemMenu("entradas",  "Entradas",   "bi-arrow-down-circle-fill", "entradas.ver"),
             new ItemMenu("salidas",   "Salidas",    "bi-arrow-up-circle-fill",   "salidas.ver"),
             new ItemMenu("traslados", "Traslados",  "bi-arrow-left-right",       "traslados.ver"),
+            new ItemMenu("prestamos", "Préstamos",  "bi-arrow-repeat",           "prestamos.ver"),
         })
 
         <!-- PERSONAL -->
-      @RenderSeccion("personal", "Personal", "bi-people", new[]
+        @RenderSeccion("personal", "Personal", "bi-people", new[]
         {
             new ItemMenu("funcionarios",  "Funcionarios",  "bi-person-badge-fill", "funcionarios.ver"),
             new ItemMenu("cuentandantes", "Cuentandantes", "bi-person-check-fill", "funcionarios.ver"),
@@ -92,7 +92,7 @@
             new ItemMenu("vidas-utiles", "Vidas Útiles", "bi-clock-history", "vidas_utiles.ver"),
         })
 
-          <!-- REPORTES -->
+        <!-- REPORTES -->
         @RenderSeccion("reportes", "Reportes", "bi-file-earmark-bar-graph", new[]
         {
             new ItemMenu("reportes", "Reportes Consolidados", "bi-graph-up-arrow", "reportes.ver"),
@@ -137,15 +137,15 @@
 
     protected override async Task OnInitializedAsync()
     {
-       var codigos = new[]
+        var codigos = new[]
         {
             "instituciones.ver", "sedes.ver", "bloques.ver", "aulas.ver",
             "categorias.ver", "bienes.ver", "proveedores.ver", "funcionarios.ver",
             "consumo.ver", "kardex.ver",
-            "entradas.ver", "salidas.ver", "traslados.ver",
+            "entradas.ver", "salidas.ver", "traslados.ver", "prestamos.ver",
             "depreciacion.ver",
             "reportes.ver",
-            "toma_fisica.ver",                       // ⬅️ NUEVA
+            "toma_fisica.ver",
             "usuarios.ver", "roles.ver", "permisos.ver", "roles.permisos",
             "vidas_utiles.ver"
         };
@@ -172,20 +172,16 @@
 
     private void AutoAbrirSeccionActual()
     {
-      var todas = new Dictionary<string, string[]>
+        var todas = new Dictionary<string, string[]>
         {
             ["estructura"]    = new[] { "instituciones", "sedes", "bloques", "aulas" },
-
-            ["inventario"] = new[] { "categorias", "bienes", "imprimir-qr", "proveedores", "consumo", "kardex", "toma-fisica" },  
-        
-            ["movimientos"]   = new[] { "entradas", "salidas", "traslados" },
+            ["inventario"]    = new[] { "categorias", "bienes", "imprimir-qr", "proveedores", "consumo", "kardex", "toma-fisica" },
+            ["movimientos"]   = new[] { "entradas", "salidas", "traslados", "prestamos" },
             ["personal"]      = new[] { "funcionarios" },
             ["contabilidad"]  = new[] { "depreciacion" },
             ["seguridad"]     = new[] { "usuarios", "roles", "permisos", "rol-permisos" },
             ["configuracion"] = new[] { "vidas-utiles" },
-            ["reportes"] = new[] { "reportes" },
-
-           
+            ["reportes"]      = new[] { "reportes" },
         };
 
         foreach (var (key, rutas) in todas)
