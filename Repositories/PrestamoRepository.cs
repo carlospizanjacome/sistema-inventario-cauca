@@ -282,22 +282,22 @@ public class PrestamoRepository : IPrestamoRepository
         return await cn.ExecuteAsync(sql, new { InstitucionId = _sesion.InstitucionId });
     }
 
-    public async Task<(int Activos, int Vencidos, int Total)> ObtenerMetricasAsync()
+    public async Task<(int Activos, int Vencidos, int Devueltos, int Total)> ObtenerMetricasAsync()
     {
         var (filtroInst, _) = FiltroInstitucion.Construir(
             _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "p");
 
         var sql = $@"
-            SELECT
-                COUNT(*) FILTER (WHERE p.estado IN ('SOLICITADO','APROBADO','PRESTADO','VENCIDO'))::int AS Activos,
-                COUNT(*) FILTER (WHERE p.estado = 'VENCIDO')::int AS Vencidos,
-                COUNT(*)::int AS Total
-            FROM prestamos p
-            WHERE 1=1 {filtroInst};";
+        SELECT
+            COUNT(*) FILTER (WHERE p.estado IN ('SOLICITADO','APROBADO','PRESTADO','VENCIDO'))::int AS Activos,
+            COUNT(*) FILTER (WHERE p.estado = 'VENCIDO')::int AS Vencidos,
+            COUNT(*) FILTER (WHERE p.estado = 'DEVUELTO')::int AS Devueltos,
+            COUNT(*)::int AS Total
+        FROM prestamos p
+        WHERE 1=1 {filtroInst};";
 
         using var cn = new NpgsqlConnection(_cs);
-        var r = await cn.QueryFirstAsync<(int Activos, int Vencidos, int Total)>(
+        return await cn.QueryFirstAsync<(int Activos, int Vencidos, int Devueltos, int Total)>(
             sql, new { InstitucionId = _sesion.InstitucionId });
-        return r;
     }
 }

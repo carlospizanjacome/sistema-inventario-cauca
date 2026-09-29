@@ -27,5 +27,5 @@ public interface IPrestamoRepository
     Task<int> ActualizarVencidosAsync();
 
     /// <summary>KPIs para el header.</summary>
-    Task<(int Activos, int Vencidos, int Total)> ObtenerMetricasAsync();
+    Task<(int Activos, int Vencidos, int Devueltos, int Total)> ObtenerMetricasAsync();
 }

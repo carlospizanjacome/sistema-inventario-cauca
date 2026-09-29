@@ -12,6 +12,7 @@
 @inject IPrestamoRepository PrestamoRepo
 @inject IBienRepository BienRepo
 @inject IFuncionarioRepository FuncRepo
+@inject IInstitucionRepository InstRepo
 @inject IJSRuntime JS
 @inject SeguridadService Seguridad
 @inject NavigationManager Navigation
@@ -21,25 +22,13 @@
 
 <PageTitle>Préstamos · Almacén</PageTitle>
 
-<style>
-    .app-content:has(.page-prestamos) {
-        padding-left: 16px !important;
-        padding-right: 16px !important;
-    }
-    .page-container.page-prestamos {
-        max-width: 100% !important;
-        width: 100% !important;
-        margin: 0 !important;
-    }
-</style>
-
 <div class="page-container page-crud page-prestamos @(_mostrarFormulario ? "form-abierto" : "")">
 
     @if (!_mostrarFormulario)
     {
         <div class="page-header">
             <div>
-                <h1><i class="bi bi-arrow-left-right"></i> Préstamos</h1>
+                <h1><i class="bi bi-arrow-repeat"></i> Préstamos</h1>
                 <p class="subtitle">Gestión de préstamos temporales de bienes devolutivos</p>
             </div>
 
@@ -53,23 +42,30 @@
             }
         </div>
 
-        @* ═══ KPIs ═══ *@
+        @* ═══ KPIs clicables ═══ *@
         <section class="kpi-grid">
-            <div class="kpi-card kpi-indigo">
+            <div class="kpi-card kpi-indigo kpi-clicable" @onclick="FiltrarActivos">
                 <div class="kpi-icon"><i class="bi bi-hourglass-split"></i></div>
                 <div class="kpi-body">
                     <span class="kpi-label">Activos</span>
                     <span class="kpi-value">@_metricas.Activos</span>
                 </div>
             </div>
-            <div class="kpi-card kpi-red">
+            <div class="kpi-card kpi-red kpi-clicable" @onclick="FiltrarVencidos">
                 <div class="kpi-icon"><i class="bi bi-exclamation-triangle-fill"></i></div>
                 <div class="kpi-body">
                     <span class="kpi-label">Vencidos</span>
                     <span class="kpi-value">@_metricas.Vencidos</span>
                 </div>
             </div>
-            <div class="kpi-card kpi-blue">
+            <div class="kpi-card kpi-green kpi-clicable" @onclick="FiltrarDevueltos">
+                <div class="kpi-icon"><i class="bi bi-check-circle-fill"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Devueltos</span>
+                    <span class="kpi-value">@_metricas.Devueltos</span>
+                </div>
+            </div>
+            <div class="kpi-card kpi-blue kpi-clicable" @onclick="FiltrarTodos">
                 <div class="kpi-icon"><i class="bi bi-list-ul"></i></div>
                 <div class="kpi-body">
                     <span class="kpi-label">Total histórico</span>
@@ -77,6 +73,35 @@
                 </div>
             </div>
         </section>
+
+        @* ═══ Pills de filtro rápido ═══ *@
+        <div class="pills-filter">
+            <button type="button"
+                    class="pill-btn @(_pillActivo is null ? "active-indigo" : "inactive")"
+                    @onclick="FiltrarTodos">
+                <i class="bi bi-list-ul"></i> Todos
+            </button>
+            <button type="button"
+                    class="pill-btn @(_pillActivo == "activos" ? "active-indigo" : "inactive")"
+                    @onclick="FiltrarActivos">
+                <i class="bi bi-hourglass-split"></i> Activos
+            </button>
+            <button type="button"
+                    class="pill-btn @(_pillActivo == "vencidos" ? "active-red" : "inactive")"
+                    @onclick="FiltrarVencidos">
+                <i class="bi bi-exclamation-triangle-fill"></i> Vencidos
+            </button>
+            <button type="button"
+                    class="pill-btn @(_pillActivo == "devueltos" ? "active-green" : "inactive")"
+                    @onclick="FiltrarDevueltos">
+                <i class="bi bi-check-circle-fill"></i> Devueltos
+            </button>
+            <button type="button"
+                    class="pill-btn @(_pillActivo == "historico" ? "active-gray" : "inactive")"
+                    @onclick="FiltrarHistorico">
+                <i class="bi bi-archive-fill"></i> Histórico
+            </button>
+        </div>
     }
 
     @if (_mostrarFormulario)
@@ -88,7 +113,7 @@
                     <span>Nuevo Préstamo</span>
                 </div>
                 <div class="form-header-center">
-                    <i class="bi bi-arrow-left-right"></i>
+                    <i class="bi bi-arrow-repeat"></i>
                     <div>
                         <div class="form-header-title">Préstamos</div>
                         <div class="form-header-subtitle">Solicitud de préstamo temporal</div>
@@ -221,7 +246,7 @@
 
                 <div class="filtros-acciones">
                     <span class="badge-total">
-                        <i class="bi bi-arrow-left-right"></i>
+                        <i class="bi bi-arrow-repeat"></i>
                         <strong>@(_pagina?.TotalRegistros ?? 0)</strong> préstamos
                         @if (_hayFiltrosActivos) { <span class="filtro-activo-tag">· Filtrado</span> }
                     </span>
@@ -241,11 +266,11 @@
                 <thead>
                     <tr>
                         <th>Bien</th>
-                        <th>Solicitante</th>
+                        <th>En poder de</th>
                         <th>Solicitado</th>
                         <th>Devolución prevista</th>
                         <th class="text-center">Estado</th>
-                        <th class="text-center" style="width: 200px;">Acciones</th>
+                        <th class="text-center" style="width: 220px;">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -269,16 +294,37 @@
                                     </div>
                                 </td>
                                 <td>
-                                    <div class="table-cell-primary">
-                                        <strong>@p.FuncionarioSolicitaNombre</strong>
-                                        <small>@p.FuncionarioSolicitaCedula</small>
-                                    </div>
+                                    @if (p.Estado == "PRESTADO" || p.Estado == "VENCIDO")
+                                    {
+                                        <div class="table-cell-primary">
+                                            <strong class="@(p.Estado == "VENCIDO" ? "text-danger" : "")">
+                                                <i class="bi bi-person-fill"></i> @p.FuncionarioSolicitaNombre
+                                            </strong>
+                                            <small>@p.FuncionarioSolicitaCedula</small>
+                                        </div>
+                                    }
+                                    else if (p.Estado == "DEVUELTO")
+                                    {
+                                        <span class="text-success">
+                                            <i class="bi bi-check-circle-fill"></i> Devuelto a la IE
+                                        </span>
+                                    }
+                                    else if (p.Estado == "SOLICITADO" || p.Estado == "APROBADO")
+                                    {
+                                        <span class="text-muted">
+                                            <i class="bi bi-building"></i> En almacén
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
                                 </td>
                                 <td class="text-mono">@p.FechaSolicitud.ToString("dd/MM/yyyy")</td>
                                 <td>
                                     <div class="table-cell-primary">
                                         <span class="text-mono">@p.FechaDevolucionPrevista.ToString("dd/MM/yyyy")</span>
-                                        @if (p.DiasRestantes.HasValue && p.Estado == "PRESTADO")
+                                        @if (p.DiasRestantes.HasValue && (p.Estado == "PRESTADO" || p.Estado == "VENCIDO"))
                                         {
                                             <small class="@(p.DiasRestantes < 0 ? "text-danger" : "text-muted")">
                                                 @if (p.DiasRestantes < 0)
@@ -298,6 +344,11 @@
                                 </td>
                                 <td class="text-center">
                                     <div class="action-buttons">
+                                        <button class="btn-action btn-action-view"
+                                                @onclick="() => VerDetalle(p)" title="Ver detalle">
+                                            <i class="bi bi-eye-fill"></i>
+                                        </button>
+
                                         @if (p.Estado == "SOLICITADO" && puedeAprobar)
                                         {
                                             <button class="btn-action btn-action-ok"
@@ -360,6 +411,217 @@
     </div>
 </div>
 
+@* ═══════════════ MODAL — Detalle del préstamo ═══════════════ *@
+@if (_detalleAbierto && _prestamoDetalle is not null)
+{
+    var p = _prestamoDetalle;
+
+    <div class="modal-backdrop-det" @onclick="CerrarDetalle">
+        <div class="modal-det" @onclick:stopPropagation="true">
+
+            <div class="modal-det-header no-print">
+                <div class="modal-det-header-left">
+                    <span class="badge @GetClaseBadgeEstado(p.Estado)">@p.Estado</span>
+                    <h3>Préstamo #@p.Id</h3>
+                </div>
+                <button class="modal-det-close no-print" @onclick="CerrarDetalle" title="Cerrar">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <div class="modal-det-body">
+
+                @* ═══ ENCABEZADO INSTITUCIONAL (solo impresión) ═══ *@
+                <div class="acta-header">
+                    <div class="acta-header-left">
+                        <h2>@Sesion.InstitucionNombre</h2>
+                        <p>NIT: @_institucionNit</p>
+                        @if (!string.IsNullOrEmpty(_institucionDane))
+                        {
+                            <p>Código DANE: @_institucionDane</p>
+                        }
+                    </div>
+                    <div class="acta-header-right">
+                        <div class="acta-title">ACTA DE PRÉSTAMO</div>
+                        <div class="acta-code">N° PRE-@DateTime.Now.Year-@p.Id.ToString("D4")</div>
+                        <div class="acta-date">Expedida: @DateTime.Now.ToString("dd/MM/yyyy HH:mm")</div>
+                    </div>
+                </div>
+
+                <div class="det-section">
+                    <h4><i class="bi bi-box-seam"></i> Bien prestado</h4>
+                    <dl class="det-dl">
+                        <dt>Código</dt>
+                        <dd><code>@p.BienCodigo</code></dd>
+                        <dt>Nombre</dt>
+                        <dd><strong>@p.BienNombre</strong></dd>
+                        <dt>Categoría</dt>
+                        <dd>@(p.BienCategoriaNombre ?? "—")</dd>
+                    </dl>
+                </div>
+
+                <div class="det-section">
+                    <h4><i class="bi bi-people"></i> Personas involucradas</h4>
+                    <dl class="det-dl">
+                        <dt>Solicitante</dt>
+                        <dd>
+                            <strong>@p.FuncionarioSolicitaNombre</strong>
+                            @if (!string.IsNullOrEmpty(p.FuncionarioSolicitaCedula))
+                            {
+                                <small class="text-muted"> · CC @p.FuncionarioSolicitaCedula</small>
+                            }
+                        </dd>
+                        <dt>Aprobado por</dt>
+                        <dd>@(p.FuncionarioApruebaNombre ?? "—")</dd>
+                        <dt>En poder de</dt>
+                        <dd>
+                            @if (p.Estado == "PRESTADO" || p.Estado == "VENCIDO")
+                            {
+                                <span class="@(p.Estado == "VENCIDO" ? "text-danger" : "text-success")">
+                                    <i class="bi bi-person-fill"></i> @p.FuncionarioSolicitaNombre
+                                </span>
+                            }
+                            else if (p.Estado == "DEVUELTO")
+                            {
+                                <span class="text-success"><i class="bi bi-check-circle-fill"></i> En la institución</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted"><i class="bi bi-building"></i> En almacén</span>
+                            }
+                        </dd>
+                    </dl>
+                </div>
+
+                <div class="det-section">
+                    <h4><i class="bi bi-calendar-event"></i> Trazabilidad de fechas</h4>
+                    <div class="det-timeline">
+                        <div class="det-tl-row">
+                            <div class="det-tl-dot dot-blue"></div>
+                            <div class="det-tl-content">
+                                <strong>Solicitud creada</strong>
+                                <span>@p.FechaSolicitud.ToString("dd/MM/yyyy")</span>
+                            </div>
+                        </div>
+
+                        @if (p.FechaAprobacion.HasValue)
+                        {
+                            <div class="det-tl-row">
+                                <div class="det-tl-dot dot-green"></div>
+                                <div class="det-tl-content">
+                                    <strong>Aprobado</strong>
+                                    <span>@p.FechaAprobacion.Value.ToString("dd/MM/yyyy") · por @p.FuncionarioApruebaNombre</span>
+                                </div>
+                            </div>
+                        }
+
+                        @if (p.FechaPrestamo.HasValue)
+                        {
+                            <div class="det-tl-row">
+                                <div class="det-tl-dot dot-indigo"></div>
+                                <div class="det-tl-content">
+                                    <strong>Entregado físicamente</strong>
+                                    <span>@p.FechaPrestamo.Value.ToString("dd/MM/yyyy")</span>
+                                    @if (!string.IsNullOrEmpty(p.EstadoBienEntrega))
+                                    {
+                                        <small class="text-muted">Estado al salir: @p.EstadoBienEntrega</small>
+                                    }
+                                </div>
+                            </div>
+                        }
+
+                        <div class="det-tl-row">
+                            <div class="det-tl-dot @(p.Estado == "VENCIDO" ? "dot-red" : "dot-orange")"></div>
+                            <div class="det-tl-content">
+                                <strong>Devolución prevista</strong>
+                                <span>@p.FechaDevolucionPrevista.ToString("dd/MM/yyyy")</span>
+                            </div>
+                        </div>
+
+                        @if (p.FechaDevolucionReal.HasValue)
+                        {
+                            <div class="det-tl-row">
+                                <div class="det-tl-dot dot-green"></div>
+                                <div class="det-tl-content">
+                                    <strong>Devuelto</strong>
+                                    <span>@p.FechaDevolucionReal.Value.ToString("dd/MM/yyyy")</span>
+                                    @if (!string.IsNullOrEmpty(p.EstadoBienDevolucion))
+                                    {
+                                        <small class="text-muted">Estado al volver: @p.EstadoBienDevolucion</small>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div class="det-section">
+                    <h4><i class="bi bi-chat-left-text"></i> Motivo y observaciones</h4>
+                    <div class="det-note">
+                        <strong>Motivo:</strong>
+                        <p>@p.Motivo</p>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(p.ObservacionesEntrega))
+                    {
+                        <div class="det-note">
+                            <strong>Observaciones de entrega:</strong>
+                            <p>@p.ObservacionesEntrega</p>
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(p.ObservacionesDevolucion))
+                    {
+                        <div class="det-note">
+                            <strong>Observaciones de devolución:</strong>
+                            <p>@p.ObservacionesDevolucion</p>
+                        </div>
+                    }
+                </div>
+
+                @* ═══ FIRMAS (solo impresión) ═══ *@
+                <div class="acta-firmas">
+                    <div class="firma-block">
+                        <div class="firma-line"></div>
+                        <div class="firma-name">@p.FuncionarioSolicitaNombre</div>
+                        <div class="firma-role">CC @(p.FuncionarioSolicitaCedula ?? "—")</div>
+                        <div class="firma-label">Recibí conforme (Solicitante)</div>
+                    </div>
+
+                    <div class="firma-block">
+                        <div class="firma-line"></div>
+                        <div class="firma-name">@(string.IsNullOrEmpty(p.FuncionarioApruebaNombre) ? "_________________________" : p.FuncionarioApruebaNombre)</div>
+                        <div class="firma-role">@(string.IsNullOrEmpty(p.FuncionarioApruebaNombre) ? "" : "Funcionario")</div>
+                        <div class="firma-label">Autorizó (Aprobador)</div>
+                    </div>
+
+                    <div class="firma-block">
+                        <div class="firma-line"></div>
+                        <div class="firma-name">_________________________</div>
+                        <div class="firma-role">Almacén / Inventario</div>
+                        <div class="firma-label">Entregué conforme</div>
+                    </div>
+                </div>
+
+                <div class="acta-pie">
+                    Documento generado por el Sistema de Inventario Educativo · @DateTime.Now.ToString("dd/MM/yyyy HH:mm") · @Sesion.UsuarioActual?.NombreCompleto
+                </div>
+
+            </div>
+
+            <div class="modal-det-footer no-print">
+                <button class="btn-det-print" @onclick="ImprimirDetalle">
+                    <i class="bi bi-printer-fill"></i> Imprimir / PDF
+                </button>
+                <button class="btn-det-cerrar" @onclick="CerrarDetalle">
+                    <i class="bi bi-x-lg"></i> Cerrar
+                </button>
+            </div>
+
+        </div>
+    </div>
+}
+
 @code {
     private static readonly CultureInfo CulturaCOP = CultureInfo.GetCultureInfo("es-CO");
 
@@ -367,7 +629,7 @@
     private List<Bien> bienes = new();
     private List<FuncionarioDTO> funcionarios = new();
     private PrestamoDTO dto = new();
-    private (int Activos, int Vencidos, int Total) _metricas;
+    private (int Activos, int Vencidos, int Devueltos, int Total) _metricas;
 
     private bool _mostrarFormulario = false;
     private bool _mostrarFiltros = false;
@@ -377,7 +639,14 @@
     private string? _filtroEstado;
     private DateTime? _filtroFechaDesde;
     private DateTime? _filtroFechaHasta;
+    private string? _pillActivo;
     private CancellationTokenSource? _debounceCts;
+
+    private bool _detalleAbierto = false;
+    private PrestamoDTO? _prestamoDetalle;
+
+    private string _institucionNit = "—";
+    private string _institucionDane = string.Empty;
 
     private bool puedeCrear;
     private bool puedeAprobar;
@@ -388,6 +657,7 @@
     private bool _hayFiltrosActivos =>
         !string.IsNullOrEmpty(_filtroTexto) ||
         !string.IsNullOrEmpty(_filtroEstado) ||
+        !string.IsNullOrEmpty(_pillActivo) ||
         _filtroFechaDesde.HasValue || _filtroFechaHasta.HasValue;
 
     private bool _hayFiltrosAvanzados =>
@@ -408,7 +678,17 @@
         puedeDevolver = await Seguridad.TienePermisoAsync("prestamos.devolver");
         puedeEliminar = await Seguridad.TienePermisoAsync("prestamos.eliminar");
 
-        // Marca vencidos antes de cargar
+        try
+        {
+            var inst = await InstRepo.ObtenerPorIdAsync(Sesion.InstitucionId);
+            if (inst is not null)
+            {
+                _institucionNit = string.IsNullOrWhiteSpace(inst.Nit) ? "—" : inst.Nit;
+                _institucionDane = inst.CodigoDane ?? string.Empty;
+            }
+        }
+        catch { }
+
         await PrestamoRepo.ActualizarVencidosAsync();
 
         var t1 = BienRepo.ObtenerTodosAsync();
@@ -423,14 +703,112 @@
 
     private async Task Cargar()
     {
-        _pagina = await PrestamoRepo.ObtenerPaginadoAsync(
-            _paginaActual, _tamanoPagina,
-            string.IsNullOrWhiteSpace(_filtroTexto) ? null : _filtroTexto,
-            _filtroEstado,
-            _filtroFechaDesde,
-            _filtroFechaHasta);
+        var estadoFinal = !string.IsNullOrEmpty(_filtroEstado) ? _filtroEstado : null;
+
+        if (!string.IsNullOrEmpty(_pillActivo))
+        {
+            estadoFinal = _pillActivo switch
+            {
+                "vencidos"  => "VENCIDO",
+                "devueltos" => "DEVUELTO",
+                _ => estadoFinal
+            };
+        }
+
+        if (_pillActivo == "activos")
+        {
+            _pagina = await PrestamoRepo.ObtenerPaginadoAsync(
+                _paginaActual, _tamanoPagina,
+                string.IsNullOrWhiteSpace(_filtroTexto) ? null : _filtroTexto,
+                null,
+                _filtroFechaDesde,
+                _filtroFechaHasta);
+
+            var activos = _pagina.Items
+                .Where(x => x.Estado == "SOLICITADO" || x.Estado == "APROBADO"
+                         || x.Estado == "PRESTADO" || x.Estado == "VENCIDO")
+                .ToList();
+
+            _pagina = new ResultadoPaginado<PrestamoDTO>
+            {
+                Items = activos,
+                TotalRegistros = activos.Count,
+                PaginaActual = _paginaActual,
+                TamanoPagina = _tamanoPagina
+            };
+        }
+        else if (_pillActivo == "historico")
+        {
+            _pagina = await PrestamoRepo.ObtenerPaginadoAsync(
+                _paginaActual, _tamanoPagina,
+                string.IsNullOrWhiteSpace(_filtroTexto) ? null : _filtroTexto,
+                null,
+                _filtroFechaDesde,
+                _filtroFechaHasta);
+
+            var historicos = _pagina.Items
+                .Where(x => x.Estado == "DEVUELTO" || x.Estado == "RECHAZADO" || x.Estado == "ANULADO")
+                .ToList();
+
+            _pagina = new ResultadoPaginado<PrestamoDTO>
+            {
+                Items = historicos,
+                TotalRegistros = historicos.Count,
+                PaginaActual = _paginaActual,
+                TamanoPagina = _tamanoPagina
+            };
+        }
+        else
+        {
+            _pagina = await PrestamoRepo.ObtenerPaginadoAsync(
+                _paginaActual, _tamanoPagina,
+                string.IsNullOrWhiteSpace(_filtroTexto) ? null : _filtroTexto,
+                estadoFinal,
+                _filtroFechaDesde,
+                _filtroFechaHasta);
+        }
 
         _metricas = await PrestamoRepo.ObtenerMetricasAsync();
+    }
+
+    private Task FiltrarTodos()     => FiltrarPorPill(null);
+    private Task FiltrarActivos()   => FiltrarPorPill("activos");
+    private Task FiltrarVencidos()  => FiltrarPorPill("vencidos");
+    private Task FiltrarDevueltos() => FiltrarPorPill("devueltos");
+    private Task FiltrarHistorico() => FiltrarPorPill("historico");
+
+    private async Task FiltrarPorPill(string? pill)
+    {
+        _pillActivo = pill;
+        _filtroEstado = null;
+        _paginaActual = 1;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private void VerDetalle(PrestamoDTO prestamo)
+    {
+        _prestamoDetalle = prestamo;
+        _detalleAbierto = true;
+        StateHasChanged();
+    }
+
+    private void CerrarDetalle()
+    {
+        _detalleAbierto = false;
+        _prestamoDetalle = null;
+    }
+
+    private async Task ImprimirDetalle()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("window.print");
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error al imprimir: {ex.Message}");
+        }
     }
 
     private async Task BuscarConDebounce()
@@ -462,6 +840,7 @@
     {
         _filtroTexto = string.Empty;
         _filtroEstado = null;
+        _pillActivo = null;
         _filtroFechaDesde = null;
         _filtroFechaHasta = null;
         _paginaActual = 1;
@@ -471,6 +850,7 @@
 
     private async Task AplicarFiltrosAvanzados()
     {
+        _pillActivo = null;
         _paginaActual = 1;
         await Cargar();
         StateHasChanged();
@@ -551,8 +931,6 @@
 
         try
         {
-            var funcId = Sesion.UsuarioActual?.Id ?? 0;
-            // El funcionario que aprueba es el usuario actual (mapeo por usuario_id en funcionarios)
             var funcionarioAprueba = funcionarios.FirstOrDefault();
             if (funcionarioAprueba is null)
             {
