@@ -2,34 +2,68 @@
    Reportes.razor — Estilos aislados
    ═══════════════════════════════════════════════════════ */
 
+/* ═══ CONTENEDOR — evitar overflow horizontal ═══ */
+::deep .page-container {
+    max-width: 100%;
+    overflow-x: hidden;
+    box-sizing: border-box;
+}
+
+/* ═══ GRID DE KPIs — responsive real ═══ */
+::deep .kpi-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr)) !important;
+    gap: 14px;
+    width: 100%;
+    box-sizing: border-box;
+    margin-bottom: 16px;
+}
+
+    ::deep .kpi-grid > .kpi-card {
+        min-width: 0 !important;
+        overflow: hidden;
+    }
+
+::deep .kpi-card .kpi-label,
+::deep .kpi-card .kpi-value {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 /* ═══ KPI HERO — Total activo en libros ═══ */
 .kpi-hero {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 20px;
     background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%) !important;
     color: #ffffff !important;
     border-radius: 14px;
-    padding: 22px 28px;
+    padding: 20px 24px;
     margin: 20px 0;
     box-shadow: 0 8px 24px rgba(79, 70, 229, 0.25);
+    flex-wrap: wrap;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .kpi-hero-icon {
-    width: 56px;
-    height: 56px;
+    width: 52px;
+    height: 52px;
     border-radius: 12px;
     background: rgba(255, 255, 255, 0.18) !important;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.6rem;
+    font-size: 1.5rem;
     color: #ffffff !important;
     flex-shrink: 0;
 }
 
 .kpi-hero-body {
-    flex: 1;
+    flex: 1 1 200px;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -44,47 +78,72 @@
 }
 
 .kpi-hero-formula {
-    font-size: 0.78rem;
+    font-size: 0.75rem;
     color: #ffffff !important;
     opacity: 0.75;
 }
 
 .kpi-hero-value {
-    font-size: 2rem;
+    font-size: 1.9rem;
     font-weight: 800;
     letter-spacing: -0.5px;
     color: #ffffff !important;
     white-space: nowrap;
+    flex-shrink: 0;
 }
 
-/* ═══ Tabla consolidado — anchos cómodos ═══ */
-.card-table .modern-table th,
-.card-table .modern-table td {
-    padding: 10px 12px;
-    font-size: 0.85rem;
-    white-space: nowrap;
+/* ═══ CARD TABLE — contenida, con scroll interno ═══ */
+::deep .card-table {
+    max-width: 100%;
+    overflow: hidden;
+    box-sizing: border-box;
 }
 
-    .card-table .modern-table th:first-child,
-    .card-table .modern-table td:first-child {
-        position: sticky;
-        left: 0;
-        background: #ffffff;
-        z-index: 2;
+    ::deep .card-table .filtros-tabla {
+        flex-wrap: wrap;
+        gap: 10px;
+        max-width: 100%;
     }
 
-    .card-table .modern-table th:first-child {
-        background: var(--bg-app, #f8fafc);
+    ::deep .card-table .filtro-info {
+        flex-wrap: wrap;
+        gap: 8px;
     }
+
+    ::deep .card-table .btn-export-cgn {
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+
+    /* La tabla scrollea INTERNAMENTE sin empujar el padre */
+    ::deep .card-table .table-responsive {
+        overflow-x: auto;
+        max-width: 100%;
+        display: block;
+    }
+
+    ::deep .card-table .modern-table th,
+    ::deep .card-table .modern-table td {
+        padding: 10px 12px;
+        font-size: 0.85rem;
+        white-space: nowrap;
+    }
+
+/* ═══ RESPONSIVE ═══ */
+@media (max-width: 1100px) {
+    .kpi-hero-value {
+        font-size: 1.5rem;
+    }
+}
 
 @media (max-width: 768px) {
     .kpi-hero {
         flex-direction: column;
         text-align: center;
-        gap: 12px;
     }
 
     .kpi-hero-value {
-        font-size: 1.5rem;
+        font-size: 1.4rem;
+        text-align: center;
     }
 }

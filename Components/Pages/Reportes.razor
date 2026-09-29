@@ -15,7 +15,7 @@
 
 <PageTitle>Reportes · Almacén</PageTitle>
 
-<div class="page-container">
+<div class="page-container" style="overflow-x: hidden; max-width: 100%;">
 
     @* ═══════════════ HEADER ═══════════════ *@
     <div class="page-header">
@@ -131,7 +131,7 @@
         @* ═══════════════ TABLA CONSOLIDADO ═══════════════ *@
         @if (_instituciones is not null && _instituciones.Any())
         {
-            <div class="card-table">
+            <div class="card-table" style="max-width: 100%; overflow: hidden;">
 
                 <div class="filtros-tabla">
                     <div class="filtros-titulo">
@@ -152,7 +152,7 @@
                     </div>
                 </div>
 
-                <div class="table-responsive">
+                <div class="table-responsive" style="overflow-x: auto; max-width: 100%; display: block;">
                     <table class="table modern-table">
                         <thead>
                             <tr>
