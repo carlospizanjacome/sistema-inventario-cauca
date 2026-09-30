@@ -622,8 +622,8 @@
             return;
         }
 
-        puedeCrear = await Seguridad.TienePermisoAsync("reportes_normativos.crear");
-        puedeEditar = await Seguridad.TienePermisoAsync("reportes_normativos.editar");
+        puedeCrear    = await Seguridad.TienePermisoAsync("reportes_normativos.crear");
+        puedeEditar   = await Seguridad.TienePermisoAsync("reportes_normativos.editar");
         puedeEliminar = await Seguridad.TienePermisoAsync("reportes_normativos.eliminar");
 
         await Cargar();
@@ -640,10 +640,10 @@
         _metricas = await RepoNorm.ObtenerMetricasAsync();
     }
 
-    private Task FiltrarTodos() => FiltrarPorPill(null);
+    private Task FiltrarTodos()      => FiltrarPorPill(null);
     private Task FiltrarBorradores() => FiltrarPorPill("BORRADOR");
-    private Task FiltrarVigentes() => FiltrarPorPill("VIGENTE");
-    private Task FiltrarRetirados() => FiltrarPorPill("RETIRADO");
+    private Task FiltrarVigentes()   => FiltrarPorPill("VIGENTE");
+    private Task FiltrarRetirados()  => FiltrarPorPill("RETIRADO");
 
     private async Task FiltrarPorPill(string? estado)
     {
@@ -804,8 +804,8 @@
 
             using var stream = archivo.OpenReadStream(maxAllowedSize: 20 * 1024 * 1024);
 
-            var (ok, ruta, error) = await PlantillaSvc.GuardarPlantillaAsync(
-                stream, archivo.Name, r.Id);
+            var (ok, contenido, nombre, error) = await PlantillaSvc.ProcesarPlantillaAsync(
+                stream, archivo.Name);
 
             if (!ok)
             {
@@ -813,8 +813,8 @@
                 return;
             }
 
-            await RepoNorm.ActualizarPlantillaAsync(r.Id, ruta);
-            Toast.Exito($"Plantilla de '{r.NombreReporte}' cargada.");
+            await RepoNorm.ActualizarPlantillaAsync(r.Id, contenido, nombre);
+            Toast.Exito($"Plantilla de '{r.NombreReporte}' cargada (guardada en BD).");
             await Cargar();
         }
         catch (Exception ex)
@@ -836,6 +836,13 @@
 
         try
         {
+            var plantillaBytes = await RepoNorm.ObtenerContenidoPlantillaAsync(r.Id);
+            if (plantillaBytes is null || plantillaBytes.Length == 0)
+            {
+                Toast.Error("La plantilla está vacía. Vuelva a cargarla.");
+                return;
+            }
+
             var bienes = (await BienRepo.ObtenerTodosAsync()).ToList();
 
             if (!bienes.Any())
@@ -845,7 +852,7 @@
             }
 
             var bytes = PlantillaSvc.GenerarReporte(
-                r.PlantillaRuta!,
+                plantillaBytes,
                 bienes,
                 Sesion.InstitucionNombre ?? "Institución",
                 Sesion.UsuarioActual?.NombreCompleto ?? "N/A");
@@ -887,8 +894,8 @@
     private static string GetClaseBadgeEstado(string estado) => estado switch
     {
         "BORRADOR" => "badge-warn",
-        "VIGENTE" => "badge-ok",
+        "VIGENTE"  => "badge-ok",
         "RETIRADO" => "badge-off",
-        _ => "badge-neutral"
+        _          => "badge-neutral"
     };
 }

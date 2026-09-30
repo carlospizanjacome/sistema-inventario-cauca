@@ -4,34 +4,29 @@ using ClosedXML.Excel;
 
 namespace Almacen.Services;
 
+/// <summary>
+/// Procesa plantillas oficiales y genera reportes normativos con datos reales.
+/// Los archivos se guardan como BYTEA en BD (persisten en Railway).
+/// El motor mapea por NOMBRE DE COLUMNA.
+/// </summary>
 public class PlantillaNormativaService
 {
-    private readonly IWebHostEnvironment _env;
-
-    public PlantillaNormativaService(IWebHostEnvironment env)
+    public PlantillaNormativaService()
     {
-        _env = env;
     }
 
-    private string CarpetaPlantillas =>
-        Path.Combine(_env.WebRootPath, "uploads", "plantillas");
-
     // ═══════════════════════════════════════════════════════════
-    // CARGAR PLANTILLA (acepta XLSX, XLS o CSV)
+    // PROCESAR PLANTILLA (valida y convierte CSV → XLSX si aplica)
     // ═══════════════════════════════════════════════════════════
-    public async Task<(bool Ok, string Ruta, string Mensaje)> GuardarPlantillaAsync(
-        Stream contenido, string nombreOriginal, int reporteId)
+    public async Task<(bool Ok, byte[] Contenido, string NombreArchivo, string Mensaje)>
+        ProcesarPlantillaAsync(Stream contenido, string nombreOriginal)
     {
         try
         {
-            if (!Directory.Exists(CarpetaPlantillas))
-                Directory.CreateDirectory(CarpetaPlantillas);
-
             var ext = Path.GetExtension(nombreOriginal).ToLowerInvariant();
             if (ext != ".xlsx" && ext != ".xls" && ext != ".csv")
-                return (false, "", "Solo se permiten archivos .xlsx, .xls o .csv.");
+                return (false, Array.Empty<byte>(), "", "Solo se permiten archivos .xlsx, .xls o .csv.");
 
-            // Copiar a bytes
             byte[] bytes;
             using (var ms = new MemoryStream())
             {
@@ -40,55 +35,43 @@ public class PlantillaNormativaService
             }
 
             if (bytes.Length == 0)
-                return (false, "", "El archivo está vacío.");
+                return (false, Array.Empty<byte>(), "", "El archivo está vacío.");
 
-            // ✅ Si es CSV, convertir a XLSX real
             byte[] bytesFinales;
-            string extFinal;
 
             if (ext == ".csv")
             {
                 try
                 {
                     bytesFinales = ConvertirCsvAXlsx(bytes);
-                    extFinal = ".xlsx";
                 }
                 catch (Exception ex)
                 {
-                    return (false, "", $"Error al procesar CSV: {ex.Message}");
+                    return (false, Array.Empty<byte>(), "", $"Error al procesar CSV: {ex.Message}");
                 }
             }
             else
             {
-                // Validar que sea XLSX válido
                 try
                 {
                     using var msValidar = new MemoryStream(bytes);
                     using var wb = new XLWorkbook(msValidar);
                     if (!wb.Worksheets.Any())
-                        return (false, "", "El archivo no tiene hojas.");
+                        return (false, Array.Empty<byte>(), "", "El archivo no tiene hojas.");
                 }
                 catch
                 {
-                    return (false, "", "El archivo no es un Excel válido.");
+                    return (false, Array.Empty<byte>(), "", "El archivo no es un Excel válido.");
                 }
 
                 bytesFinales = bytes;
-                extFinal = ext;
             }
 
-            // Guardar
-            var nombreArchivo = $"reporte-{reporteId}-{Guid.NewGuid():N}{extFinal}";
-            var rutaFisica = Path.Combine(CarpetaPlantillas, nombreArchivo);
-
-            await File.WriteAllBytesAsync(rutaFisica, bytesFinales);
-
-            var rutaRelativa = $"/uploads/plantillas/{nombreArchivo}";
-            return (true, rutaRelativa, "");
+            return (true, bytesFinales, nombreOriginal, "");
         }
         catch (Exception ex)
         {
-            return (false, "", $"Error al guardar: {ex.Message}");
+            return (false, Array.Empty<byte>(), "", $"Error: {ex.Message}");
         }
     }
 
@@ -97,7 +80,6 @@ public class PlantillaNormativaService
     // ═══════════════════════════════════════════════════════════
     private static byte[] ConvertirCsvAXlsx(byte[] csvBytes)
     {
-        // Leer CSV con encoding UTF-8
         var texto = System.Text.Encoding.UTF8.GetString(csvBytes);
         var lineas = texto.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
 
@@ -109,7 +91,6 @@ public class PlantillaNormativaService
         {
             if (string.IsNullOrWhiteSpace(linea)) { fila++; continue; }
 
-            // Detectar separador (; o ,)
             var separador = linea.Contains(';') ? ';' : ',';
             var celdas = SepararCsv(linea, separador);
 
@@ -129,9 +110,6 @@ public class PlantillaNormativaService
         return bytes;
     }
 
-    /// <summary>
-    /// Separa una línea CSV respetando comillas dobles.
-    /// </summary>
     private static List<string> SepararCsv(string linea, char separador)
     {
         var celdas = new List<string>();
@@ -160,21 +138,15 @@ public class PlantillaNormativaService
     }
 
     // ═══════════════════════════════════════════════════════════
-    // GENERAR REPORTE
+    // GENERAR REPORTE (desde bytes de la plantilla)
     // ═══════════════════════════════════════════════════════════
     public byte[] GenerarReporte(
-        string rutaPlantilla,
+        byte[] plantillaBytes,
         List<Bien> bienes,
         string nombreInstitucion,
         string nombreUsuario)
     {
-        var rutaFisica = Path.Combine(_env.WebRootPath,
-            rutaPlantilla.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
-
-        if (!File.Exists(rutaFisica))
-            throw new FileNotFoundException("No se encontró la plantilla en disco.");
-
-        using var wb = new XLWorkbook(rutaFisica);
+        using var wb = new XLWorkbook(new MemoryStream(plantillaBytes));
         var ws = wb.Worksheets.First();
 
         int filaHeader = DetectarFilaHeader(ws);
@@ -198,9 +170,7 @@ public class PlantillaNormativaService
             {
                 var valor = ObtenerValorPorColumna(nombreCol, b);
                 if (valor is not null)
-                {
                     ws.Cell(fila, colIdx).Value = valor.Value;
-                }
             }
             fila++;
         }

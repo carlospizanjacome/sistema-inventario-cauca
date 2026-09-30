@@ -152,15 +152,29 @@ public class ReporteNormativoRepository : IReporteNormativoRepository
         await cn.ExecuteAsync(sql, new { Id = id, Estado = nuevoEstado });
     }
 
-    public async Task ActualizarPlantillaAsync(int id, string? rutaPlantilla)
+    public async Task ActualizarPlantillaAsync(int id, byte[] contenido, string nombreArchivo)
     {
         const string sql = @"
             UPDATE configuracion_reportes_normativos
-            SET plantilla_ruta = @Ruta, updated_at = NOW()
+            SET plantilla_contenido = @Contenido,
+                plantilla_nombre_archivo = @Nombre,
+                plantilla_ruta = 'db',
+                updated_at = NOW()
             WHERE id = @Id;";
 
         using var cn = new NpgsqlConnection(_cs);
-        await cn.ExecuteAsync(sql, new { Id = id, Ruta = rutaPlantilla });
+        await cn.ExecuteAsync(sql, new { Id = id, Contenido = contenido, Nombre = nombreArchivo });
+    }
+
+    public async Task<byte[]?> ObtenerContenidoPlantillaAsync(int id)
+    {
+        const string sql = @"
+            SELECT plantilla_contenido 
+            FROM configuracion_reportes_normativos 
+            WHERE id = @Id;";
+
+        using var cn = new NpgsqlConnection(_cs);
+        return await cn.ExecuteScalarAsync<byte[]?>(sql, new { Id = id });
     }
 
     public async Task EliminarAsync(int id)
