@@ -57,6 +57,12 @@ builder.Services.AddScoped<IPrestamoRepository, PrestamoRepository>();
 builder.Services.AddScoped<IMantenimientoRepository, MantenimientoRepository>();
 builder.Services.AddScoped<IGarantiaRepository, GarantiaRepository>();
 builder.Services.AddScoped<IReporteNormativoRepository, ReporteNormativoRepository>();
+builder.Services.AddScoped<IConciliacionRepository, ConciliacionRepository>();
+
+
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IAuditoriaRepository, AuditoriaRepository>();
+builder.Services.AddScoped<AuditoriaService>();
 
 builder.Services.AddScoped<PlantillaNormativaService>();
 builder.Services.AddScoped<QrService>();

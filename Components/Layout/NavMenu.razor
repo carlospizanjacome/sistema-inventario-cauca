@@ -4,7 +4,18 @@
 @inject SeguridadService Seguridad
 @inject IJSRuntime JS
 
-<div class="sidebar-inner @(Collapsed ? "is-collapsed" : "")">
+<div class="sidebar @(Collapsed ? "is-collapsed" : "")">
+
+    <!-- ═══════════ HEADER / LOGO ═══════════ -->
+    <div class="sidebar-header">
+        <div class="logo-avatar">
+            <i class="bi bi-box-seam"></i>
+        </div>
+        <div class="logo-info">
+            <h3>Almacén</h3>
+            <p>Alcaldía de Popayán</p>
+        </div>
+    </div>
 
     <!-- ═══════════ BUSCADOR ═══════════ -->
     @if (!Collapsed)
@@ -24,82 +35,305 @@
         </div>
     }
 
-
     <!-- ═══════════ NAV ═══════════ -->
     <nav class="sidebar-nav">
 
-        <!-- Inicio -->
-        <NavLink class="nav-item nav-item-root" href="" Match="NavLinkMatch.All">
-            <i class="bi bi-house-door-fill nav-icon"></i>
-            <span class="nav-text">Inicio</span>
+        <!-- Tablero de Mando -->
+        <NavLink class="nav-single" href="" Match="NavLinkMatch.All">
+            <i class="bi bi-house-door"></i>
+            <span>Tablero de Mando</span>
         </NavLink>
 
-        <!-- ESTRUCTURA -->
-        @RenderSeccion("estructura", "Estructura", "bi-diagram-3", new[]
+        <!-- ═══ ESTRUCTURA ═══ -->
+        @if (_puedeVer("instituciones.ver") || _puedeVer("sedes.ver") || _puedeVer("bloques.ver") || _puedeVer("aulas.ver"))
         {
-            new ItemMenu("instituciones", "Instituciones",  "bi-bank",          "instituciones.ver"),
-            new ItemMenu("sedes",         "Sedes",          "bi-buildings",     "sedes.ver"),
-            new ItemMenu("bloques",       "Bloques",        "bi-grid-3x3-gap",  "bloques.ver"),
-            new ItemMenu("aulas",         "Aulas",          "bi-door-open",     "aulas.ver"),
-        })
+            <div class="nav-group">
+                <button class="nav-group-header" type="button" @onclick="@(() => ToggleSeccion("estructura"))">
+                    <span>ESTRUCTURA</span>
+                    <i class="bi bi-chevron-@(EstaAbierto("estructura") ? "down" : "up")"></i>
+                </button>
+                @if (EstaAbierto("estructura"))
+                {
+                    <div class="nav-group-body">
+                        @if (_puedeVer("instituciones.ver"))
+                        {
+                            <NavLink class="nav-btn-neutral" href="instituciones">
+                                <i class="bi bi-bank"></i>
+                                <span>Instituciones</span>
+                            </NavLink>
+                        }
+                        @if (_puedeVer("sedes.ver"))
+                        {
+                            <NavLink class="nav-btn-neutral" href="sedes">
+                                <i class="bi bi-buildings"></i>
+                                <span>Sedes</span>
+                            </NavLink>
+                        }
+                        @if (_puedeVer("bloques.ver"))
+                        {
+                            <NavLink class="nav-btn-neutral" href="bloques">
+                                <i class="bi bi-grid-3x3-gap"></i>
+                                <span>Bloques</span>
+                            </NavLink>
+                        }
+                        @if (_puedeVer("aulas.ver"))
+                        {
+                            <NavLink class="nav-btn-neutral" href="aulas">
+                                <i class="bi bi-door-open"></i>
+                                <span>Aulas</span>
+                            </NavLink>
+                        }
+                    </div>
+                }
+            </div>
+        }
 
-        <!-- INVENTARIO -->
-        @RenderSeccion("inventario", "Inventario", "bi-boxes", new[]
+        <!-- ═══ INVENTARIO ═══ -->
+        @if (_puedeVer("categorias.ver") || _puedeVer("bienes.ver") || _puedeVer("toma_fisica.ver") || _puedeVer("kardex.ver"))
         {
-            new ItemMenu("categorias",        "Categorías",         "bi-tags-fill",              "categorias.ver"),
-            new ItemMenu("bienes",            "Bienes",             "bi-box-fill",               "bienes.ver"),
-            new ItemMenu("imprimir-qr",       "Imprimir QRs",       "bi-qr-code",                "bienes.ver"),
-            new ItemMenu("proveedores",       "Proveedores",        "bi-shop",                   "proveedores.ver"),
-            new ItemMenu("consumo",           "Consumo",            "bi-boxes",                  "consumo.ver"),
-            new ItemMenu("kardex",            "Kárdex",             "bi-journal-text",           "kardex.ver"),
-            new ItemMenu("toma-fisica",       "Toma Física",        "bi-clipboard-check",        "toma_fisica.ver"),
-            new ItemMenu("mantenimiento",     "Mantenimiento",      "bi-tools",                  "mantenimiento.ver"),
-            new ItemMenu("garantias",         "Garantías",          "bi-shield-check",           "garantias.ver"),
-        })
+            <div class="nav-group">
+                <button class="nav-group-header" type="button" @onclick="@(() => ToggleSeccion("inventario"))">
+                    <span>INVENTARIO</span>
+                    <i class="bi bi-chevron-@(EstaAbierto("inventario") ? "down" : "up")"></i>
+                </button>
+                @if (EstaAbierto("inventario"))
+                {
+                    <div class="nav-group-body">
+                        @if (_puedeVer("bienes.ver"))
+                        {
+                            <NavLink class="nav-btn inventario" href="bienes">
+                                <i class="bi bi-box-seam"></i>
+                                <span>Inventario</span>
+                            </NavLink>
+                        }
+                        @if (_puedeVer("categorias.ver"))
+                        {
+                            <NavLink class="nav-btn prestamos" href="categorias">
+                                <i class="bi bi-tags"></i>
+                                <span>Categorías</span>
+                            </NavLink>
+                        }
+                        @if (_puedeVer("kardex.ver"))
+                        {
+                            <NavLink class="nav-btn-neutral" href="kardex">
+                                <i class="bi bi-journal-text"></i>
+                                <span>Kárdex</span>
+                            </NavLink>
+                        }
+                        @if (_puedeVer("consumo.ver"))
+                        {
+                            <NavLink class="nav-btn-neutral" href="consumo">
+                                <i class="bi bi-boxes"></i>
+                                <span>Consumo</span>
+                            </NavLink>
+                        }
+                        @if (_puedeVer("toma_fisica.ver"))
+                        {
+                            <NavLink class="nav-btn-neutral" href="toma-fisica">
+                                <i class="bi bi-clipboard-check"></i>
+                                <span>Toma Física</span>
+                            </NavLink>
+                        }
+                        @if (_puedeVer("mantenimiento.ver"))
+                        {
+                            <NavLink class="nav-btn-neutral" href="mantenimiento">
+                                <i class="bi bi-tools"></i>
+                                <span>Mantenimiento</span>
+                            </NavLink>
+                        }
+                        @if (_puedeVer("garantias.ver"))
+                        {
+                            <NavLink class="nav-btn-neutral" href="garantias">
+                                <i class="bi bi-shield-check"></i>
+                                <span>Garantías</span>
+                            </NavLink>
+                        }
+                    </div>
+                }
+            </div>
+        }
 
-        <!-- MOVIMIENTOS -->
-        @RenderSeccion("movimientos", "Movimientos", "bi-arrow-left-right", new[]
+        <!-- ═══ MOVIMIENTOS ═══ -->
+        @if (_puedeVer("entradas.ver") || _puedeVer("salidas.ver") || _puedeVer("traslados.ver") || _puedeVer("prestamos.ver"))
         {
-            new ItemMenu("entradas",  "Entradas",   "bi-arrow-down-circle-fill", "entradas.ver"),
-            new ItemMenu("salidas",   "Salidas",    "bi-arrow-up-circle-fill",   "salidas.ver"),
-            new ItemMenu("traslados", "Traslados",  "bi-arrow-left-right",       "traslados.ver"),
-            new ItemMenu("prestamos", "Préstamos",  "bi-arrow-repeat",           "prestamos.ver"),
-        })
+            <div class="nav-group">
+                <button class="nav-group-header" type="button" @onclick="@(() => ToggleSeccion("movimientos"))">
+                    <span>MOVIMIENTOS</span>
+                    <i class="bi bi-chevron-@(EstaAbierto("movimientos") ? "down" : "up")"></i>
+                </button>
+                @if (EstaAbierto("movimientos"))
+                {
+                    <div class="nav-group-body">
+                        @if (_puedeVer("entradas.ver"))
+                        {
+                            <NavLink class="nav-btn entradas" href="entradas">
+                                <i class="bi bi-arrow-down-circle"></i>
+                                <span>Entradas</span>
+                            </NavLink>
+                        }
+                        @if (_puedeVer("salidas.ver"))
+                        {
+                            <NavLink class="nav-btn salidas" href="salidas">
+                                <i class="bi bi-arrow-up-circle"></i>
+                                <span>Salidas</span>
+                            </NavLink>
+                        }
+                        @if (_puedeVer("traslados.ver"))
+                        {
+                            <NavLink class="nav-btn traslados" href="traslados">
+                                <i class="bi bi-arrow-left-right"></i>
+                                <span>Traslados</span>
+                            </NavLink>
+                        }
+                        @if (_puedeVer("prestamos.ver"))
+                        {
+                            <NavLink class="nav-btn prestamos" href="prestamos">
+                                <i class="bi bi-arrow-repeat"></i>
+                                <span>Préstamos</span>
+                            </NavLink>
+                        }
+                    </div>
+                }
+            </div>
+        }
 
-        <!-- PERSONAL -->
-        @RenderSeccion("personal", "Personal", "bi-people", new[]
+        <!-- ═══ PERSONAL ═══ -->
+        @if (_puedeVer("funcionarios.ver"))
         {
-            new ItemMenu("funcionarios",  "Funcionarios",  "bi-person-badge-fill", "funcionarios.ver"),
-            new ItemMenu("cuentandantes", "Cuentandantes", "bi-person-check-fill", "funcionarios.ver"),
-        })
+            <div class="nav-group">
+                <button class="nav-group-header" type="button" @onclick="@(() => ToggleSeccion("personal"))">
+                    <span>PERSONAL</span>
+                    <i class="bi bi-chevron-@(EstaAbierto("personal") ? "down" : "up")"></i>
+                </button>
+                @if (EstaAbierto("personal"))
+                {
+                    <div class="nav-group-body">
+                        <NavLink class="nav-btn-neutral" href="funcionarios">
+                            <i class="bi bi-person-badge"></i>
+                            <span>Funcionarios</span>
+                        </NavLink>
+                    </div>
+                }
+            </div>
+        }
 
-        <!-- CONTABILIDAD -->
-        @RenderSeccion("contabilidad", "Contabilidad", "bi-calculator", new[]
+        <!-- ═══ CONTABILIDAD ═══ -->
+        @if (_puedeVer("depreciacion.ver"))
         {
-            new ItemMenu("depreciacion", "Depreciación", "bi-graph-down-arrow", "depreciacion.ver"),
-        })
+            <div class="nav-group">
+                <button class="nav-group-header" type="button" @onclick="@(() => ToggleSeccion("contabilidad"))">
+                    <span>CONTABILIDAD</span>
+                    <i class="bi bi-chevron-@(EstaAbierto("contabilidad") ? "down" : "up")"></i>
+                </button>
+                @if (EstaAbierto("contabilidad"))
+                {
+                    <div class="nav-group-body">
+                        <NavLink class="nav-btn depreciacion" href="depreciacion">
+                            <i class="bi bi-graph-down-arrow"></i>
+                            <span>Depreciación</span>
+                        </NavLink>
+                    </div>
+                }
+            </div>
+        }
 
-        <!-- SEGURIDAD -->
-        @RenderSeccion("seguridad", "Seguridad", "bi-shield-lock", new[]
+        <!-- ═══ SEGURIDAD ═══ -->
+        @if (_puedeVer("usuarios.ver") || _puedeVer("roles.ver") || _puedeVer("permisos.ver") || _puedeVer("roles.permisos"))
         {
-            new ItemMenu("usuarios",    "Usuarios",         "bi-people-fill",         "usuarios.ver"),
-            new ItemMenu("roles",       "Roles",            "bi-person-badge-fill",   "roles.ver"),
-            new ItemMenu("permisos",    "Permisos",         "bi-shield-lock-fill",    "permisos.ver"),
-            new ItemMenu("rol-permisos","Asignar Permisos", "bi-shield-check",        "roles.permisos"),
-        })
+            <div class="nav-group">
+                <button class="nav-group-header" type="button" @onclick="@(() => ToggleSeccion("seguridad"))">
+                    <span>SEGURIDAD</span>
+                    <i class="bi bi-chevron-@(EstaAbierto("seguridad") ? "down" : "up")"></i>
+                </button>
+                @if (EstaAbierto("seguridad"))
+                {
+                    <div class="nav-group-body">
+                        @if (_puedeVer("usuarios.ver"))
+                        {
+                            <NavLink class="nav-btn-neutral" href="usuarios">
+                                <i class="bi bi-people"></i>
+                                <span>Usuarios</span>
+                            </NavLink>
+                        }
+                        @if (_puedeVer("roles.ver"))
+                        {
+                            <NavLink class="nav-btn-neutral" href="roles">
+                                <i class="bi bi-person-badge"></i>
+                                <span>Roles</span>
+                            </NavLink>
+                        }
+                        @if (_puedeVer("permisos.ver"))
+                        {
+                            <NavLink class="nav-btn-neutral" href="permisos">
+                                <i class="bi bi-shield-lock"></i>
+                                <span>Permisos</span>
+                            </NavLink>
+                        }
+                        @if (_puedeVer("roles.permisos"))
+                        {
+                            <NavLink class="nav-btn-neutral" href="rol-permisos">
+                                <i class="bi bi-shield-check"></i>
+                                <span>Asignar Permisos</span>
+                            </NavLink>
+                        }
+                    </div>
+                }
+            </div>
+        }
 
-        <!-- CONFIGURACIÓN -->
-        @RenderSeccion("configuracion", "Configuración", "bi-gear", new[]
+        <!-- ═══ CONFIGURACIÓN ═══ -->
+        @if (_puedeVer("vidas_utiles.ver"))
         {
-            new ItemMenu("vidas-utiles", "Vidas Útiles", "bi-clock-history", "vidas_utiles.ver"),
-        })
+            <div class="nav-group">
+                <button class="nav-group-header" type="button" @onclick="@(() => ToggleSeccion("configuracion"))">
+                    <span>CONFIGURACIÓN</span>
+                    <i class="bi bi-chevron-@(EstaAbierto("configuracion") ? "down" : "up")"></i>
+                </button>
+                @if (EstaAbierto("configuracion"))
+                {
+                    <div class="nav-group-body">
+                        <NavLink class="nav-btn-neutral" href="vidas-utiles">
+                            <i class="bi bi-clock-history"></i>
+                            <span>Vidas Útiles</span>
+                        </NavLink>
+                    </div>
+                }
+            </div>
+        }
 
-        <!-- REPORTES -->
-        @RenderSeccion("reportes", "Reportes", "bi-file-earmark-bar-graph", new[]
+        <!-- ═══ REPORTES ═══ -->
+        @if (_puedeVer("reportes.ver") || _puedeVer("toma_fisica.ver"))
         {
-            new ItemMenu("reportes",            "Reportes Consolidados", "bi-graph-up-arrow",      "reportes.ver"),
-            new ItemMenu("reportes-normativos", "Reportes Normativos",   "bi-file-earmark-ruled",  "reportes_normativos.ver"),
-        })
+            <div class="nav-group">
+                <button class="nav-group-header" type="button" @onclick="@(() => ToggleSeccion("reportes"))">
+                    <span>REPORTES</span>
+                    <i class="bi bi-chevron-@(EstaAbierto("reportes") ? "down" : "up")"></i>
+                </button>
+                @if (EstaAbierto("reportes"))
+                {
+                    <div class="nav-group-body">
+                        @if (_puedeVer("reportes.ver"))
+                        {
+                            <NavLink class="nav-btn-neutral" href="reportes">
+                                <i class="bi bi-graph-up-arrow"></i>
+                                <span>Reportes Consolidados</span>
+                            </NavLink>
+                            <NavLink class="nav-btn-neutral" href="reportes-normativos">
+                                <i class="bi bi-file-earmark-text"></i>
+                                <span>Reportes Normativos</span>
+                            </NavLink>
+                        }
+                        @if (_puedeVer("toma_fisica.ver"))
+                        {
+                            <NavLink class="nav-btn-neutral" href="conciliacion">
+                                <i class="bi bi-check2-square"></i>
+                                <span>Conciliación</span>
+                            </NavLink>
+                        }
+                    </div>
+                }
+            </div>
+        }
 
     </nav>
 
@@ -117,7 +351,7 @@
 
             <button class="btn-logout" @onclick="CerrarSesion" title="Cerrar sesión">
                 <i class="bi bi-box-arrow-right"></i>
-                <span class="nav-text">Cerrar sesión</span>
+                <span>Cerrar sesión</span>
             </button>
         </div>
     }
@@ -128,10 +362,17 @@
 
     private string _filtro = string.Empty;
     private Dictionary<string, bool> _permisos = new();
-    private Dictionary<string, bool> _seccionesAbiertas = new();
-    private string _rutaActual = "/";
-
-    private record ItemMenu(string Ruta, string Nombre, string Icono, string Permiso);
+    private Dictionary<string, bool> _seccionesAbiertas = new()
+    {
+        { "estructura", false },
+        { "inventario", true },
+        { "movimientos", true },
+        { "personal", false },
+        { "contabilidad", false },
+        { "seguridad", false },
+        { "configuracion", false },
+        { "reportes", false }
+    };
 
     private string InicialUsuario =>
         string.IsNullOrWhiteSpace(Sesion.UsuarioActual?.NombreCompleto)
@@ -146,9 +387,7 @@
             "categorias.ver", "bienes.ver", "proveedores.ver", "funcionarios.ver",
             "consumo.ver", "kardex.ver",
             "entradas.ver", "salidas.ver", "traslados.ver", "prestamos.ver",
-            "depreciacion.ver",
-            "reportes.ver", "reportes_normativos.ver",
-            "toma_fisica.ver",
+            "depreciacion.ver", "reportes.ver", "toma_fisica.ver",
             "mantenimiento.ver", "garantias.ver",
             "usuarios.ver", "roles.ver", "permisos.ver", "roles.permisos",
             "vidas_utiles.ver"
@@ -156,139 +395,16 @@
 
         foreach (var c in codigos)
             _permisos[c] = await Seguridad.TienePermisoAsync(c);
-
-        _rutaActual = "/" + Navigation.ToBaseRelativePath(Navigation.Uri);
-
-        try
-        {
-            var saved = await JS.InvokeAsync<string?>("almacenLayout.getStorageItem", "sidebarSecciones");
-            if (!string.IsNullOrWhiteSpace(saved))
-            {
-                var dict = System.Text.Json.JsonSerializer
-                    .Deserialize<Dictionary<string, bool>>(saved);
-                if (dict is not null) _seccionesAbiertas = dict;
-            }
-        }
-        catch { }
-
-        AutoAbrirSeccionActual();
     }
 
-    private void AutoAbrirSeccionActual()
+    private void ToggleSeccion(string key)
     {
-        var todas = new Dictionary<string, string[]>
-        {
-            ["estructura"] = new[] { "instituciones", "sedes", "bloques", "aulas" },
-            ["inventario"] = new[] { "categorias", "bienes", "imprimir-qr", "proveedores", "consumo", "kardex", "toma-fisica", "mantenimiento", "garantias" },
-            ["movimientos"] = new[] { "entradas", "salidas", "traslados", "prestamos" },
-            ["personal"] = new[] { "funcionarios" },
-            ["contabilidad"] = new[] { "depreciacion" },
-            ["seguridad"] = new[] { "usuarios", "roles", "permisos", "rol-permisos" },
-            ["configuracion"] = new[] { "vidas-utiles" },
-            ["reportes"] = new[] { "reportes", "reportes-normativos" },
-        };
-
-        foreach (var (key, rutas) in todas)
-        {
-            if (rutas.Any(r => _rutaActual.StartsWith($"/{r}", StringComparison.OrdinalIgnoreCase)))
-            {
-                _seccionesAbiertas[key] = true;
-                break;
-            }
-        }
+        _seccionesAbiertas[key] = !_seccionesAbiertas.GetValueOrDefault(key, true);
     }
 
-    private async Task ToggleSeccion(string key)
-    {
-        _seccionesAbiertas[key] = !_seccionesAbiertas.GetValueOrDefault(key, false);
+    private bool EstaAbierto(string key) => _seccionesAbiertas.GetValueOrDefault(key, true);
 
-        try
-        {
-            var json = System.Text.Json.JsonSerializer.Serialize(_seccionesAbiertas);
-            await JS.InvokeVoidAsync("almacenLayout.setStorageItem", "sidebarSecciones", json);
-        }
-        catch { }
-    }
-
-    /// <summary>
-    /// Renderiza una sección acordeón. Solo aparece si:
-    /// - El usuario tiene al menos 1 permiso de sus ítems
-    /// - El filtro coincide con al menos 1 ítem (o no hay filtro)
-    /// </summary>
-    private RenderFragment RenderSeccion(string key, string titulo, string icono, ItemMenu[] items) => __builder =>
-    {
-        var visibles = items
-            .Where(i => _permisos.TryGetValue(i.Permiso, out var ok) && ok)
-            .ToList();
-
-        if (visibles.Count == 0) return;
-
-        var filtrando = !string.IsNullOrWhiteSpace(_filtro);
-        var visiblesFiltrados = filtrando
-            ? visibles.Where(i => i.Nombre.Contains(_filtro, StringComparison.OrdinalIgnoreCase)).ToList()
-            : visibles;
-
-        if (filtrando && visiblesFiltrados.Count == 0) return;
-
-        var abierta = filtrando || _seccionesAbiertas.GetValueOrDefault(key, false);
-
-        // ── Encabezado de sección ──
-        __builder.OpenElement(0, "div");
-        __builder.AddAttribute(1, "class", $"nav-section {(abierta ? "is-open" : "")}");
-
-        __builder.OpenElement(2, "button");
-        __builder.AddAttribute(3, "class", "nav-section-header");
-        __builder.AddAttribute(4, "type", "button");
-        __builder.AddAttribute(5, "onclick", Microsoft.AspNetCore.Components.EventCallback.Factory.Create<Microsoft.AspNetCore.Components.Web.MouseEventArgs>(
-            this, () => ToggleSeccion(key)));
-        __builder.AddAttribute(6, "title", titulo);
-
-        __builder.OpenElement(7, "i");
-        __builder.AddAttribute(8, "class", $"bi {icono} section-icon");
-        __builder.CloseElement();
-
-        __builder.OpenElement(9, "span");
-        __builder.AddAttribute(10, "class", "section-title-text");
-        __builder.AddContent(11, titulo);
-        __builder.CloseElement();
-
-        __builder.OpenElement(12, "i");
-        __builder.AddAttribute(13, "class", "bi bi-chevron-right section-chevron");
-        __builder.CloseElement();
-
-        __builder.CloseElement(); // button
-
-        // ── Items ──
-        if (abierta)
-        {
-            __builder.OpenElement(20, "div");
-            __builder.AddAttribute(21, "class", "nav-section-body");
-
-            foreach (var item in visiblesFiltrados)
-            {
-                __builder.OpenComponent<NavLink>(30);
-                __builder.AddAttribute(31, "class", "nav-item nav-item-child");
-                __builder.AddAttribute(32, "href", item.Ruta);
-                __builder.AddAttribute(33, "data-tooltip", item.Nombre);
-                __builder.AddAttribute(34, "ChildContent", (RenderFragment)(b =>
-                {
-                    b.OpenElement(40, "i");
-                    b.AddAttribute(41, "class", $"bi {item.Icono} nav-icon");
-                    b.CloseElement();
-
-                    b.OpenElement(50, "span");
-                    b.AddAttribute(51, "class", "nav-text");
-                    b.AddContent(52, item.Nombre);
-                    b.CloseElement();
-                }));
-                __builder.CloseComponent();
-            }
-
-            __builder.CloseElement(); // nav-section-body
-        }
-
-        __builder.CloseElement(); // nav-section
-    };
+    private bool _puedeVer(string permiso) => _permisos.TryGetValue(permiso, out var ok) && ok;
 
     private void CerrarSesion()
     {

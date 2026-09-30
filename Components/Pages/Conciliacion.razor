@@ -1,0 +1,530 @@
+﻿@page "/conciliacion"
+@rendermode InteractiveServer
+
+@using Almacen.DTOs
+@using Almacen.Interfaces
+@using Almacen.Services
+@using Microsoft.JSInterop
+@using System.Globalization
+
+@inject IConciliacionRepository ConcilRepo
+@inject IJSRuntime JS
+@inject SeguridadService Seguridad
+@inject NavigationManager Navigation
+@inject ToastService Toast
+
+<PageTitle>Conciliación · Almacén</PageTitle>
+
+<style>
+    .app-content:has(.page-conciliacion) {
+        padding-left: 16px !important;
+        padding-right: 16px !important;
+    }
+
+    .page-container.page-conciliacion {
+        max-width: 100% !important;
+        width: 100% !important;
+        margin: 0 !important;
+    }
+</style>
+
+<div class="page-container page-crud page-conciliacion">
+
+    <div class="page-header">
+        <div>
+            <h1><i class="bi bi-check2-square"></i> Conciliación físico-contable</h1>
+            <p class="subtitle">Comparación entre inventario físico y registros contables (V2.0 §7.13)</p>
+        </div>
+    </div>
+
+    <div class="conc-selector">
+        <label>Seleccione una toma física cerrada:</label>
+        <div class="input-icon">
+            <i class="bi bi-clipboard-check"></i>
+            <select @bind="_tomaSeleccionadaId" @bind:after="CambiarToma">
+                <option value="0">— Seleccione una toma —</option>
+                @foreach (var t in _tomasCerradas)
+                {
+                    <option value="@t.Id">@t.Etiqueta</option>
+                }
+            </select>
+        </div>
+    </div>
+
+    @if (_tomaSeleccionadaId == 0)
+    {
+        <div class="empty-state-big">
+            <i class="bi bi-clipboard-check"></i>
+            <h3>Seleccione una toma física cerrada</h3>
+            <p>Elija una toma del desplegable para ver el informe de conciliación.</p>
+        </div>
+    }
+    else if (_cargando)
+    {
+        <div class="loading">
+            <div class="spinner"></div>
+            <p>Cargando conciliación…</p>
+        </div>
+    }
+    else if (_global is null)
+    {
+        <div class="empty-state-big">
+            <i class="bi bi-exclamation-triangle"></i>
+            <h3>Sin datos</h3>
+            <p>No se encontró información para esta toma física.</p>
+        </div>
+    }
+    else
+    {
+        <section class="kpi-grid">
+            <div class="kpi-card kpi-blue">
+                <div class="kpi-icon"><i class="bi bi-clipboard-data"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Sistema (snapshot)</span>
+                    <span class="kpi-value">@_global.TotalSistema</span>
+                    <span class="kpi-sub">@_global.ValorSistema.ToString("C0", CulturaCOP)</span>
+                </div>
+            </div>
+            <div class="kpi-card kpi-green">
+                <div class="kpi-icon"><i class="bi bi-qr-code-scan"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Físico (escaneado)</span>
+                    <span class="kpi-value">@_global.TotalFisico</span>
+                    <span class="kpi-sub">@_global.ValorFisico.ToString("C0", CulturaCOP)</span>
+                </div>
+            </div>
+            <div class="kpi-card @(_global.DiferenciaCantidad == 0 ? "kpi-green" : "kpi-red")">
+                <div class="kpi-icon"><i class="bi bi-arrow-left-right"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Diferencia neta</span>
+                    <span class="kpi-value">
+                        @(_global.DiferenciaCantidad > 0 ? "+" : "")@_global.DiferenciaCantidad
+                    </span>
+                    <span class="kpi-sub">
+                        @(_global.DiferenciaValor >= 0 ? "+" : "")@_global.DiferenciaValor.ToString("C0", CulturaCOP)
+                    </span>
+                </div>
+            </div>
+            <div class="kpi-card kpi-indigo">
+                <div class="kpi-icon"><i class="bi bi-percent"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">% Conciliación</span>
+                    <span class="kpi-value">@_global.PorcentajeConciliacion.ToString("N2")%</span>
+                    <span class="kpi-sub">@_global.TotalConciliados de @_global.TotalSistema</span>
+                </div>
+            </div>
+        </section>
+
+        <div class="conc-estados">
+            <div class="conc-estado est-ok">
+                <i class="bi bi-check-circle-fill"></i>
+                <div>
+                    <span class="est-num">@_global.TotalConciliados</span>
+                    <span class="est-lbl">Conciliados</span>
+                    <span class="est-val">@_global.ValorConciliados.ToString("C0", CulturaCOP)</span>
+                </div>
+            </div>
+            <div class="conc-estado est-falt">
+                <i class="bi bi-x-octagon-fill"></i>
+                <div>
+                    <span class="est-num">@_global.TotalFaltantes</span>
+                    <span class="est-lbl">Faltantes</span>
+                    <span class="est-val">@_global.ValorFaltantes.ToString("C0", CulturaCOP)</span>
+                </div>
+            </div>
+            <div class="conc-estado est-sobr">
+                <i class="bi bi-plus-circle-fill"></i>
+                <div>
+                    <span class="est-num">@_global.TotalSobrantes</span>
+                    <span class="est-lbl">Sobrantes</span>
+                    <span class="est-val">@_global.ValorSobrantes.ToString("C0", CulturaCOP)</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-table">
+            <div class="filtros-toolbar">
+                <div class="filtros-titulo">
+                    <i class="bi bi-list-columns"></i>
+                    <span>Comparación por categoría / cuenta CGN</span>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table modern-table">
+                    <thead>
+                        <tr>
+                            <th>CGN</th>
+                            <th>Categoría</th>
+                            <th class="text-end">Cant. sistema</th>
+                            <th class="text-end">Cant. física</th>
+                            <th class="text-end">Dif. cantidad</th>
+                            <th class="text-end">Valor sistema</th>
+                            <th class="text-end">Valor físico</th>
+                            <th class="text-end">Dif. valor</th>
+                            <th class="text-center">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (!_porCategoria.Any())
+                        {
+                            <tr><td colspan="9" class="text-center py-3 text-muted">Sin datos.</td></tr>
+                        }
+                        else
+                        {
+                            @foreach (var c in _porCategoria)
+                            {
+                                <tr class="@(c.TieneDiferencias ? "row-warning" : "")" @key="c.CategoriaId">
+                                    <td>
+                                        @if (!string.IsNullOrEmpty(c.CodigoCgn))
+                                        {
+                                            <code>@c.CodigoCgn</code>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">—</span>
+                                        }
+                                    </td>
+                                    <td><strong>@c.CategoriaNombre</strong></td>
+                                    <td class="text-end num">@c.CantidadSistema</td>
+                                    <td class="text-end num">@c.CantidadFisica</td>
+                                    <td class="text-end num @(c.DiferenciaCantidad != 0 ? "text-danger" : "")">
+                                        @(c.DiferenciaCantidad > 0 ? "+" : "")@c.DiferenciaCantidad
+                                    </td>
+                                    <td class="text-end num">@c.ValorSistema.ToString("C0", CulturaCOP)</td>
+                                    <td class="text-end num">@c.ValorFisico.ToString("C0", CulturaCOP)</td>
+                                    <td class="text-end num @(c.DiferenciaValor != 0 ? "text-danger" : "")">
+                                        @(c.DiferenciaValor > 0 ? "+" : "")@c.DiferenciaValor.ToString("C0", CulturaCOP)
+                                    </td>
+                                    <td class="text-center">
+                                        @if (c.TieneDiferencias)
+                                        {
+                                            <span class="badge badge-warn"><i class="bi bi-exclamation-triangle-fill"></i> Diferencia</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge badge-ok"><i class="bi bi-check-lg"></i> OK</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card-table">
+            <div class="filtros-toolbar">
+                <div class="filtros-titulo">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <span>Detalle de diferencias y auditoría</span>
+                </div>
+                <div class="filtros-toolbar-actions">
+                    <button class="btn-export-cgn" @onclick="ExportarCsv" disabled="@_exportando">
+                        <i class="bi @(_exportando ? "bi-hourglass-split" : "bi-download")"></i>
+                        <span>@(_exportando ? "Generando…" : "Exportar CSV")</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="pills-filter" style="display:flex;gap:8px;flex-wrap:wrap;padding:12px 18px;border-bottom:1px solid #e2e8f0;">
+                <button type="button" class="@GetPillClass(null)" @onclick="FiltrarTodos">
+                    <i class="bi bi-list-ul"></i> Todos (@_detalle.Count)
+                </button>
+                <button type="button" class="@GetPillClass("faltantes")" @onclick="FiltrarFaltantes">
+                    <i class="bi bi-x-octagon"></i> Faltantes (@_detalle.Count(x => x.EsFaltante))
+                </button>
+                <button type="button" class="@GetPillClass("sobrantes")" @onclick="FiltrarSobrantes">
+                    <i class="bi bi-plus-circle"></i> Sobrantes (@_detalle.Count(x => x.EsSobrante))
+                </button>
+                <button type="button" class="@GetPillClass("ubicacion")" @onclick="FiltrarUbicacionDiferente">
+                    <i class="bi bi-geo-alt"></i> Ubicación distinta (@_detalle.Count(x => x.UbicacionDiferente))
+                </button>
+                <button type="button" class="@GetPillClass("funcionario")" @onclick="FiltrarFuncionarioDiferente">
+                    <i class="bi bi-person"></i> Funcionario distinto (@_detalle.Count(x => x.FuncionarioDiferente))
+                </button>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table modern-table">
+                    <thead>
+                        <tr>
+                            <th>Código</th>
+                            <th>Bien</th>
+                            <th>CGN</th>
+                            <th class="text-center">Tipo</th>
+                            <th class="text-end">Valor</th>
+                            <th>Ubicación sistema</th>
+                            <th>Ubicación real</th>
+                            <th>Funcionario sistema</th>
+                            <th>Funcionario real</th>
+                            <th>Observaciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (!_detalleFiltrado.Any())
+                        {
+                            <tr><td colspan="10" class="text-center py-3 text-muted">Sin filas para mostrar.</td></tr>
+                        }
+                        else
+                        {
+                            @foreach (var d in _detalleFiltrado)
+                            {
+                                <tr class="@GetRowClass(d)" @key="d.DetalleId">
+                                    <td><code>@d.CodigoSnapshot</code></td>
+                                    <td>
+                                        <div class="table-cell-primary">
+                                            <strong>@d.NombreSnapshot</strong>
+                                            @if (!string.IsNullOrEmpty(d.CategoriaNombre))
+                                            {
+                                                <small>@d.CategoriaNombre</small>
+                                            }
+                                        </div>
+                                    </td>
+                                    <td>
+                                        @if (!string.IsNullOrEmpty(d.CodigoCgn))
+                                        {
+                                            <code>@d.CodigoCgn</code>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">—</span>
+                                        }
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge @GetClaseBadgeTipo(d.Tipo)">@d.Tipo</span>
+                                    </td>
+                                    <td class="text-end num">@((d.ValorAdquisicion ?? 0).ToString("C0", CulturaCOP))</td>
+                                    <td>
+                                        @if (!string.IsNullOrWhiteSpace(d.UbicacionSnapshot))
+                                        {
+                                            <span class="text-muted">@d.UbicacionSnapshot</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">—</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (!string.IsNullOrWhiteSpace(d.UbicacionReal))
+                                        {
+                                            <span class="@(d.UbicacionDiferente ? "text-warning fw-bold" : "")">
+                                                @d.UbicacionReal
+                                                @if (d.UbicacionDiferente)
+                                                {
+                                                    <i class="bi bi-exclamation-triangle-fill"></i>
+                                                }
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">—</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (!string.IsNullOrWhiteSpace(d.FuncionarioSnapshot))
+                                        {
+                                            <span class="text-muted">@d.FuncionarioSnapshot</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">—</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (!string.IsNullOrWhiteSpace(d.FuncionarioReal))
+                                        {
+                                            <span class="@(d.FuncionarioDiferente ? "text-warning fw-bold" : "")">
+                                                @d.FuncionarioReal
+                                                @if (d.FuncionarioDiferente)
+                                                {
+                                                    <i class="bi bi-exclamation-triangle-fill"></i>
+                                                }
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">—</span>
+                                        }
+                                    </td>
+                                    <td class="text-muted small">@(d.Observaciones ?? "—")</td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private static readonly CultureInfo CulturaCOP = CultureInfo.GetCultureInfo("es-CO");
+
+    private List<TomaFisicaCerradaDTO> _tomasCerradas = new();
+    private int _tomaSeleccionadaId = 0;
+
+    private ConciliacionGlobalDTO? _global;
+    private List<ConciliacionCategoriaDTO> _porCategoria = new();
+    private List<ConciliacionDetalleDTO> _detalle = new();
+    private IEnumerable<ConciliacionDetalleDTO> _detalleFiltrado = Enumerable.Empty<ConciliacionDetalleDTO>();
+
+    private string? _filtroDetalle;
+    private bool _cargando = false;
+    private bool _exportando = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await Seguridad.TienePermisoAsync("toma_fisica.ver"))
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+
+        try
+        {
+            _tomasCerradas = (await ConcilRepo.ObtenerTomasCerradasAsync()).ToList();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error al cargar tomas: {ex.Message}");
+        }
+    }
+
+    private async Task CambiarToma()
+    {
+        _global = null;
+        _porCategoria.Clear();
+        _detalle.Clear();
+        _detalleFiltrado = Enumerable.Empty<ConciliacionDetalleDTO>();
+        _filtroDetalle = null;
+
+        if (_tomaSeleccionadaId <= 0) return;
+
+        _cargando = true;
+        StateHasChanged();
+
+        try
+        {
+            var t1 = ConcilRepo.ObtenerGlobalAsync(_tomaSeleccionadaId);
+            var t2 = ConcilRepo.ObtenerPorCategoriaAsync(_tomaSeleccionadaId);
+            var t3 = ConcilRepo.ObtenerDetalleAsync(_tomaSeleccionadaId);
+
+            await Task.WhenAll(t1, t2, t3);
+
+            _global = await t1;
+            _porCategoria = (await t2).ToList();
+            _detalle = (await t3).ToList();
+            _detalleFiltrado = _detalle;
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+        finally
+        {
+            _cargando = false;
+            StateHasChanged();
+        }
+    }
+
+    private void FiltrarTodos() => AplicarFiltro(null);
+    private void FiltrarFaltantes() => AplicarFiltro("faltantes");
+    private void FiltrarSobrantes() => AplicarFiltro("sobrantes");
+    private void FiltrarUbicacionDiferente() => AplicarFiltro("ubicacion");
+    private void FiltrarFuncionarioDiferente() => AplicarFiltro("funcionario");
+
+    private void AplicarFiltro(string? filtro)
+    {
+        _filtroDetalle = filtro;
+        _detalleFiltrado = filtro switch
+        {
+            "faltantes" => _detalle.Where(x => x.EsFaltante),
+            "sobrantes" => _detalle.Where(x => x.EsSobrante),
+            "ubicacion" => _detalle.Where(x => x.UbicacionDiferente),
+            "funcionario" => _detalle.Where(x => x.FuncionarioDiferente),
+            _ => _detalle
+        };
+    }
+
+    private string GetPillClass(string? filtro)
+    {
+        var activo = _filtroDetalle == filtro;
+        return activo ? "pill-btn active-indigo" : "pill-btn inactive";
+    }
+
+    private string GetRowClass(ConciliacionDetalleDTO d)
+    {
+        if (d.EsFaltante) return "row-danger";
+        if (d.EsSobrante) return "row-warning";
+        return "table-row-hover";
+    }
+
+    private async Task ExportarCsv()
+    {
+        if (_global is null || !_detalle.Any())
+        {
+            Toast.Warning("No hay datos para exportar.");
+            return;
+        }
+
+        _exportando = true;
+        StateHasChanged();
+
+        try
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"Conciliación físico-contable — {_global.TomaCodigo} — {_global.TomaNombre}");
+            sb.AppendLine($"Fecha inicio;{_global.FechaInicio:dd/MM/yyyy};Fecha cierre;{_global.FechaCierre:dd/MM/yyyy}");
+            sb.AppendLine();
+            sb.AppendLine("Código;Bien;CGN;Categoría;Tipo;Encontrado;Valor;Ubicación sistema;Ubicación real;Funcionario sistema;Funcionario real;Observaciones");
+
+            foreach (var d in _detalle)
+            {
+                sb.AppendLine(string.Join(";",
+                    $"\"{d.CodigoSnapshot}\"",
+                    $"\"{d.NombreSnapshot}\"",
+                    d.CodigoCgn ?? "",
+                    $"\"{d.CategoriaNombre ?? ""}\"",
+                    d.Tipo,
+                    d.Encontrado ? "SÍ" : "NO",
+                    (d.ValorAdquisicion ?? 0).ToString("F2", CulturaCOP),
+                    $"\"{d.UbicacionSnapshot ?? ""}\"",
+                    $"\"{d.UbicacionReal ?? ""}\"",
+                    $"\"{d.FuncionarioSnapshot ?? ""}\"",
+                    $"\"{d.FuncionarioReal ?? ""}\"",
+                    $"\"{d.Observaciones ?? ""}\""
+                ));
+            }
+
+            var bytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
+            var nombre = $"Conciliacion_{_global.TomaCodigo}_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
+
+            await JS.InvokeVoidAsync("descargarArchivo",
+                Convert.ToBase64String(bytes),
+                nombre,
+                "text/csv");
+
+            Toast.Exito("Reporte exportado.");
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error al exportar: {ex.Message}");
+        }
+        finally
+        {
+            _exportando = false;
+            StateHasChanged();
+        }
+    }
+
+    private static string GetClaseBadgeTipo(string tipo) => tipo switch
+    {
+        "CONCILIADO" => "badge-ok",
+        "FALTANTE" => "badge-danger",
+        "SOBRANTE" => "badge-warn",
+        "PENDIENTE" => "badge-neutral",
+        _ => "badge-neutral"
+    };
+}

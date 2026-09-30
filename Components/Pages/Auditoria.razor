@@ -1,0 +1,523 @@
+﻿@page "/auditoria"
+@implements IDisposable
+@rendermode InteractiveServer
+@using Almacen.DTOs
+@using Almacen.Interfaces
+@using Almacen.Services
+@using System.Globalization
+@using System.Text.Json
+
+@inject IAuditoriaRepository Repo
+@inject SeguridadService Seguridad
+@inject NavigationManager Navigation
+@inject ToastService Toast
+@inject IJSRuntime JS
+
+<PageTitle>Auditoría · Almacén</PageTitle>
+
+<style>
+    .app-content:has(.page-auditoria) {
+        padding-left: 16px !important;
+        padding-right: 16px !important;
+    }
+
+    .page-container.page-auditoria {
+        max-width: 100% !important;
+        width: 100% !important;
+        margin: 0 !important;
+    }
+</style>
+
+<div class="page-container page-crud page-auditoria">
+
+    <div class="page-header">
+        <div>
+            <h1><i class="bi bi-shield-check"></i> Auditoría transversal</h1>
+            <p class="subtitle">Bitácora inmutable de operaciones sensibles (V2.0 §7.15)</p>
+        </div>
+    </div>
+
+    @if (_cargandoInicial)
+    {
+        <div class="loading">
+            <div class="spinner"></div>
+            <p>Cargando bitácora…</p>
+        </div>
+    }
+    else
+    {
+        <section class="kpi-grid">
+            <div class="kpi-card kpi-blue">
+                <div class="kpi-icon"><i class="bi bi-calendar-day"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Eventos hoy</span>
+                    <span class="kpi-value">@_resumen?.EventosHoy</span>
+                    <span class="kpi-sub">desde las 00:00</span>
+                </div>
+            </div>
+            <div class="kpi-card kpi-green">
+                <div class="kpi-icon"><i class="bi bi-calendar-week"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Últimos 7 días</span>
+                    <span class="kpi-value">@_resumen?.EventosSemana</span>
+                    <span class="kpi-sub">eventos registrados</span>
+                </div>
+            </div>
+            <div class="kpi-card kpi-indigo">
+                <div class="kpi-icon"><i class="bi bi-calendar-month"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Últimos 30 días</span>
+                    <span class="kpi-value">@_resumen?.EventosMes</span>
+                    <span class="kpi-sub">eventos registrados</span>
+                </div>
+            </div>
+            <div class="kpi-card @(_resumen?.EventosCriticos > 0 ? "kpi-red" : "kpi-green")">
+                <div class="kpi-icon"><i class="bi bi-exclamation-triangle"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Críticos (30 días)</span>
+                    <span class="kpi-value">@_resumen?.EventosCriticos</span>
+                    <span class="kpi-sub">eliminaciones/anulaciones</span>
+                </div>
+            </div>
+        </section>
+
+        <div class="filtros-toolbar">
+            <div class="filtros-titulo">
+                <i class="bi bi-funnel"></i>
+                <span>Filtros</span>
+            </div>
+            <div class="filtros-toolbar-actions">
+                <button class="btn-export-cgn" @onclick="ExportarCsv" disabled="@_exportando">
+                    <i class="bi @(_exportando ? "bi-hourglass-split" : "bi-download")"></i>
+                    <span>@(_exportando ? "Generando…" : "Exportar CSV")</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="filtros-tabla">
+            <div class="filtro-group">
+                <label>Desde</label>
+                <input type="date" @bind="_filtro.FechaDesde" @bind:after="Recargar" />
+            </div>
+            <div class="filtro-group">
+                <label>Hasta</label>
+                <input type="date" @bind="_filtro.FechaHasta" @bind:after="Recargar" />
+            </div>
+            <div class="filtro-group">
+                <label>Módulo</label>
+                <select @bind="_filtro.Modulo" @bind:after="Recargar">
+                    <option value="">Todos</option>
+                    <option value="bienes">Bienes</option>
+                    <option value="entradas">Entradas</option>
+                    <option value="salidas">Salidas</option>
+                    <option value="traslados">Traslados</option>
+                    <option value="prestamos">Préstamos</option>
+                    <option value="mantenimiento">Mantenimiento</option>
+                    <option value="garantias">Garantías</option>
+                    <option value="toma_fisica">Toma física</option>
+                    <option value="conciliacion">Conciliación</option>
+                    <option value="seguridad">Seguridad</option>
+                </select>
+            </div>
+            <div class="filtro-group">
+                <label>Operación</label>
+                <select @bind="_filtro.Operacion" @bind:after="Recargar">
+                    <option value="">Todas</option>
+                    <option value="CREAR">Crear</option>
+                    <option value="EDITAR">Editar</option>
+                    <option value="ELIMINAR">Eliminar</option>
+                    <option value="ANULAR">Anular</option>
+                    <option value="APROBAR">Aprobar</option>
+                    <option value="ENTREGAR">Entregar</option>
+                    <option value="DEVOLVER">Devolver</option>
+                    <option value="CERRAR">Cerrar</option>
+                    <option value="EXPORTAR">Exportar</option>
+                    <option value="LOGIN">Login</option>
+                    <option value="LOGOUT">Logout</option>
+                </select>
+            </div>
+            <div class="filtro-group">
+                <label>Severidad</label>
+                <select @bind="_filtro.Severidad" @bind:after="Recargar">
+                    <option value="">Todas</option>
+                    <option value="INFO">Info</option>
+                    <option value="WARN">Advertencia</option>
+                    <option value="CRITICO">Crítico</option>
+                </select>
+            </div>
+            <div class="filtro-group filtro-group--grow">
+                <label>Buscar</label>
+                <input type="text" placeholder="Código, descripción o motivo…"
+                       @bind="_filtro.Busqueda" @bind:event="oninput" @bind:after="RecargarDebounced" />
+            </div>
+        </div>
+
+        <div class="card-table">
+            <div class="table-responsive">
+                <table class="modern-table">
+                    <thead>
+                        <tr>
+                            <th style="width:140px;">Fecha</th>
+                            <th style="width:160px;">Usuario</th>
+                            <th style="width:100px;">Módulo</th>
+                            <th style="width:100px;">Operación</th>
+                            <th>Objeto</th>
+                            <th>Descripción</th>
+                            <th style="width:80px;" class="text-center">Sev.</th>
+                            <th style="width:60px;" class="text-center"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (_pagina is null || !_pagina.Items.Any())
+                        {
+                            <tr><td colspan="8" class="text-center py-3 text-muted">Sin eventos para los filtros seleccionados.</td></tr>
+                        }
+                        else
+                        {
+                            @foreach (var a in _pagina.Items)
+                            {
+                                <tr class="@GetRowClass(a.Severidad)" @key="a.Id">
+                                    <td class="small">
+                                        <strong>@a.FechaHora.ToString("dd/MM/yyyy")</strong>
+                                        <div class="text-muted">@a.FechaHora.ToString("HH:mm:ss")</div>
+                                    </td>
+                                    <td class="small">
+                                        <div class="table-cell-primary">
+                                            <strong>@(a.UsuarioNombre ?? "—")</strong>
+                                            <small>@(a.UsuarioEmail ?? "")</small>
+                                        </div>
+                                    </td>
+                                    <td><span class="badge-modulo">@a.Modulo</span></td>
+                                    <td><span class="badge @GetClaseOperacion(a.Operacion)">@a.Operacion</span></td>
+                                    <td>
+                                        @if (!string.IsNullOrEmpty(a.ObjetoCodigo))
+                                        {
+                                            <code>@a.ObjetoCodigo</code>
+                                        }
+                                        @if (!string.IsNullOrEmpty(a.ObjetoTipo))
+                                        {
+                                            <div class="text-muted small">@a.ObjetoTipo</div>
+                                        }
+                                    </td>
+                                    <td class="small">
+                                        @if (!string.IsNullOrEmpty(a.Motivo))
+                                        {
+                                            <div>@a.Motivo</div>
+                                        }
+                                        @if (!string.IsNullOrEmpty(a.ObjetoDescripcion) && a.ObjetoDescripcion != a.Motivo)
+                                        {
+                                            <div class="text-muted">@a.ObjetoDescripcion</div>
+                                        }
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge @GetClaseSeveridad(a.Severidad)">@a.Severidad</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <button class="btn-detalle" @onclick="@(() => VerDetalle(a))" title="Ver detalle">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            @if (_pagina is not null && _pagina.TotalPaginas > 1)
+            {
+                <div class="paginacion-simple">
+                    <button disabled="@(_pagina.PaginaActual <= 1)"
+                            @onclick="@(() => CambiarPagina(_pagina.PaginaActual - 1))">
+                        ‹
+                    </button>
+                    <span>Página @_pagina.PaginaActual de @_pagina.TotalPaginas · @_pagina.TotalRegistros eventos</span>
+                    <button disabled="@(_pagina.PaginaActual >= _pagina.TotalPaginas)"
+                            @onclick="@(() => CambiarPagina(_pagina.PaginaActual + 1))">
+                        ›
+                    </button>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@if (_detalle is not null)
+{
+    <div class="modal-overlay" @onclick="CerrarDetalle">
+        <div class="modal-detalle" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3><i class="bi bi-shield-check"></i> Detalle del evento</h3>
+                <button class="btn-cerrar" @onclick="CerrarDetalle"><i class="bi bi-x-lg"></i></button>
+            </div>
+
+            <div class="modal-body">
+                <div class="detalle-grid">
+                    <div><label>Fecha/hora</label><span>@_detalle.FechaHora.ToString("dd/MM/yyyy HH:mm:ss")</span></div>
+                    <div><label>Usuario</label><span>@(_detalle.UsuarioNombre ?? "—")</span></div>
+                    <div><label>Email</label><span>@(_detalle.UsuarioEmail ?? "—")</span></div>
+                    <div><label>IP</label><span>@(_detalle.Ip ?? "—")</span></div>
+                    <div><label>Módulo</label><span class="badge-modulo">@_detalle.Modulo</span></div>
+                    <div><label>Operación</label><span class="badge @GetClaseOperacion(_detalle.Operacion)">@_detalle.Operacion</span></div>
+                    <div><label>Severidad</label><span class="badge @GetClaseSeveridad(_detalle.Severidad)">@_detalle.Severidad</span></div>
+                    <div><label>Objeto</label><span>@(_detalle.ObjetoTipo ?? "—") @(_detalle.ObjetoCodigo is not null ? $"· {_detalle.ObjetoCodigo}" : "")</span></div>
+                    @if (!string.IsNullOrEmpty(_detalle.DocumentoReferencia))
+                    {
+                        <div class="full"><label>Documento referencia</label><span>@_detalle.DocumentoReferencia</span></div>
+                    }
+                    @if (!string.IsNullOrEmpty(_detalle.ObjetoDescripcion))
+                    {
+                        <div class="full"><label>Descripción</label><span>@_detalle.ObjetoDescripcion</span></div>
+                    }
+                    @if (!string.IsNullOrEmpty(_detalle.Motivo))
+                    {
+                        <div class="full"><label>Motivo</label><span>@_detalle.Motivo</span></div>
+                    }
+                </div>
+
+                @if (!string.IsNullOrEmpty(_detalle.ValorAntes) || !string.IsNullOrEmpty(_detalle.ValorDespues))
+                {
+                    <div class="diff-container">
+                        @if (!string.IsNullOrEmpty(_detalle.ValorAntes))
+                        {
+                            <div class="diff-panel diff-antes">
+                                <h4><i class="bi bi-arrow-left-circle"></i> Antes</h4>
+                                <pre>@Prettify(_detalle.ValorAntes)</pre>
+                            </div>
+                        }
+                        @if (!string.IsNullOrEmpty(_detalle.ValorDespues))
+                        {
+                            <div class="diff-panel diff-despues">
+                                <h4><i class="bi bi-arrow-right-circle"></i> Después</h4>
+                                <pre>@Prettify(_detalle.ValorDespues)</pre>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private static readonly CultureInfo CulturaCOP = CultureInfo.GetCultureInfo("es-CO");
+
+    private AuditoriaResumenDTO? _resumen;
+    private AuditoriaPaginaDTO? _pagina;
+    private AuditoriaItemDTO? _detalle;
+    private AuditoriaFiltro _filtro = new();
+
+    private bool _cargandoInicial = true;
+    private bool _exportando = false;
+    private System.Threading.Timer? _debounce;
+    private bool _disposed = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await Seguridad.TienePermisoAsync("auditoria.ver"))
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+
+        _filtro.FechaHasta = DateTime.Today;
+        _filtro.FechaDesde = DateTime.Today.AddDays(-30);
+
+        await RecargarTodo();
+
+        if (!_disposed)
+        {
+            _cargandoInicial = false;
+        }
+    }
+
+    private async Task RecargarTodo()
+    {
+        if (_disposed) return;
+
+        _resumen = await Repo.ObtenerResumenAsync();
+
+        if (_disposed) return;
+
+        await Recargar();
+    }
+
+    private async Task Recargar()
+    {
+        if (_disposed) return;
+
+        _filtro.Pagina = 1;
+        _pagina = await Repo.ObtenerPaginaAsync(_filtro);
+
+        if (_disposed) return;
+
+        SafeStateHasChanged();
+    }
+
+    private void RecargarDebounced()
+    {
+        _debounce?.Dispose();
+
+        _debounce = new System.Threading.Timer(async _ =>
+        {
+            try
+            {
+                if (_disposed) return;
+                await InvokeAsync(Recargar);
+            }
+            catch (ObjectDisposedException) { }
+            catch (InvalidOperationException) { }
+            catch (TaskCanceledException) { }
+        }, null, 400, System.Threading.Timeout.Infinite);
+    }
+
+    private async Task CambiarPagina(int pagina)
+    {
+        if (_disposed) return;
+
+        _filtro.Pagina = pagina;
+        _pagina = await Repo.ObtenerPaginaAsync(_filtro);
+
+        if (_disposed) return;
+
+        SafeStateHasChanged();
+    }
+
+    private void VerDetalle(AuditoriaItemDTO a) => _detalle = a;
+    private void CerrarDetalle() => _detalle = null;
+
+    private async Task ExportarCsv()
+    {
+        if (_disposed) return;
+
+        _exportando = true;
+        SafeStateHasChanged();
+
+        try
+        {
+            var items = (await Repo.ObtenerTodosParaExportarAsync(_filtro)).ToList();
+
+            if (_disposed) return;
+
+            if (!items.Any())
+            {
+                Toast.Warning("No hay eventos para exportar.");
+                return;
+            }
+
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("Fecha;Usuario;Email;Módulo;Operación;Severidad;Objeto;Descripción;Motivo;Documento;IP");
+
+            foreach (var a in items)
+            {
+                sb.AppendLine(string.Join(";",
+                    a.FechaHora.ToString("dd/MM/yyyy HH:mm:ss"),
+                    $"\"{a.UsuarioNombre ?? ""}\"",
+                    $"\"{a.UsuarioEmail ?? ""}\"",
+                    a.Modulo,
+                    a.Operacion,
+                    a.Severidad,
+                    $"\"{a.ObjetoTipo ?? ""} {a.ObjetoCodigo ?? ""}\"",
+                    $"\"{a.ObjetoDescripcion ?? ""}\"",
+                    $"\"{a.Motivo ?? ""}\"",
+                    $"\"{a.DocumentoReferencia ?? ""}\"",
+                    a.Ip ?? ""
+                ));
+            }
+
+            var bytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
+            var nombre = $"Auditoria_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
+
+            try
+            {
+                await JS.InvokeVoidAsync("descargarArchivo",
+                    Convert.ToBase64String(bytes), nombre, "text/csv");
+
+                if (!_disposed)
+                {
+                    Toast.Exito($"Exportados {items.Count} eventos.");
+                }
+            }
+            catch (ObjectDisposedException) { }
+            catch (InvalidOperationException) { }
+            catch (JSDisconnectedException) { }
+        }
+        catch (Exception ex)
+        {
+            if (!_disposed)
+            {
+                Toast.Error($"Error al exportar: {ex.Message}");
+            }
+        }
+        finally
+        {
+            if (!_disposed)
+            {
+                _exportando = false;
+                SafeStateHasChanged();
+            }
+        }
+    }
+
+    private static string GetRowClass(string sev) => sev switch
+    {
+        "CRITICO" => "row-danger",
+        "WARN" => "row-warning",
+        _ => "table-row-hover"
+    };
+
+    private static string GetClaseSeveridad(string sev) => sev switch
+    {
+        "CRITICO" => "badge-danger",
+        "WARN" => "badge-warn",
+        _ => "badge-neutral"
+    };
+
+    private static string GetClaseOperacion(string op) => op switch
+    {
+        "CREAR" => "badge-ok",
+        "EDITAR" => "badge-info",
+        "ELIMINAR" => "badge-danger",
+        "ANULAR" => "badge-danger",
+        "APROBAR" => "badge-ok",
+        "ENTREGAR" => "badge-info",
+        "DEVOLVER" => "badge-ok",
+        "CERRAR" => "badge-neutral",
+        "EXPORTAR" => "badge-neutral",
+        "LOGIN" => "badge-neutral",
+        "LOGOUT" => "badge-neutral",
+        _ => "badge-neutral"
+    };
+
+    private static string Prettify(string json)
+    {
+        try
+        {
+            var doc = JsonDocument.Parse(json);
+            return JsonSerializer.Serialize(doc, new JsonSerializerOptions { WriteIndented = true });
+        }
+        catch
+        {
+            return json;
+        }
+    }
+
+    private void SafeStateHasChanged()
+    {
+        if (_disposed) return;
+
+        try
+        {
+            StateHasChanged();
+        }
+        catch (ObjectDisposedException) { }
+        catch (InvalidOperationException) { }
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        _debounce?.Dispose();
+        _debounce = null;
+    }
+}
