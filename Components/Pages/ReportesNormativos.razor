@@ -1,0 +1,894 @@
+﻿@page "/reportes-normativos"
+@rendermode InteractiveServer
+
+@using Almacen.Components.Shared
+@using Almacen.DTOs
+@using Almacen.Interfaces
+@using Almacen.Services
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
+
+@inject IReporteNormativoRepository RepoNorm
+@inject IBienRepository BienRepo
+@inject PlantillaNormativaService PlantillaSvc
+@inject UsuarioSesionService Sesion
+@inject IJSRuntime JS
+@inject SeguridadService Seguridad
+@inject NavigationManager Navigation
+@inject ToastService Toast
+@inject ConfirmService Confirm
+
+<PageTitle>Reportes Normativos · Almacén</PageTitle>
+
+<div class="page-container page-crud page-reportes-norm @(_mostrarFormulario ? "form-abierto" : "")">
+
+    @if (!_mostrarFormulario)
+    {
+        <div class="page-header">
+            <div>
+                <h1><i class="bi bi-file-earmark-ruled"></i> Matriz de Reportes Normativos</h1>
+                <p class="subtitle">Catálogo de obligaciones de reporte (V2.0 §19)</p>
+            </div>
+
+            @if (puedeCrear)
+            {
+                <div class="header-actions">
+                    <button class="btn-nuevo" @onclick="AbrirFormulario">
+                        <i class="bi bi-plus-lg"></i> Nuevo Reporte
+                    </button>
+                </div>
+            }
+        </div>
+
+        <section class="kpi-grid">
+            <div class="kpi-card kpi-orange kpi-clicable" @onclick="FiltrarBorradores">
+                <div class="kpi-icon"><i class="bi bi-pencil-square"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Borradores</span>
+                    <span class="kpi-value">@_metricas.Borradores</span>
+                </div>
+            </div>
+            <div class="kpi-card kpi-green kpi-clicable" @onclick="FiltrarVigentes">
+                <div class="kpi-icon"><i class="bi bi-check-circle-fill"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Vigentes</span>
+                    <span class="kpi-value">@_metricas.Vigentes</span>
+                </div>
+            </div>
+            <div class="kpi-card kpi-red kpi-clicable" @onclick="FiltrarRetirados">
+                <div class="kpi-icon"><i class="bi bi-archive-fill"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Retirados</span>
+                    <span class="kpi-value">@_metricas.Retirados</span>
+                </div>
+            </div>
+            <div class="kpi-card kpi-blue kpi-clicable" @onclick="FiltrarTodos">
+                <div class="kpi-icon"><i class="bi bi-list-ul"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Total catálogo</span>
+                    <span class="kpi-value">@_metricas.Total</span>
+                </div>
+            </div>
+        </section>
+
+        <div class="pills-filter">
+            <button type="button" class="pill-btn @(_filtroEstado is null ? "active-indigo" : "inactive")" @onclick="FiltrarTodos">
+                <i class="bi bi-list-ul"></i> Todos
+            </button>
+            <button type="button" class="pill-btn @(_filtroEstado == "BORRADOR" ? "active-orange" : "inactive")" @onclick="FiltrarBorradores">
+                <i class="bi bi-pencil-square"></i> Borradores
+            </button>
+            <button type="button" class="pill-btn @(_filtroEstado == "VIGENTE" ? "active-green" : "inactive")" @onclick="FiltrarVigentes">
+                <i class="bi bi-check-circle-fill"></i> Vigentes
+            </button>
+            <button type="button" class="pill-btn @(_filtroEstado == "RETIRADO" ? "active-gray" : "inactive")" @onclick="FiltrarRetirados">
+                <i class="bi bi-archive-fill"></i> Retirados
+            </button>
+        </div>
+    }
+
+    @if (_mostrarFormulario)
+    {
+        <div class="card-form">
+            <div class="form-header">
+                <div class="form-header-left">
+                    <i class="bi bi-@(_editando ? "pencil-square" : "plus-circle")"></i>
+                    <span>@(_editando ? "Editar Reporte Normativo" : "Nuevo Reporte Normativo")</span>
+                </div>
+                <div class="form-header-center">
+                    <i class="bi bi-file-earmark-ruled"></i>
+                    <div>
+                        <div class="form-header-title">Ficha Normativa</div>
+                        <div class="form-header-subtitle">Datos de la obligación de reporte</div>
+                    </div>
+                </div>
+                <button class="btn-cerrar-form" @onclick="Cancelar" title="Cerrar">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <EditForm Model="dto" OnValidSubmit="Guardar">
+                <DataAnnotationsValidator />
+
+                <div class="form-section">
+                    <h4 class="form-section-title"><i class="bi bi-card-list"></i> Identificación</h4>
+                    <div class="form-grid-3">
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label>Entidad receptora *</label>
+                            <div class="input-icon">
+                                <i class="bi bi-bank"></i>
+                                <InputText class="form-control" @bind-Value="dto.EntidadReceptora"
+                                           placeholder="Ej: Contaduría General de la Nación" />
+                            </div>
+                            <ValidationMessage For="() => dto.EntidadReceptora" class="form-error" />
+                        </div>
+
+                        <div class="form-group">
+                            <label>Estado *</label>
+                            <div class="input-icon">
+                                <i class="bi bi-circle-square"></i>
+                                <InputSelect TValue="string" class="form-select" @bind-Value="dto.Estado">
+                                    <option value="BORRADOR">Borrador</option>
+                                    <option value="VIGENTE">Vigente</option>
+                                    <option value="RETIRADO">Retirado</option>
+                                </InputSelect>
+                            </div>
+                        </div>
+
+                        <div class="form-group form-group-full">
+                            <label>Nombre del reporte *</label>
+                            <div class="input-icon">
+                                <i class="bi bi-file-earmark-text"></i>
+                                <InputText class="form-control" @bind-Value="dto.NombreReporte"
+                                           placeholder="Ej: Formato CGN 2026-001 — Saldos y movimientos" />
+                            </div>
+                            <ValidationMessage For="() => dto.NombreReporte" class="form-error" />
+                        </div>
+
+                        <div class="form-group form-group-full">
+                            <label>Descripción</label>
+                            <div class="input-icon">
+                                <i class="bi bi-chat-left-text"></i>
+                                <InputTextArea class="form-control" rows="2" @bind-Value="dto.Descripcion"
+                                               placeholder="Qué contiene y para qué sirve este reporte" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h4 class="form-section-title"><i class="bi bi-calendar-check"></i> Obligación</h4>
+                    <div class="form-grid-3">
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label>Sujeto obligado</label>
+                            <div class="input-icon">
+                                <i class="bi bi-people"></i>
+                                <InputText class="form-control" @bind-Value="dto.SujetoObligado"
+                                           placeholder="Ej: Todas las entidades públicas" />
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Periodicidad *</label>
+                            <div class="input-icon">
+                                <i class="bi bi-clock-history"></i>
+                                <InputSelect TValue="string" class="form-select" @bind-Value="dto.Periodicidad">
+                                    <option value="MENSUAL">Mensual</option>
+                                    <option value="BIMESTRAL">Bimestral</option>
+                                    <option value="TRIMESTRAL">Trimestral</option>
+                                    <option value="SEMESTRAL">Semestral</option>
+                                    <option value="ANUAL">Anual</option>
+                                    <option value="EVENTUAL">Eventual</option>
+                                </InputSelect>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Fecha límite</label>
+                            <div class="input-icon">
+                                <i class="bi bi-calendar-x"></i>
+                                <InputText class="form-control" @bind-Value="dto.FechaLimite"
+                                           placeholder="Ej: Último día de febrero" />
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Vigencia desde</label>
+                            <div class="input-icon">
+                                <i class="bi bi-calendar-check"></i>
+                                <InputDate TValue="DateTime?" class="form-control" @bind-Value="dto.VigenciaDesde" />
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Vigencia hasta</label>
+                            <div class="input-icon">
+                                <i class="bi bi-calendar-x"></i>
+                                <InputDate TValue="DateTime?" class="form-control" @bind-Value="dto.VigenciaHasta" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h4 class="form-section-title"><i class="bi bi-file-earmark-code"></i> Formato</h4>
+                    <div class="form-grid-3">
+                        <div class="form-group">
+                            <label>Versión del formato</label>
+                            <div class="input-icon">
+                                <i class="bi bi-hash"></i>
+                                <InputText class="form-control" @bind-Value="dto.VersionFormato"
+                                           placeholder="Ej: 2026-v1" />
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Formato de salida *</label>
+                            <div class="input-icon">
+                                <i class="bi bi-file-earmark"></i>
+                                <InputSelect TValue="string" class="form-select" @bind-Value="dto.FormatoSalida">
+                                    <option value="XLSX">XLSX</option>
+                                    <option value="CSV">CSV</option>
+                                    <option value="XML">XML</option>
+                                    <option value="PDF">PDF</option>
+                                </InputSelect>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Responsable interno</label>
+                            <div class="input-icon">
+                                <i class="bi bi-person-badge"></i>
+                                <InputText class="form-control" @bind-Value="dto.ResponsableInterno"
+                                           placeholder="Ej: Contador, Rector" />
+                            </div>
+                        </div>
+
+                        <div class="form-group form-group-full">
+                            <label>Campos requeridos</label>
+                            <div class="input-icon">
+                                <i class="bi bi-list-columns"></i>
+                                <InputTextArea class="form-control" rows="2" @bind-Value="dto.CamposRequeridos"
+                                               placeholder="Ej: NIT, Código CGN, Valor, Fecha, Serial" />
+                            </div>
+                        </div>
+
+                        <div class="form-group form-group-full">
+                            <label>Reglas de validación</label>
+                            <div class="input-icon">
+                                <i class="bi bi-shield-check"></i>
+                                <InputTextArea class="form-control" rows="2" @bind-Value="dto.ReglasValidacion"
+                                               placeholder="Ej: Seriales únicos, valores cuadrados con contabilidad" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h4 class="form-section-title"><i class="bi bi-link-45deg"></i> Fuente oficial</h4>
+                    <div class="form-grid-3">
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label>Fuente oficial</label>
+                            <div class="input-icon">
+                                <i class="bi bi-journal-bookmark"></i>
+                                <InputText class="form-control" @bind-Value="dto.FuenteOficial"
+                                           placeholder="Ej: Resolución 533/2015, actualización CGN" />
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>URL oficial</label>
+                            <div class="input-icon">
+                                <i class="bi bi-link"></i>
+                                <InputText class="form-control" @bind-Value="dto.UrlOficial"
+                                           placeholder="https://..." />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-cancel" @onclick="Cancelar">
+                        <i class="bi bi-x-lg"></i> Cerrar
+                    </button>
+                    <button type="submit" class="btn btn-save">
+                        <i class="bi @(_editando ? "bi-check-circle-fill" : "bi-save-fill")"></i>
+                        @(_editando ? "Actualizar" : "Guardar")
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    }
+
+    <div class="card-table">
+
+        <div class="filtros-toolbar">
+            <div class="filtro-busqueda-principal">
+                <i class="bi bi-search"></i>
+                <input type="text"
+                       placeholder="Buscar por entidad, nombre o descripción…"
+                       @bind="_filtroTexto"
+                       @bind:event="oninput"
+                       @bind:after="BuscarConDebounce" />
+                @if (!string.IsNullOrEmpty(_filtroTexto))
+                {
+                    <button class="filtro-clear" @onclick="LimpiarFiltro" title="Limpiar">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                }
+            </div>
+
+            <div class="filtros-toolbar-actions">
+                <span class="badge-total">
+                    <i class="bi bi-file-earmark-ruled"></i>
+                    <strong>@_reportes.Count()</strong> reportes
+                    @if (!string.IsNullOrEmpty(_filtroTexto) || !string.IsNullOrEmpty(_filtroEstado))
+                    {
+                        <span class="filtro-activo-tag">· Filtrado</span>
+                    }
+                </span>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table modern-table">
+                <thead>
+                    <tr>
+                        <th>Entidad</th>
+                        <th>Reporte</th>
+                        <th class="text-center">Periodicidad</th>
+                        <th class="text-center">Formato</th>
+                        <th>Responsable</th>
+                        <th class="text-center">Plantilla</th>
+                        <th class="text-center">Estado</th>
+                        <th class="text-center" style="width: 260px;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!_reportes.Any())
+                    {
+                        <tr><td colspan="8" class="text-center py-4 text-muted">Sin reportes normativos registrados.</td></tr>
+                    }
+                    else
+                    {
+                        @foreach (var r in _reportes)
+                        {
+                            <tr class="table-row-hover" @key="r.Id">
+                                <td>
+                                    <div class="table-cell-primary">
+                                        <strong>@r.EntidadReceptora</strong>
+                                        @if (!string.IsNullOrEmpty(r.FuenteOficial))
+                                        {
+                                            <small>@r.FuenteOficial</small>
+                                        }
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="table-cell-primary">
+                                        <strong>@r.NombreReporte</strong>
+                                        @if (!string.IsNullOrEmpty(r.VersionFormato))
+                                        {
+                                            <small>Versión: @r.VersionFormato</small>
+                                        }
+                                    </div>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge badge-neutral">@r.Periodicidad</span>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge badge-info">@r.FormatoSalida</span>
+                                </td>
+                                <td>@(r.ResponsableInterno ?? "—")</td>
+                                <td class="text-center">
+                                    @if (r.TienePlantilla)
+                                    {
+                                        <span class="badge badge-ok"><i class="bi bi-check-lg"></i> Cargada</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-warn"><i class="bi bi-exclamation-triangle"></i> Falta</span>
+                                    }
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge @GetClaseBadgeEstado(r.Estado)">@r.Estado</span>
+                                </td>
+                                <td class="text-center">
+                                    <div class="action-buttons">
+                                        @if (puedeEditar && r.Estado != "RETIRADO")
+                                        {
+                                            <label class="btn-action btn-action-upload" title="Cargar plantilla oficial">
+                                                <i class="bi bi-cloud-upload-fill"></i>
+                                                <InputFile OnChange="(e) => SubirPlantilla(e, r)"
+                                                           accept=".xlsx,.xls,.csv"
+                                                           style="display:none" />
+                                            </label>
+                                        }
+
+                                        @if (r.TienePlantilla)
+                                        {
+                                            <button class="btn-action btn-action-generate"
+                                                    @onclick="() => GenerarReporte(r)"
+                                                    title="Generar reporte con datos reales"
+                                                    disabled="@_generando">
+                                                <i class="bi @(_generando ? "bi-hourglass-split" : "bi-file-earmark-arrow-down-fill")"></i>
+                                            </button>
+                                        }
+
+                                        <button class="btn-action btn-action-view"
+                                                @onclick="() => VerDetalle(r)" title="Ver detalle">
+                                            <i class="bi bi-eye-fill"></i>
+                                        </button>
+
+                                        @if (puedeEditar)
+                                        {
+                                            <button class="btn-action btn-action-edit"
+                                                    @onclick="() => Editar(r)" title="Editar">
+                                                <i class="bi bi-pencil-fill"></i>
+                                            </button>
+                                        }
+
+                                        @if (r.Estado == "BORRADOR" && puedeEditar)
+                                        {
+                                            <button class="btn-action btn-action-ok"
+                                                    @onclick="() => MarcarVigente(r)"
+                                                    title="Marcar como vigente">
+                                                <i class="bi bi-check-lg"></i>
+                                            </button>
+                                        }
+
+                                        @if (r.Estado == "VIGENTE" && puedeEditar)
+                                        {
+                                            <button class="btn-action btn-action-delete"
+                                                    @onclick="() => MarcarRetirado(r)"
+                                                    title="Marcar como retirado">
+                                                <i class="bi bi-archive"></i>
+                                            </button>
+                                        }
+
+                                        @if (puedeEliminar)
+                                        {
+                                            <button class="btn-action btn-action-delete"
+                                                    @onclick="() => Eliminar(r)" title="Eliminar">
+                                                <i class="bi bi-trash-fill"></i>
+                                            </button>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@* ═══════════════ MODAL — Detalle ═══════════════ *@
+@if (_detalleAbierto && _detalle is not null)
+{
+    var r = _detalle;
+
+    <div class="modal-backdrop-det" @onclick="CerrarDetalle">
+        <div class="modal-det" @onclick:stopPropagation="true">
+
+            <div class="modal-det-header">
+                <div class="modal-det-header-left">
+                    <span class="badge @GetClaseBadgeEstado(r.Estado)">@r.Estado</span>
+                    <h3>@r.NombreReporte</h3>
+                </div>
+                <button class="modal-det-close" @onclick="CerrarDetalle" title="Cerrar">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <div class="modal-det-body">
+
+                <div class="det-section">
+                    <h4><i class="bi bi-bank"></i> Entidad y obligación</h4>
+                    <dl class="det-dl">
+                        <dt>Entidad receptora</dt>
+                        <dd><strong>@r.EntidadReceptora</strong></dd>
+                        <dt>Sujeto obligado</dt>
+                        <dd>@(r.SujetoObligado ?? "—")</dd>
+                        <dt>Periodicidad</dt>
+                        <dd><span class="badge badge-neutral">@r.Periodicidad</span></dd>
+                        <dt>Fecha límite</dt>
+                        <dd>@(r.FechaLimite ?? "—")</dd>
+                        <dt>Vigencia</dt>
+                        <dd>
+                            @if (r.VigenciaDesde.HasValue || r.VigenciaHasta.HasValue)
+                            {
+                                <span>
+                                    @(r.VigenciaDesde?.ToString("dd/MM/yyyy") ?? "—")
+                                    → @(r.VigenciaHasta?.ToString("dd/MM/yyyy") ?? "vigente")
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">—</span>
+                            }
+                        </dd>
+                    </dl>
+                </div>
+
+                <div class="det-section">
+                    <h4><i class="bi bi-file-earmark-code"></i> Formato</h4>
+                    <dl class="det-dl">
+                        <dt>Versión</dt>
+                        <dd>@(r.VersionFormato ?? "—")</dd>
+                        <dt>Salida</dt>
+                        <dd><span class="badge badge-info">@r.FormatoSalida</span></dd>
+                        <dt>Responsable interno</dt>
+                        <dd>@(r.ResponsableInterno ?? "—")</dd>
+                        <dt>Plantilla oficial</dt>
+                        <dd>
+                            @if (r.TienePlantilla)
+                            {
+                                <span class="text-success"><i class="bi bi-check-circle-fill"></i> Cargada</span>
+                            }
+                            else
+                            {
+                                <span class="text-warning"><i class="bi bi-exclamation-triangle-fill"></i> Pendiente de cargar</span>
+                            }
+                        </dd>
+                    </dl>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(r.Descripcion))
+                {
+                    <div class="det-section">
+                        <h4><i class="bi bi-chat-left-text"></i> Descripción</h4>
+                        <div class="det-note"><p>@r.Descripcion</p></div>
+                    </div>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(r.CamposRequeridos))
+                {
+                    <div class="det-section">
+                        <h4><i class="bi bi-list-columns"></i> Campos requeridos</h4>
+                        <div class="det-note"><p>@r.CamposRequeridos</p></div>
+                    </div>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(r.ReglasValidacion))
+                {
+                    <div class="det-section">
+                        <h4><i class="bi bi-shield-check"></i> Reglas de validación</h4>
+                        <div class="det-note"><p>@r.ReglasValidacion</p></div>
+                    </div>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(r.FuenteOficial) || !string.IsNullOrWhiteSpace(r.UrlOficial))
+                {
+                    <div class="det-section">
+                        <h4><i class="bi bi-link-45deg"></i> Fuente oficial</h4>
+                        <dl class="det-dl">
+                            @if (!string.IsNullOrWhiteSpace(r.FuenteOficial))
+                            {
+                                <dt>Norma</dt>
+                                <dd>@r.FuenteOficial</dd>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(r.UrlOficial))
+                            {
+                                <dt>URL</dt>
+                                <dd>
+                                    <a href="@r.UrlOficial" target="_blank" rel="noopener">
+                                        @r.UrlOficial
+                                    </a>
+                                </dd>
+                            }
+                        </dl>
+                    </div>
+                }
+
+            </div>
+
+            <div class="modal-det-footer">
+                <button class="btn-det-cerrar" @onclick="CerrarDetalle">
+                    <i class="bi bi-x-lg"></i> Cerrar
+                </button>
+            </div>
+
+        </div>
+    </div>
+}
+
+@code {
+    private List<ReporteNormativoDTO> _reportes = new();
+    private ReporteNormativoDTO dto = new();
+    private (int Borradores, int Vigentes, int Retirados, int Total) _metricas;
+
+    private bool _mostrarFormulario = false;
+    private bool _editando = false;
+    private int _editandoId = 0;
+    private string _filtroTexto = string.Empty;
+    private string? _filtroEstado;
+    private CancellationTokenSource? _debounceCts;
+
+    private bool _detalleAbierto = false;
+    private ReporteNormativoDTO? _detalle;
+
+    private bool _generando = false;
+
+    private bool puedeCrear;
+    private bool puedeEditar;
+    private bool puedeEliminar;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await Seguridad.TienePermisoAsync("reportes_normativos.ver"))
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+
+        puedeCrear = await Seguridad.TienePermisoAsync("reportes_normativos.crear");
+        puedeEditar = await Seguridad.TienePermisoAsync("reportes_normativos.editar");
+        puedeEliminar = await Seguridad.TienePermisoAsync("reportes_normativos.eliminar");
+
+        await Cargar();
+    }
+
+    private async Task Cargar()
+    {
+        var resultado = await RepoNorm.ObtenerTodosAsync(
+            string.IsNullOrWhiteSpace(_filtroTexto) ? null : _filtroTexto,
+            _filtroEstado,
+            null);
+
+        _reportes = resultado.ToList();
+        _metricas = await RepoNorm.ObtenerMetricasAsync();
+    }
+
+    private Task FiltrarTodos() => FiltrarPorPill(null);
+    private Task FiltrarBorradores() => FiltrarPorPill("BORRADOR");
+    private Task FiltrarVigentes() => FiltrarPorPill("VIGENTE");
+    private Task FiltrarRetirados() => FiltrarPorPill("RETIRADO");
+
+    private async Task FiltrarPorPill(string? estado)
+    {
+        _filtroEstado = estado;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task BuscarConDebounce()
+    {
+        _debounceCts?.Cancel();
+        _debounceCts = new CancellationTokenSource();
+        var token = _debounceCts.Token;
+
+        try
+        {
+            await Task.Delay(350, token);
+            if (token.IsCancellationRequested) return;
+            await Cargar();
+            StateHasChanged();
+        }
+        catch (TaskCanceledException) { }
+    }
+
+    private async Task LimpiarFiltro()
+    {
+        _filtroTexto = string.Empty;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private void VerDetalle(ReporteNormativoDTO r)
+    {
+        _detalle = r;
+        _detalleAbierto = true;
+        StateHasChanged();
+    }
+
+    private void CerrarDetalle()
+    {
+        _detalleAbierto = false;
+        _detalle = null;
+    }
+
+    private void AbrirFormulario()
+    {
+        dto = new ReporteNormativoDTO
+        {
+            Estado = "BORRADOR",
+            Periodicidad = "ANUAL",
+            FormatoSalida = "XLSX"
+        };
+        _editando = false;
+        _editandoId = 0;
+        _mostrarFormulario = true;
+    }
+
+    private void Editar(ReporteNormativoDTO r)
+    {
+        dto = new ReporteNormativoDTO
+        {
+            Id = r.Id,
+            EntidadReceptora = r.EntidadReceptora,
+            NombreReporte = r.NombreReporte,
+            Descripcion = r.Descripcion,
+            SujetoObligado = r.SujetoObligado,
+            Periodicidad = r.Periodicidad,
+            FechaLimite = r.FechaLimite,
+            VigenciaDesde = r.VigenciaDesde,
+            VigenciaHasta = r.VigenciaHasta,
+            VersionFormato = r.VersionFormato,
+            FormatoSalida = r.FormatoSalida,
+            CamposRequeridos = r.CamposRequeridos,
+            ReglasValidacion = r.ReglasValidacion,
+            FuenteOficial = r.FuenteOficial,
+            UrlOficial = r.UrlOficial,
+            ResponsableInterno = r.ResponsableInterno,
+            Estado = r.Estado,
+            PlantillaRuta = r.PlantillaRuta
+        };
+        _editando = true;
+        _editandoId = r.Id;
+        _mostrarFormulario = true;
+    }
+
+    private void Cancelar()
+    {
+        _mostrarFormulario = false;
+        dto = new ReporteNormativoDTO();
+        _editando = false;
+        _editandoId = 0;
+        StateHasChanged();
+    }
+
+    private async Task Guardar()
+    {
+        if (!_editando && !puedeCrear) { Toast.Error("No tiene permiso."); return; }
+        if (_editando && !puedeEditar) { Toast.Error("No tiene permiso."); return; }
+
+        try
+        {
+            if (_editando)
+            {
+                await RepoNorm.ActualizarAsync(dto);
+                Toast.Exito($"Reporte '{dto.NombreReporte}' actualizado.");
+            }
+            else
+            {
+                await RepoNorm.CrearAsync(dto);
+                Toast.Exito($"Reporte '{dto.NombreReporte}' creado.");
+            }
+
+            Cancelar();
+            await Cargar();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+    }
+
+    private Task MarcarVigente(ReporteNormativoDTO r) => CambiarEstado(r, "VIGENTE");
+    private Task MarcarRetirado(ReporteNormativoDTO r) => CambiarEstado(r, "RETIRADO");
+
+    private async Task CambiarEstado(ReporteNormativoDTO r, string nuevoEstado)
+    {
+        var mensaje = nuevoEstado == "VIGENTE"
+            ? $"¿Marcar '{r.NombreReporte}' como VIGENTE? Aparecerá como obligación activa."
+            : $"¿Retirar '{r.NombreReporte}' del catálogo activo?";
+
+        var ok = await Confirm.Preguntar(new ConfirmOpciones
+        {
+            Titulo = $"Cambiar estado a {nuevoEstado}",
+            Mensaje = mensaje,
+            Icono = nuevoEstado == "VIGENTE" ? "bi-check-circle-fill" : "bi-archive-fill",
+            ColorBoton = nuevoEstado == "VIGENTE" ? "#16a34a" : "#64748b",
+            TextoConfirmar = "Sí, cambiar"
+        });
+        if (!ok) return;
+
+        try
+        {
+            await RepoNorm.CambiarEstadoAsync(r.Id, nuevoEstado);
+            Toast.Exito($"Estado cambiado a {nuevoEstado}.");
+            await Cargar();
+        }
+        catch (Exception ex) { Toast.Error($"Error: {ex.Message}"); }
+    }
+
+    private async Task SubirPlantilla(InputFileChangeEventArgs e, ReporteNormativoDTO r)
+    {
+        if (!puedeEditar) { Toast.Error("No tiene permiso."); return; }
+
+        try
+        {
+            var archivo = e.File;
+            if (archivo is null) return;
+
+            using var stream = archivo.OpenReadStream(maxAllowedSize: 20 * 1024 * 1024);
+
+            var (ok, ruta, error) = await PlantillaSvc.GuardarPlantillaAsync(
+                stream, archivo.Name, r.Id);
+
+            if (!ok)
+            {
+                Toast.Error(error);
+                return;
+            }
+
+            await RepoNorm.ActualizarPlantillaAsync(r.Id, ruta);
+            Toast.Exito($"Plantilla de '{r.NombreReporte}' cargada.");
+            await Cargar();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+    }
+
+    private async Task GenerarReporte(ReporteNormativoDTO r)
+    {
+        if (!r.TienePlantilla)
+        {
+            Toast.Warning("Primero debe cargar la plantilla oficial.");
+            return;
+        }
+
+        _generando = true;
+        StateHasChanged();
+
+        try
+        {
+            var bienes = (await BienRepo.ObtenerTodosAsync()).ToList();
+
+            if (!bienes.Any())
+            {
+                Toast.Warning("No hay bienes para incluir en el reporte.");
+                return;
+            }
+
+            var bytes = PlantillaSvc.GenerarReporte(
+                r.PlantillaRuta!,
+                bienes,
+                Sesion.InstitucionNombre ?? "Institución",
+                Sesion.UsuarioActual?.NombreCompleto ?? "N/A");
+
+            var nombreArchivo = $"{r.NombreReporte.Replace(" ", "_")}_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+
+            await JS.InvokeVoidAsync("descargarArchivo",
+                Convert.ToBase64String(bytes),
+                nombreArchivo,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+
+            Toast.Exito($"Reporte generado con {bienes.Count} bienes.");
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error al generar: {ex.Message}");
+        }
+        finally
+        {
+            _generando = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task Eliminar(ReporteNormativoDTO r)
+    {
+        var ok = await Confirm.Peligroso($"¿Eliminar '{r.NombreReporte}' del catálogo?");
+        if (!ok) return;
+
+        try
+        {
+            await RepoNorm.EliminarAsync(r.Id);
+            Toast.Exito("Reporte eliminado.");
+            await Cargar();
+        }
+        catch (Exception ex) { Toast.Error($"Error: {ex.Message}"); }
+    }
+
+    private static string GetClaseBadgeEstado(string estado) => estado switch
+    {
+        "BORRADOR" => "badge-warn",
+        "VIGENTE" => "badge-ok",
+        "RETIRADO" => "badge-off",
+        _ => "badge-neutral"
+    };
+}

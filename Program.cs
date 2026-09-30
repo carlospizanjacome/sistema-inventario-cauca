@@ -56,7 +56,9 @@ builder.Services.AddScoped<IExpedienteRepository, ExpedienteRepository>();
 builder.Services.AddScoped<IPrestamoRepository, PrestamoRepository>();
 builder.Services.AddScoped<IMantenimientoRepository, MantenimientoRepository>();
 builder.Services.AddScoped<IGarantiaRepository, GarantiaRepository>();
+builder.Services.AddScoped<IReporteNormativoRepository, ReporteNormativoRepository>();
 
+builder.Services.AddScoped<PlantillaNormativaService>();
 builder.Services.AddScoped<QrService>();
 builder.Services.AddScoped<ArchivoService>();
 builder.Services.AddScoped<NpgsqlConnectionFactory>();

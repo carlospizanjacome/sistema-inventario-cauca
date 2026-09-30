@@ -97,7 +97,8 @@
         <!-- REPORTES -->
         @RenderSeccion("reportes", "Reportes", "bi-file-earmark-bar-graph", new[]
         {
-            new ItemMenu("reportes", "Reportes Consolidados", "bi-graph-up-arrow", "reportes.ver"),
+            new ItemMenu("reportes",            "Reportes Consolidados", "bi-graph-up-arrow",      "reportes.ver"),
+            new ItemMenu("reportes-normativos", "Reportes Normativos",   "bi-file-earmark-ruled",  "reportes_normativos.ver"),
         })
 
     </nav>
@@ -146,7 +147,7 @@
             "consumo.ver", "kardex.ver",
             "entradas.ver", "salidas.ver", "traslados.ver", "prestamos.ver",
             "depreciacion.ver",
-            "reportes.ver",
+            "reportes.ver", "reportes_normativos.ver",
             "toma_fisica.ver",
             "mantenimiento.ver", "garantias.ver",
             "usuarios.ver", "roles.ver", "permisos.ver", "roles.permisos",
@@ -177,14 +178,14 @@
     {
         var todas = new Dictionary<string, string[]>
         {
-            ["estructura"]    = new[] { "instituciones", "sedes", "bloques", "aulas" },
-            ["inventario"]    = new[] { "categorias", "bienes", "imprimir-qr", "proveedores", "consumo", "kardex", "toma-fisica", "mantenimiento", "garantias" },
-            ["movimientos"]   = new[] { "entradas", "salidas", "traslados", "prestamos" },
-            ["personal"]      = new[] { "funcionarios" },
-            ["contabilidad"]  = new[] { "depreciacion" },
-            ["seguridad"]     = new[] { "usuarios", "roles", "permisos", "rol-permisos" },
+            ["estructura"] = new[] { "instituciones", "sedes", "bloques", "aulas" },
+            ["inventario"] = new[] { "categorias", "bienes", "imprimir-qr", "proveedores", "consumo", "kardex", "toma-fisica", "mantenimiento", "garantias" },
+            ["movimientos"] = new[] { "entradas", "salidas", "traslados", "prestamos" },
+            ["personal"] = new[] { "funcionarios" },
+            ["contabilidad"] = new[] { "depreciacion" },
+            ["seguridad"] = new[] { "usuarios", "roles", "permisos", "rol-permisos" },
             ["configuracion"] = new[] { "vidas-utiles" },
-            ["reportes"]      = new[] { "reportes" },
+            ["reportes"] = new[] { "reportes", "reportes-normativos" },
         };
 
         foreach (var (key, rutas) in todas)
