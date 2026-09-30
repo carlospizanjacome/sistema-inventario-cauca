@@ -4,16 +4,9 @@ using ClosedXML.Excel;
 
 namespace Almacen.Services;
 
-/// <summary>
-/// Procesa plantillas oficiales y genera reportes normativos con datos reales.
-/// Los archivos se guardan como BYTEA en BD (persisten en Railway).
-/// El motor mapea por NOMBRE DE COLUMNA.
-/// </summary>
 public class PlantillaNormativaService
 {
-    public PlantillaNormativaService()
-    {
-    }
+    public PlantillaNormativaService() { }
 
     // ═══════════════════════════════════════════════════════════
     // PROCESAR PLANTILLA (valida y convierte CSV → XLSX si aplica)
@@ -25,7 +18,7 @@ public class PlantillaNormativaService
         {
             var ext = Path.GetExtension(nombreOriginal).ToLowerInvariant();
             if (ext != ".xlsx" && ext != ".xls" && ext != ".csv")
-                return (false, Array.Empty<byte>(), "", "Solo se permiten archivos .xlsx, .xls o .csv.");
+                return (false, Array.Empty<byte>(), "", "Solo se permiten .xlsx, .xls o .csv.");
 
             byte[] bytes;
             using (var ms = new MemoryStream())
@@ -41,14 +34,8 @@ public class PlantillaNormativaService
 
             if (ext == ".csv")
             {
-                try
-                {
-                    bytesFinales = ConvertirCsvAXlsx(bytes);
-                }
-                catch (Exception ex)
-                {
-                    return (false, Array.Empty<byte>(), "", $"Error al procesar CSV: {ex.Message}");
-                }
+                try { bytesFinales = ConvertirCsvAXlsx(bytes); }
+                catch (Exception ex) { return (false, Array.Empty<byte>(), "", $"Error CSV: {ex.Message}"); }
             }
             else
             {
@@ -63,7 +50,6 @@ public class PlantillaNormativaService
                 {
                     return (false, Array.Empty<byte>(), "", "El archivo no es un Excel válido.");
                 }
-
                 bytesFinales = bytes;
             }
 
@@ -75,9 +61,6 @@ public class PlantillaNormativaService
         }
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // CONVERTIR CSV → XLSX
-    // ═══════════════════════════════════════════════════════════
     private static byte[] ConvertirCsvAXlsx(byte[] csvBytes)
     {
         var texto = System.Text.Encoding.UTF8.GetString(csvBytes);
@@ -90,14 +73,10 @@ public class PlantillaNormativaService
         foreach (var linea in lineas)
         {
             if (string.IsNullOrWhiteSpace(linea)) { fila++; continue; }
-
             var separador = linea.Contains(';') ? ';' : ',';
             var celdas = SepararCsv(linea, separador);
-
             for (int c = 0; c < celdas.Count; c++)
-            {
                 ws.Cell(fila, c + 1).Value = celdas[c];
-            }
             fila++;
         }
 
@@ -118,19 +97,13 @@ public class PlantillaNormativaService
 
         foreach (var ch in linea)
         {
-            if (ch == '"')
-            {
-                entreComillas = !entreComillas;
-            }
+            if (ch == '"') entreComillas = !entreComillas;
             else if (ch == separador && !entreComillas)
             {
                 celdas.Add(actual.ToString().Trim());
                 actual.Clear();
             }
-            else
-            {
-                actual.Append(ch);
-            }
+            else actual.Append(ch);
         }
 
         celdas.Add(actual.ToString().Trim());
@@ -138,11 +111,12 @@ public class PlantillaNormativaService
     }
 
     // ═══════════════════════════════════════════════════════════
-    // GENERAR REPORTE (desde bytes de la plantilla)
+    // GENERAR REPORTE (detecta tipo según columnas de la plantilla)
     // ═══════════════════════════════════════════════════════════
     public byte[] GenerarReporte(
         byte[] plantillaBytes,
         List<Bien> bienes,
+        List<EntradaConBienDTO> entradas,
         string nombreInstitucion,
         string nombreUsuario)
     {
@@ -163,16 +137,85 @@ public class PlantillaNormativaService
                 columnas[texto] = c;
         }
 
+        // Detectar el "modo" del reporte según las columnas
+        bool esAgrupadoPorCgn = columnas.Keys.Any(k =>
+            Normalizar(k).Contains("SALDO INICIAL") ||
+            Normalizar(k).Contains("MOVIMIENTO DEBITO"));
+
+        bool esFubConEntradas = columnas.Keys.Any(k =>
+            Normalizar(k).Contains("NUMERO FACTURA") ||
+            Normalizar(k).Contains("NIT PROVEEDOR"));
+
         int fila = filaHeader + 1;
-        foreach (var b in bienes)
+
+        if (esAgrupadoPorCgn)
         {
-            foreach (var (nombreCol, colIdx) in columnas)
+            // ═══ MODO 1: Agrupar por cuenta CGN (CGN 2026-001) ═══
+            var grupos = bienes
+                .GroupBy(b => new { Cgn = b.CodigoCgn ?? "SIN-CGN", Nombre = b.CategoriaNombre ?? "Sin categoría" })
+                .Select(g => new
+                {
+                    Cgn = g.Key.Cgn,
+                    Concepto = g.Key.Nombre,
+                    MovDebito = g.Sum(x => x.ValorAdquisicion),
+                    MovCredito = g.Sum(x => x.DepreciacionAcumulada),
+                    SaldoFinal = g.Sum(x => x.ValorNeto)
+                })
+                .OrderBy(g => g.Cgn);
+
+            foreach (var g in grupos)
             {
-                var valor = ObtenerValorPorColumna(nombreCol, b);
-                if (valor is not null)
-                    ws.Cell(fila, colIdx).Value = valor.Value;
+                foreach (var (nombreCol, colIdx) in columnas)
+                {
+                    var n = Normalizar(nombreCol);
+                    object? valor = null;
+
+                    if (n == "CODIGO" || n.Contains("CODIGO CGN")) valor = g.Cgn;
+                    else if (n == "CONCEPTO" || n.Contains("NOMBRE")) valor = g.Concepto;
+                    else if (n.Contains("SALDO INICIAL")) valor = 0m;
+                    else if (n.Contains("MOVIMIENTO DEBITO")) valor = g.MovDebito;
+                    else if (n.Contains("MOVIMIENTO CREDITO")) valor = g.MovCredito;
+                    else if (n.Contains("SALDO FINAL")) valor = g.SaldoFinal;
+
+                    if (valor is not null)
+                        ws.Cell(fila, colIdx).Value = XLCellValue.FromObject(valor);
+                }
+                fila++;
             }
-            fila++;
+        }
+        else if (esFubConEntradas)
+        {
+            // ═══ MODO 2: FUB con datos de entradas ═══
+            var entradasPorBien = entradas
+                .GroupBy(e => e.BienId)
+                .ToDictionary(g => g.Key, g => g.First());
+
+            foreach (var b in bienes)
+            {
+                entradasPorBien.TryGetValue(b.Id, out var entrada);
+
+                foreach (var (nombreCol, colIdx) in columnas)
+                {
+                    var valor = ObtenerValorFub(nombreCol, b, entrada);
+                    if (valor is not null)
+                        ws.Cell(fila, colIdx).Value = valor.Value;
+                }
+                fila++;
+            }
+        }
+        else
+        {
+            // ═══ MODO 3: Por bien individual (PPE) ═══
+            foreach (var b in bienes)
+            {
+                foreach (var (nombreCol, colIdx) in columnas)
+                {
+                    var valor = ObtenerValorPorColumna(nombreCol, b);
+                    if (valor is not null)
+                        ws.Cell(fila, colIdx).Value = valor.Value;
+                }
+                fila++;
+            }
         }
 
         using var ms = new MemoryStream();
@@ -187,6 +230,11 @@ public class PlantillaNormativaService
     // ═══════════════════════════════════════════════════════════
     // HELPERS
     // ═══════════════════════════════════════════════════════════
+    private static string Normalizar(string s) =>
+        s.ToUpperInvariant().Trim()
+         .Replace("Á", "A").Replace("É", "E").Replace("Í", "I")
+         .Replace("Ó", "O").Replace("Ú", "U").Replace("Ñ", "N");
+
     private static int DetectarFilaHeader(IXLWorksheet ws)
     {
         var ultimaFila = ws.LastRowUsed()?.RowNumber() ?? 0;
@@ -196,26 +244,16 @@ public class PlantillaNormativaService
         {
             var celdasConTexto = 0;
             var ultimaCol = ws.LastColumnUsed()?.ColumnNumber() ?? 0;
-
             for (int c = 1; c <= ultimaCol; c++)
-            {
-                if (!string.IsNullOrWhiteSpace(ws.Cell(f, c).GetString()))
-                    celdasConTexto++;
-            }
-
-            if (celdasConTexto >= 3)
-                return f;
+                if (!string.IsNullOrWhiteSpace(ws.Cell(f, c).GetString())) celdasConTexto++;
+            if (celdasConTexto >= 3) return f;
         }
-
         return -1;
     }
 
     private static XLCellValue? ObtenerValorPorColumna(string nombreColumna, Bien b)
     {
-        var n = nombreColumna.ToUpperInvariant().Trim();
-
-        n = n.Replace("Á", "A").Replace("É", "E").Replace("Í", "I")
-             .Replace("Ó", "O").Replace("Ú", "U").Replace("Ñ", "N");
+        var n = Normalizar(nombreColumna);
 
         return n switch
         {
@@ -224,7 +262,6 @@ public class PlantillaNormativaService
             var x when x == "CODIGO" => b.Codigo ?? "",
             var x when x.Contains("NOMBRE DEL BIEN") => b.Nombre ?? "",
             var x when x == "NOMBRE" => b.Nombre ?? "",
-            var x when x == "CONCEPTO" => b.Nombre ?? "",
             var x when x == "CATEGORIA" => b.CategoriaNombre ?? "",
 
             var x when x == "MARCA" => b.Marca ?? "",
@@ -249,12 +286,53 @@ public class PlantillaNormativaService
             var x when x.Contains("ESTADO FISICO") => b.EstadoFisico ?? "",
             var x when x == "ACTIVO" => b.Activo ? "Sí" : "No",
 
-            var x when x.Contains("SALDO INICIAL") => 0,
-            var x when x.Contains("MOVIMIENTO DEBITO") => b.ValorAdquisicion,
-            var x when x.Contains("MOVIMIENTO CREDITO") => b.DepreciacionAcumulada,
-            var x when x.Contains("SALDO FINAL") => b.ValorNeto,
+            _ => null
+        };
+    }
+
+    private static XLCellValue? ObtenerValorFub(string nombreColumna, Bien b, EntradaConBienDTO? entrada)
+    {
+        var n = Normalizar(nombreColumna);
+
+        return n switch
+        {
+            var x when x == "CODIGO" => b.Codigo ?? "",
+            var x when x.Contains("CODIGO BIEN") => b.Codigo ?? "",
+            var x when x.Contains("CODIGO CGN") => b.CodigoCgn ?? "-",
+            var x when x.Contains("NOMBRE") => b.Nombre ?? "",
+            var x when x == "MARCA" => b.Marca ?? "",
+            var x when x == "MODELO" => b.Modelo ?? "",
+            var x when x == "SERIE" => b.Serie ?? "",
+
+            var x when x.Contains("TIPO MOVIMIENTO") => entrada?.TipoFuente == "FSE" ? "ADQUISICION" : "ADQUISICION",
+            var x when x == "FECHA" => entrada?.FechaEntrada?.ToString("dd/MM/yyyy") ?? b.FechaAdquisicion?.ToString("dd/MM/yyyy") ?? "",
+            var x when x == "VALOR" => entrada?.Valor ?? b.ValorAdquisicion,
+            var x when x.Contains("PROVEEDOR") => entrada?.ProveedorNombre ?? "",
+            var x when x.Contains("NIT PROVEEDOR") => entrada?.ProveedorNit ?? "",
+            var x when x.Contains("NUMERO FACTURA") => entrada?.NumeroFactura ?? "",
+            var x when x.Contains("FACTURA") => entrada?.NumeroFactura ?? "",
+
+            var x when x.Contains("UBICACION") => b.AulaNombre ?? b.Ubicacion ?? "",
+            var x when x.Contains("RESPONSABLE") => b.FuncionarioNombre ?? b.Responsable ?? "",
+            var x when x.Contains("FUNCIONARIO") => b.FuncionarioNombre ?? "",
+
+            var x when x.Contains("VALOR ADQUISICION") => b.ValorAdquisicion,
+            var x when x.Contains("DEPRECIACION ACUM") => b.DepreciacionAcumulada,
+            var x when x.Contains("VALOR NETO") => b.ValorNeto,
 
             _ => null
         };
     }
+}
+
+/// <summary>DTO ligero con datos de la entrada + el bien asociado.</summary>
+public class EntradaConBienDTO
+{
+    public int BienId { get; set; }
+    public string TipoFuente { get; set; } = "";
+    public string? NumeroFactura { get; set; }
+    public DateTime? FechaEntrada { get; set; }
+    public decimal Valor { get; set; }
+    public string? ProveedorNombre { get; set; }
+    public string? ProveedorNit { get; set; }
 }

@@ -851,9 +851,13 @@
                 return;
             }
 
+            // Cargar entradas para reportes tipo FUB
+            var entradas = (await RepoNorm.ObtenerEntradasAsync()).ToList();
+
             var bytes = PlantillaSvc.GenerarReporte(
                 plantillaBytes,
                 bienes,
+                entradas,
                 Sesion.InstitucionNombre ?? "Institución",
                 Sesion.UsuarioActual?.NombreCompleto ?? "N/A");
 

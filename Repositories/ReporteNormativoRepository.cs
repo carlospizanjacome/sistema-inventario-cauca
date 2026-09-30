@@ -1,5 +1,6 @@
 ﻿using Almacen.DTOs;
 using Almacen.Interfaces;
+using Almacen.Services;
 using Dapper;
 using Npgsql;
 
@@ -184,6 +185,24 @@ public class ReporteNormativoRepository : IReporteNormativoRepository
         await cn.ExecuteAsync(sql, new { Id = id });
     }
 
+    public async Task<IEnumerable<EntradaConBienDTO>> ObtenerEntradasAsync()
+    {
+        const string sql = @"
+        SELECT
+            e.bien_id              AS BienId,
+            e.tipo_fuente          AS TipoFuente,
+            e.numero_factura       AS NumeroFactura,
+            e.fecha_entrada::timestamp AS FechaEntrada,
+            e.valor                AS Valor,
+            p.nombre               AS ProveedorNombre,
+            p.nit                  AS ProveedorNit
+        FROM entradas e
+        LEFT JOIN proveedores p ON p.id = e.proveedor_id
+        ORDER BY e.fecha_entrada DESC;";
+
+        using var cn = new NpgsqlConnection(_cs);
+        return await cn.QueryAsync<EntradaConBienDTO>(sql);
+    }
     public async Task<(int Borradores, int Vigentes, int Retirados, int Total)> ObtenerMetricasAsync()
     {
         const string sql = @"
