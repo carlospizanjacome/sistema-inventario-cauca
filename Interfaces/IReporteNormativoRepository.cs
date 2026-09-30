@@ -15,6 +15,10 @@ public interface IReporteNormativoRepository
     Task ActualizarAsync(ReporteNormativoDTO dto);
     Task CambiarEstadoAsync(int id, string nuevoEstado);
     Task EliminarAsync(int id);
-    Task ActualizarPlantillaAsync(int id, string? rutaPlantilla);
+
+    // ✅ NUEVO — recibe byte[] para persistir en BD
+    Task ActualizarPlantillaAsync(int id, byte[] contenido, string nombreArchivo);
+    Task<byte[]?> ObtenerContenidoPlantillaAsync(int id);
+
     Task<(int Borradores, int Vigentes, int Retirados, int Total)> ObtenerMetricasAsync();
 }
