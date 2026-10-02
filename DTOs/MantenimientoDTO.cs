@@ -31,6 +31,16 @@ public class MantenimientoDTO
     public string? EstadoBienEgreso { get; set; }
     public string? Observaciones { get; set; }
 
+    // ═══════════════════════════════════════════════════════════
+    // PROPIEDADES DE SOFT-DELETE (ANULACIÓN)
+    // Preservan la trazabilidad completa del registro para auditoría.
+    // ═══════════════════════════════════════════════════════════
+    public bool Anulada { get; set; }
+    public int? AnuladaPor { get; set; }
+    public DateTime? AnuladaFecha { get; set; }
+    public string? AnuladaMotivo { get; set; }
+    // ═══════════════════════════════════════════════════════════
+
     // ── Navegación (read-only) ──
     public string? BienCodigo { get; set; }
     public string? BienNombre { get; set; }
@@ -49,4 +59,10 @@ public class MantenimientoDTO
     public bool EstaVencido => Estado == "ABIERTO"
         && FechaDevolucionPrevista.HasValue
         && FechaDevolucionPrevista.Value.Date < DateTime.Today;
+
+    /// <summary>
+    /// Indica si el registro está anulado (soft-delete).
+    /// Equivalente a la columna anulada en la base de datos.
+    /// </summary>
+    public bool EstaAnulada => Anulada;
 }

@@ -19,6 +19,7 @@
 @inject ToastService Toast
 @inject ConfirmService Confirm
 @inject UsuarioSesionService Sesion
+@inject AuditoriaService Auditoria
 
 <PageTitle>Préstamos · Almacén</PageTitle>
 
@@ -42,7 +43,6 @@
             }
         </div>
 
-        @* ═══ KPIs clicables ═══ *@
         <section class="kpi-grid">
             <div class="kpi-card kpi-indigo kpi-clicable" @onclick="FiltrarActivos">
                 <div class="kpi-icon"><i class="bi bi-hourglass-split"></i></div>
@@ -74,7 +74,6 @@
             </div>
         </section>
 
-        @* ═══ Pills de filtro rápido ═══ *@
         <div class="pills-filter">
             <button type="button"
                     class="pill-btn @(_pillActivo is null ? "active-indigo" : "inactive")"
@@ -411,7 +410,6 @@
     </div>
 </div>
 
-@* ═══════════════ MODAL — Detalle del préstamo ═══════════════ *@
 @if (_detalleAbierto && _prestamoDetalle is not null)
 {
     var p = _prestamoDetalle;
@@ -431,7 +429,6 @@
 
             <div class="modal-det-body">
 
-                @* ═══ ENCABEZADO INSTITUCIONAL (solo impresión) ═══ *@
                 <div class="acta-header">
                     <div class="acta-header-left">
                         <h2>@Sesion.InstitucionNombre</h2>
@@ -579,7 +576,6 @@
                     }
                 </div>
 
-                @* ═══ FIRMAS (solo impresión) ═══ *@
                 <div class="acta-firmas">
                     <div class="firma-block">
                         <div class="firma-line"></div>
@@ -807,7 +803,7 @@
         }
         catch (Exception ex)
         {
-            Toast.Error($"Error al imprimir: {ex.Message}");
+            ErrorHelper.Mostrar(Toast, ex, "el acta", "imprimir");
         }
     }
 
@@ -907,13 +903,29 @@
         try
         {
             await PrestamoRepo.CrearAsync(dto);
+
+            await Auditoria.RegistrarCreacionAsync(
+                modulo: "prestamos",
+                objetoTipo: "Préstamo",
+                objetoId: dto.Id,
+                objetoCodigo: null,
+                objetoDescripcion: $"Préstamo de bien ID {dto.BienId}",
+                despues: new
+                {
+                    dto.BienId,
+                    dto.FuncionarioSolicitaId,
+                    dto.FechaDevolucionPrevista,
+                    dto.Motivo
+                }
+            );
+
             Toast.Exito("Solicitud creada. Pendiente de aprobación.");
             Cancelar();
             await Cargar();
         }
         catch (Exception ex)
         {
-            Toast.Error($"Error: {ex.Message}");
+            ErrorHelper.Mostrar(Toast, ex, "el préstamo", "guardar");
         }
     }
 
@@ -939,10 +951,23 @@
             }
 
             await PrestamoRepo.AprobarAsync(p.Id, funcionarioAprueba.Id);
+
+            await Auditoria.RegistrarAprobacionAsync(
+                modulo: "prestamos",
+                objetoTipo: "Préstamo",
+                objetoId: p.Id,
+                objetoCodigo: null,
+                objetoDescripcion: $"Préstamo de {p.BienNombre}",
+                motivo: "Préstamo aprobado"
+            );
+
             Toast.Exito("Préstamo aprobado.");
             await Cargar();
         }
-        catch (Exception ex) { Toast.Error($"Error: {ex.Message}"); }
+        catch (Exception ex)
+        {
+            ErrorHelper.Mostrar(Toast, ex, "el préstamo", "aprobar");
+        }
     }
 
     private async Task Rechazar(PrestamoDTO p)
@@ -961,10 +986,23 @@
         try
         {
             await PrestamoRepo.RechazarAsync(p.Id, "Rechazado por el administrador");
+
+            await Auditoria.RegistrarAnulacionAsync(
+                modulo: "prestamos",
+                objetoTipo: "Préstamo",
+                objetoId: p.Id,
+                objetoCodigo: null,
+                objetoDescripcion: $"Préstamo de {p.BienNombre}",
+                motivo: "Solicitud rechazada"
+            );
+
             Toast.Warning("Solicitud rechazada.");
             await Cargar();
         }
-        catch (Exception ex) { Toast.Error($"Error: {ex.Message}"); }
+        catch (Exception ex)
+        {
+            ErrorHelper.Mostrar(Toast, ex, "el préstamo", "rechazar");
+        }
     }
 
     private async Task Entregar(PrestamoDTO p)
@@ -982,10 +1020,23 @@
         try
         {
             await PrestamoRepo.EntregarAsync(p.Id, "bueno", "Entregado en buen estado");
+
+            await Auditoria.RegistrarEntregaAsync(
+                modulo: "prestamos",
+                objetoTipo: "Préstamo",
+                objetoId: p.Id,
+                objetoCodigo: null,
+                objetoDescripcion: $"Préstamo de {p.BienNombre}",
+                motivo: "Préstamo entregado"
+            );
+
             Toast.Exito("Entrega registrada. El bien está en préstamo.");
             await Cargar();
         }
-        catch (Exception ex) { Toast.Error($"Error: {ex.Message}"); }
+        catch (Exception ex)
+        {
+            ErrorHelper.Mostrar(Toast, ex, "el préstamo", "entregar");
+        }
     }
 
     private async Task Devolver(PrestamoDTO p)
@@ -1003,10 +1054,23 @@
         try
         {
             await PrestamoRepo.DevolverAsync(p.Id, "bueno", "Devuelto en buen estado");
+
+            await Auditoria.RegistrarDevolucionAsync(
+                modulo: "prestamos",
+                objetoTipo: "Préstamo",
+                objetoId: p.Id,
+                objetoCodigo: null,
+                objetoDescripcion: $"Préstamo de {p.BienNombre}",
+                motivo: "Préstamo devuelto"
+            );
+
             Toast.Exito("Devolución registrada.");
             await Cargar();
         }
-        catch (Exception ex) { Toast.Error($"Error: {ex.Message}"); }
+        catch (Exception ex)
+        {
+            ErrorHelper.Mostrar(Toast, ex, "el préstamo", "devolver");
+        }
     }
 
     private async Task Anular(PrestamoDTO p)
@@ -1017,10 +1081,23 @@
         try
         {
             await PrestamoRepo.AnularAsync(p.Id);
+
+            await Auditoria.RegistrarAnulacionAsync(
+                modulo: "prestamos",
+                objetoTipo: "Préstamo",
+                objetoId: p.Id,
+                objetoCodigo: null,
+                objetoDescripcion: $"Préstamo de {p.BienNombre}",
+                motivo: "Préstamo anulado"
+            );
+
             Toast.Warning("Préstamo anulado.");
             await Cargar();
         }
-        catch (Exception ex) { Toast.Error($"Error: {ex.Message}"); }
+        catch (Exception ex)
+        {
+            ErrorHelper.Mostrar(Toast, ex, "el préstamo", "anular");
+        }
     }
 
     private async Task Eliminar(PrestamoDTO p)
@@ -1031,10 +1108,23 @@
         try
         {
             await PrestamoRepo.EliminarAsync(p.Id);
+
+            await Auditoria.RegistrarEliminacionAsync(
+                modulo: "prestamos",
+                objetoTipo: "Préstamo",
+                objetoId: p.Id,
+                objetoCodigo: null,
+                objetoDescripcion: $"Préstamo de {p.BienNombre}",
+                motivo: "Eliminación de préstamo"
+            );
+
             Toast.Exito("Préstamo eliminado.");
             await Cargar();
         }
-        catch (Exception ex) { Toast.Error($"Error: {ex.Message}"); }
+        catch (Exception ex)
+        {
+            ErrorHelper.Mostrar(Toast, ex, "el préstamo", "eliminar");
+        }
     }
 
     private static string GetClaseBadgeEstado(string estado) => estado switch

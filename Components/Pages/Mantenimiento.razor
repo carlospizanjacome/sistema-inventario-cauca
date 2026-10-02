@@ -19,6 +19,7 @@
 @inject ToastService Toast
 @inject ConfirmService Confirm
 @inject UsuarioSesionService Sesion
+@inject AuditoriaService Auditoria
 
 <PageTitle>Mantenimiento · Almacén</PageTitle>
 
@@ -345,6 +346,10 @@
                     {
                         @foreach (var m in _pagina.Items)
                         {
+                            // ═══ REGLA DE NEGOCIO: Soft-Delete ═══
+                            // Se puede anular si está CERRADO o ANULADO, y no ha sido anulado aún.
+                            var esAnulable = (m.Estado == "CERRADO" || m.Estado == "ANULADO") && !m.Anulada;
+
                             <tr class="table-row-hover @(m.EstaVencido ? "row-warning" : "")" @key="m.Id">
                                 <td>
                                     <div class="table-cell-primary">
@@ -383,7 +388,14 @@
                                 </td>
                                 <td class="text-end num">@m.Costo.ToString("C0", CulturaCOP)</td>
                                 <td class="text-center">
-                                    <span class="badge @GetClaseBadgeEstado(m.Estado)">@m.Estado</span>
+                                    @if (m.Anulada)
+                                    {
+                                        <span class="badge badge-off" title="Motivo: @m.AnuladaMotivo">ANULADO</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge @GetClaseBadgeEstado(m.Estado)">@m.Estado</span>
+                                    }
                                 </td>
                                 <td class="text-center">
                                     <div class="action-buttons">
@@ -408,11 +420,13 @@
                                             </button>
                                         }
 
-                                        @if ((m.Estado == "CERRADO" || m.Estado == "ANULADO") && puedeEliminar)
+                                        @* ═══ BOTÓN DE ANULAR (reemplaza al de eliminar) ═══ *@
+                                        @if (esAnulable && puedeAnular)
                                         {
                                             <button class="btn-action btn-action-delete"
-                                                    @onclick="() => Eliminar(m)" title="Eliminar del histórico">
-                                                <i class="bi bi-trash-fill"></i>
+                                                    @onclick="() => IntentarAnular(m)"
+                                                    title="Anular registro (soft-delete)">
+                                                <i class="bi bi-slash-circle-fill"></i>
                                             </button>
                                         }
                                     </div>
@@ -444,7 +458,14 @@
 
             <div class="modal-det-header">
                 <div class="modal-det-header-left">
-                    <span class="badge @GetClaseBadgeEstado(m.Estado)">@m.Estado</span>
+                    @if (m.Anulada)
+                    {
+                        <span class="badge badge-off">ANULADO</span>
+                    }
+                    else
+                    {
+                        <span class="badge @GetClaseBadgeEstado(m.Estado)">@m.Estado</span>
+                    }
                     <h3>Mantenimiento #@m.Id</h3>
                 </div>
                 <button class="modal-det-close" @onclick="CerrarDetalle" title="Cerrar">
@@ -453,6 +474,19 @@
             </div>
 
             <div class="modal-det-body">
+                @if (m.Anulada)
+                {
+                    <div class="det-section" style="background: #fef2f2; border-left: 4px solid #dc2626;">
+                        <h4><i class="bi bi-exclamation-triangle-fill"></i> Registro Anulado</h4>
+                        <dl class="det-dl">
+                            <dt>Motivo</dt>
+                            <dd>@(m.AnuladaMotivo ?? "—")</dd>
+                            <dt>Fecha</dt>
+                            <dd>@(m.AnuladaFecha?.ToString("dd/MM/yyyy HH:mm") ?? "—")</dd>
+                        </dl>
+                    </div>
+                }
+
                 <div class="det-section">
                     <h4><i class="bi bi-box-seam"></i> Bien</h4>
                     <dl class="det-dl">
@@ -480,10 +514,6 @@
                         <dd>@(m.ProveedorNombre ?? "—")</dd>
                         <dt>Técnico</dt>
                         <dd>@(m.TecnicoResponsable ?? "—")</dd>
-                        <dt>Estado ingreso</dt>
-                        <dd>@(m.EstadoBienIngreso ?? "—")</dd>
-                        <dt>Estado egreso</dt>
-                        <dd>@(m.EstadoBienEgreso ?? "—")</dd>
                         <dt>Costo</dt>
                         <dd class="text-warning"><strong>@m.Costo.ToString("C0", CulturaCOP)</strong></dd>
                     </dl>
@@ -502,14 +532,6 @@
                     <div class="det-section">
                         <h4><i class="bi bi-wrench-adjustable"></i> Trabajo realizado</h4>
                         <div class="det-note"><p>@m.TrabajoRealizado</p></div>
-                    </div>
-                }
-
-                @if (!string.IsNullOrWhiteSpace(m.RepuestosUtilizados))
-                {
-                    <div class="det-section">
-                        <h4><i class="bi bi-nut"></i> Repuestos utilizados</h4>
-                        <div class="det-note"><p>@m.RepuestosUtilizados</p></div>
                     </div>
                 }
 
@@ -629,6 +651,74 @@
     </div>
 }
 
+@* ═══════════════ MODAL — Anular ═══════════════ *@
+@if (_modalAnulacionAbierto && _itemAAnular is not null)
+{
+    var m = _itemAAnular;
+
+    <div class="modal-backdrop-det" @onclick="CancelarAnulacion">
+        <div class="modal-det" @onclick:stopPropagation="true">
+
+            <div class="modal-det-header">
+                <div class="modal-det-header-left">
+                    <span class="badge badge-off">Anular registro</span>
+                    <h3>@m.BienNombre</h3>
+                </div>
+                <button class="modal-det-close" @onclick="CancelarAnulacion" title="Cerrar">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <div class="modal-det-body">
+                <div class="det-section" style="background: #fffbeb; border-left: 4px solid #f59e0b;">
+                    <h4><i class="bi bi-exclamation-triangle-fill"></i> ¿Qué es anular?</h4>
+                    <p style="margin: 0;">
+                        El registro <strong>NO se elimina de la base de datos</strong>. Se marca como "Anulado" y se excluye de los reportes operativos.
+                        El historial completo queda disponible para auditoría y para el expediente del bien.
+                    </p>
+                </div>
+
+                <div class="det-section">
+                    <h4><i class="bi bi-info-circle"></i> Registro a anular</h4>
+                    <dl class="det-dl">
+                        <dt>Mantenimiento</dt>
+                        <dd>#@m.Id</dd>
+                        <dt>Bien</dt>
+                        <dd><code>@m.BienCodigo</code> — @m.BienNombre</dd>
+                        <dt>Tipo</dt>
+                        <dd><span class="badge @GetClaseBadgeTipo(m.Tipo)">@m.Tipo</span></dd>
+                        <dt>Estado actual</dt>
+                        <dd><span class="badge @GetClaseBadgeEstado(m.Estado)">@m.Estado</span></dd>
+                        <dt>Costo</dt>
+                        <dd>@m.Costo.ToString("C0", CulturaCOP)</dd>
+                    </dl>
+                </div>
+
+                <div class="form-group form-group-full">
+                    <label>Motivo de la anulación *</label>
+                    <div class="input-icon">
+                        <i class="bi bi-pencil-square"></i>
+                        <InputTextArea class="form-control" rows="3"
+                                       @bind-Value="_motivoAnulacion"
+                                       placeholder="Ej: Error de digitación, duplicado, prueba de sistema..." />
+                    </div>
+                    <small class="text-muted">Este motivo quedará registrado en la bitácora de auditoría.</small>
+                </div>
+            </div>
+
+            <div class="modal-det-footer">
+                <button class="btn-det-cerrar" @onclick="CancelarAnulacion">
+                    <i class="bi bi-x-lg"></i> Cancelar
+                </button>
+                <button class="btn btn-save" @onclick="ConfirmarAnulacionAsync" disabled="@(string.IsNullOrWhiteSpace(_motivoAnulacion))">
+                    <i class="bi bi-slash-circle-fill"></i> Confirmar Anulación
+                </button>
+            </div>
+
+        </div>
+    </div>
+}
+
 @code {
     private static readonly CultureInfo CulturaCOP = CultureInfo.GetCultureInfo("es-CO");
 
@@ -659,10 +749,15 @@
     private bool _modalCierreAbierto = false;
     private MantenimientoDTO? _paraCerrar;
 
+    // ═══ Estado del modal de anulación ═══
+    private bool _modalAnulacionAbierto = false;
+    private MantenimientoDTO? _itemAAnular;
+    private string _motivoAnulacion = "";
+
     private bool puedeCrear;
     private bool puedeEditar;
     private bool puedeCerrar;
-    private bool puedeEliminar;
+    private bool puedeAnular;
 
     private bool _hayFiltrosActivos =>
         !string.IsNullOrEmpty(_filtroTexto) ||
@@ -684,10 +779,11 @@
             return;
         }
 
-        puedeCrear    = await Seguridad.TienePermisoAsync("mantenimiento.crear");
-        puedeEditar   = await Seguridad.TienePermisoAsync("mantenimiento.editar");
-        puedeCerrar   = await Seguridad.TienePermisoAsync("mantenimiento.cerrar");
-        puedeEliminar = await Seguridad.TienePermisoAsync("mantenimiento.eliminar");
+        puedeCrear  = await Seguridad.TienePermisoAsync("mantenimiento.crear");
+        puedeEditar = await Seguridad.TienePermisoAsync("mantenimiento.editar");
+        puedeCerrar = await Seguridad.TienePermisoAsync("mantenimiento.cerrar");
+        // ═══ CAMBIO: Se usa "mantenimiento.anular" en vez de ".eliminar" ═══
+        puedeAnular = await Seguridad.TienePermisoAsync("mantenimiento.anular");
 
         var t1 = BienRepo.ObtenerTodosAsync();
         var t2 = ProveedorRepo.ObtenerTodosAsync();
@@ -696,7 +792,7 @@
         bienes = (await t1).ToList();
         proveedores = (await t2).ToList();
 
-        await Cargar();
+                await Cargar();
     }
 
     private async Task Cargar()
@@ -725,10 +821,10 @@
         _metricas = await MantRepo.ObtenerMetricasAsync();
     }
 
-    private Task FiltrarTodos()    => FiltrarPorPill(null);
-    private Task FiltrarAbiertos() => FiltrarPorPill("abiertos");
+    private Task FiltrarTodos()     => FiltrarPorPill(null);
+    private Task FiltrarAbiertos()  => FiltrarPorPill("abiertos");
     private Task FiltrarEnProceso() => FiltrarPorPill("proceso");
-    private Task FiltrarCerrados() => FiltrarPorPill("cerrados");
+    private Task FiltrarCerrados()  => FiltrarPorPill("cerrados");
 
     private async Task FiltrarPorPill(string? pill)
     {
@@ -792,13 +888,22 @@
                 cierreDto.EstadoBienEgreso,
                 cierreDto.Observaciones);
 
+            await Auditoria.RegistrarCierreAsync(
+                modulo: "mantenimiento",
+                objetoTipo: "Mantenimiento",
+                objetoId: _paraCerrar.Id,
+                objetoCodigo: _paraCerrar.BienCodigo,
+                objetoDescripcion: $"Mantenimiento de {_paraCerrar.BienNombre}",
+                motivo: $"Cierre — costo final: {cierreDto.Costo:C0}"
+            );
+
             Toast.Exito("Mantenimiento cerrado.");
             CancelarCierre();
             await Cargar();
         }
         catch (Exception ex)
         {
-            Toast.Error($"Error: {ex.Message}");
+            ErrorHelper.Mostrar(Toast, ex, "el mantenimiento", "cerrar");
         }
     }
 
@@ -925,11 +1030,55 @@
             if (_editando)
             {
                 await MantRepo.ActualizarAsync(dto);
+
+                await Auditoria.RegistrarEdicionAsync(
+                    modulo: "mantenimiento",
+                    objetoTipo: "Mantenimiento",
+                    objetoId: dto.Id,
+                    objetoCodigo: null,
+                    objetoDescripcion: $"Mantenimiento de bien ID {dto.BienId}",
+                    antes: null,
+                    despues: new
+                    {
+                        dto.BienId,
+                        dto.Tipo,
+                        dto.FechaIngreso,
+                        dto.FechaDevolucionPrevista,
+                        dto.ProveedorId,
+                        dto.TecnicoResponsable,
+                        dto.Diagnostico,
+                        dto.Costo,
+                        dto.EstadoBienIngreso
+                    },
+                    motivo: "Edición de mantenimiento"
+                );
+
                 Toast.Exito("Mantenimiento actualizado.");
             }
             else
             {
                 await MantRepo.CrearAsync(dto);
+
+                await Auditoria.RegistrarCreacionAsync(
+                    modulo: "mantenimiento",
+                    objetoTipo: "Mantenimiento",
+                    objetoId: dto.Id,
+                    objetoCodigo: null,
+                    objetoDescripcion: $"Mantenimiento {dto.Tipo} de bien ID {dto.BienId}",
+                    despues: new
+                    {
+                        dto.BienId,
+                        dto.Tipo,
+                        dto.FechaIngreso,
+                        dto.FechaDevolucionPrevista,
+                        dto.ProveedorId,
+                        dto.TecnicoResponsable,
+                        dto.Diagnostico,
+                        dto.Costo,
+                        dto.EstadoBienIngreso
+                    }
+                );
+
                 Toast.Exito("Ingreso registrado.");
             }
 
@@ -938,22 +1087,98 @@
         }
         catch (Exception ex)
         {
-            Toast.Error($"Error: {ex.Message}");
+            ErrorHelper.Mostrar(Toast, ex, "el mantenimiento", "guardar");
         }
     }
 
-    private async Task Eliminar(MantenimientoDTO m)
+    // ═══════════════════════════════════════════════════════════════
+    // MÉTODOS DE ANULACIÓN (Soft-Delete)
+    // ═══════════════════════════════════════════════════════════════
+
+    private void IntentarAnular(MantenimientoDTO m)
     {
-        var ok = await Confirm.Peligroso($"¿Eliminar del histórico el mantenimiento de '{m.BienNombre}'?");
-        if (!ok) return;
+        if (!puedeAnular)
+        {
+            Toast.Error("No tiene permiso para anular mantenimientos.");
+            return;
+        }
+
+        // ═══ VALIDACIÓN: defensa en profundidad ═══
+        if (m.Estado != "CERRADO" && m.Estado != "ANULADO")
+        {
+            Toast.Warning(
+                $"No se puede anular el mantenimiento del bien '{m.BienNombre}': " +
+                $"está en estado '{m.Estado}'. Primero debe cerrarlo.");
+            return;
+        }
+
+        if (m.Anulada)
+        {
+            Toast.Warning("Este mantenimiento ya está anulado.");
+            return;
+        }
+
+        // Abrir modal de anulación
+        _itemAAnular = m;
+        _motivoAnulacion = "";
+        _modalAnulacionAbierto = true;
+        StateHasChanged();
+    }
+
+    private void CancelarAnulacion()
+    {
+        _modalAnulacionAbierto = false;
+        _itemAAnular = null;
+        _motivoAnulacion = "";
+    }
+
+    private async Task ConfirmarAnulacionAsync()
+    {
+        if (_itemAAnular is null) return;
+        if (string.IsNullOrWhiteSpace(_motivoAnulacion))
+        {
+            Toast.Warning("Debe ingresar un motivo para la anulación.");
+            return;
+        }
 
         try
         {
-            await MantRepo.EliminarAsync(m.Id);
-            Toast.Exito("Mantenimiento eliminado.");
+            await MantRepo.AnularAsync(_itemAAnular.Id, _motivoAnulacion);
+
+            // ═══ AUDITORÍA — ANULAR (operación CRÍTICA) ═══
+            await Auditoria.RegistrarAnulacionAsync(
+                modulo: "mantenimiento",
+                objetoTipo: "Mantenimiento",
+                objetoId: _itemAAnular.Id,
+                objetoCodigo: _itemAAnular.BienCodigo,
+                objetoDescripcion: $"Anulación de mantenimiento para '{_itemAAnular.BienNombre}'",
+                antes: new
+                {
+                    Estado = _itemAAnular.Estado,
+                    Anulada = false,
+                    Costo = _itemAAnular.Costo,
+                    Tipo = _itemAAnular.Tipo
+                },
+                despues: new
+                {
+                    Estado = _itemAAnular.Estado,
+                    Anulada = true,
+                    Motivo = _motivoAnulacion,
+                    AnuladaPor = Sesion.UsuarioActual?.Id,
+                    AnuladaFecha = DateTime.Now
+                },
+                motivo: _motivoAnulacion
+            );
+
+            Toast.Exito("Mantenimiento anulado correctamente.");
+            CancelarAnulacion();
             await Cargar();
+            StateHasChanged();
         }
-        catch (Exception ex) { Toast.Error($"Error: {ex.Message}"); }
+        catch (Exception ex)
+        {
+            ErrorHelper.Mostrar(Toast, ex, "el mantenimiento", "anular");
+        }
     }
 
     private static string GetClaseBadgeTipo(string tipo) => tipo switch

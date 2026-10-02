@@ -32,6 +32,10 @@ public class GarantiaRepository : IGarantiaRepository
             g.condiciones,
             g.contacto_proveedor      AS ContactoProveedor,
             g.observaciones,
+            g.anulada,
+            g.anulada_por             AS AnuladaPor,
+            g.anulada_fecha::timestamp AS AnuladaFecha,
+            g.anulada_motivo          AS AnuladaMotivo,
             g.created_at              AS CreatedAt,
             g.updated_at              AS UpdatedAt,
             b.codigo                  AS BienCodigo,
@@ -57,7 +61,8 @@ public class GarantiaRepository : IGarantiaRepository
         var (filtroInst, _) = FiltroInstitucion.Construir(
             _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "g");
 
-        var condiciones = new List<string> { "1=1" };
+        // Regla: las vistas operativas solo muestran garantías vigentes (no anuladas)
+        var condiciones = new List<string> { "g.anulada = FALSE" };
         var parametros = new DynamicParameters();
         parametros.Add("InstitucionId", _sesion.InstitucionId);
 
@@ -125,6 +130,7 @@ public class GarantiaRepository : IGarantiaRepository
         var (filtroInst, _) = FiltroInstitucion.Construir(
             _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "g");
 
+        // El expediente del bien muestra TODO el historial, incluidas anuladas
         var sql = $"{BaseSelect} WHERE g.id = @Id {filtroInst};";
 
         using var cn = new NpgsqlConnection(_cs);
@@ -137,6 +143,7 @@ public class GarantiaRepository : IGarantiaRepository
         var (filtroInst, _) = FiltroInstitucion.Construir(
             _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "g");
 
+        // El expediente del bien muestra TODO el historial, incluidas anuladas
         var sql = $@"{BaseSelect}
                      WHERE g.bien_id = @BienId {filtroInst}
                      ORDER BY g.fecha_vencimiento DESC;";
@@ -152,11 +159,11 @@ public class GarantiaRepository : IGarantiaRepository
             INSERT INTO garantias
                 (bien_id, institucion_id, proveedor_id, numero_garantia, tipo,
                  fecha_inicio, fecha_vencimiento, condiciones, contacto_proveedor,
-                 observaciones, created_at, updated_at)
+                 observaciones, anulada, created_at, updated_at)
             VALUES
                 (@BienId, @InstitucionId, @ProveedorId, @NumeroGarantia, @Tipo,
                  @FechaInicio, @FechaVencimiento, @Condiciones, @ContactoProveedor,
-                 @Observaciones, NOW(), NOW())
+                 @Observaciones, FALSE, NOW(), NOW())
             RETURNING id;";
 
         using var cn = new NpgsqlConnection(_cs);
@@ -188,7 +195,7 @@ public class GarantiaRepository : IGarantiaRepository
                 contacto_proveedor = @ContactoProveedor,
                 observaciones = @Observaciones,
                 updated_at = NOW()
-            WHERE id = @Id;";
+            WHERE id = @Id AND anulada = FALSE;";
 
         using var cn = new NpgsqlConnection(_cs);
         await cn.ExecuteAsync(sql, new
@@ -205,11 +212,31 @@ public class GarantiaRepository : IGarantiaRepository
         });
     }
 
-    public async Task EliminarAsync(int id)
+    /// <summary>
+    /// Anula lógicamente una garantía (soft-delete).
+    /// REGLA DE NEGOCIO: solo se pueden anular garantías VENCIDAS.
+    /// El registro se preserva para auditoría.
+    /// </summary>
+    public async Task AnularAsync(int id, string motivo)
     {
-        const string sql = @"DELETE FROM garantias WHERE id = @Id;";
+        const string sql = @"
+            UPDATE garantias
+            SET anulada = TRUE,
+                anulada_por = @UsuarioId,
+                anulada_fecha = NOW(),
+                anulada_motivo = @Motivo,
+                updated_at = NOW()
+            WHERE id = @Id 
+              AND anulada = FALSE
+              AND fecha_vencimiento < NOW()::date;";
+
         using var cn = new NpgsqlConnection(_cs);
-        await cn.ExecuteAsync(sql, new { Id = id });
+        await cn.ExecuteAsync(sql, new
+        {
+            Id = id,
+            UsuarioId = _sesion.UsuarioActual?.Id,
+            Motivo = motivo
+        });
     }
 
     public async Task<(int Vigentes, int PorVencer, int Vencidas, int Total)> ObtenerMetricasAsync()
@@ -225,7 +252,7 @@ public class GarantiaRepository : IGarantiaRepository
                 COUNT(*) FILTER (WHERE g.fecha_vencimiento < NOW()::date)::int AS Vencidas,
                 COUNT(*)::int AS Total
             FROM garantias g
-            WHERE 1=1 {filtroInst};";
+            WHERE g.anulada = FALSE {filtroInst};";
 
         using var cn = new NpgsqlConnection(_cs);
         return await cn.QueryFirstAsync<(int Vigentes, int PorVencer, int Vencidas, int Total)>(

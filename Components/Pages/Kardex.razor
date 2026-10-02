@@ -6,6 +6,7 @@
 @using Almacen.Services
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.JSInterop
+@using System.Globalization
 
 @inject IKardexRepository KardexRepo
 @inject IProveedorRepository ProveedorRepo
@@ -17,24 +18,31 @@
 
 <PageTitle>Kárdex · Almacén</PageTitle>
 
-<div class="usuarios-page usuarios-fullscreen">
+<div class="kardex-page">
 
-    <div class="page-header-custom">
-        <div class="page-header-title">
-            <h1><i class="bi bi-journal-text"></i> Kárdex de Consumo</h1>
+    @* ═══════════════════════════════════════════════════
+       HEADER COMPACTO
+       ═══════════════════════════════════════════════════ *@
+    <header class="kardex-header">
+        <div class="kardex-title-group">
+            <h1 class="kardex-title">
+                <i class="bi bi-journal-text"></i>
+                Kárdex
+                <span class="kardex-title-hint">Libro auxiliar contable · CPP</span>
+            </h1>
         </div>
 
-        <div class="page-header-right">
-            <div class="buscador-bien">
+        <div class="kardex-search-group">
+            <div class="kardex-search">
                 <i class="bi bi-search"></i>
                 <input type="text"
-                       list="lista-bienes"
-                       placeholder="Buscar bien por código o nombre…"
+                       list="lista-bienes-kardex"
+                       placeholder="Buscar bien…"
                        value="@_textoBusquedaBien"
                        @oninput="FiltrarBienes"
-                       @onchange="SeleccionarBienDesdeInput" />
-
-                <datalist id="lista-bienes">
+                       @onchange="SeleccionarBienDesdeInput"
+                       autocomplete="off" />
+                <datalist id="lista-bienes-kardex">
                     @foreach (var b in _bienesFiltrados)
                     {
                         <option value="@b.Codigo — @b.Nombre">
@@ -42,154 +50,219 @@
                         </option>
                     }
                 </datalist>
-
                 @if (_bienSeleccionado != null)
                 {
-                    <button class="btn-limpiar-bien"
+                    <button class="kardex-search-clear"
+                            type="button"
                             @onclick="LimpiarSeleccionBien"
                             title="Limpiar selección">
                         <i class="bi bi-x-lg"></i>
                     </button>
                 }
             </div>
-
-            @if (_bienIdSeleccionado > 0 && _bienSeleccionado != null)
-            {
-                <div class="kardex-banner-top">
-                    <i class="bi bi-info-circle-fill"></i>
-                    <span>
-                        Este es un <strong>libro auxiliar contable</strong>. Los movimientos no se editan ni eliminan.
-                        Para corregir, registra un <strong>ajuste</strong> con el tipo contrario.
-                    </span>
-                </div>
-            }
         </div>
-    </div>
+    </header>
 
     @if (_bienIdSeleccionado > 0 && _bienSeleccionado != null)
     {
-        <!-- ═══ RESUMEN DEL BIEN (KPIs) ═══ -->
-        <section class="resumen-bien">
-            <div class="resumen-card">
-                <span class="resumen-label">Stock actual</span>
-                <span class="resumen-valor @(_bienSeleccionado.BajoStockMinimo ? "valor-warn" : "")">
+        @* ═══════════════════════════════════════════════════
+           KPIs
+           ═══════════════════════════════════════════════════ *@
+        <section class="kardex-kpis" aria-label="Indicadores del bien">
+            <article class="kardex-kpi">
+                <span class="kardex-kpi-label">Stock actual</span>
+                <span class="kardex-kpi-value @(_bienSeleccionado.BajoStockMinimo ? "kardex-kpi-warn" : "")">
                     @_bienSeleccionado.StockActual.ToString("N2")
                     <small>@_bienSeleccionado.UnidadMedida</small>
                 </span>
-            </div>
-            <div class="resumen-card">
-                <span class="resumen-label">Stock mínimo</span>
-                <span class="resumen-valor">@_bienSeleccionado.StockMinimo.ToString("N2")</span>
-            </div>
-            <div class="resumen-card">
-                <span class="resumen-label">CPP</span>
-                <span class="resumen-valor">
-                    @_bienSeleccionado.CppActual.ToString("C2", System.Globalization.CultureInfo.GetCultureInfo("es-CO"))
+                @if (_bienSeleccionado.BajoStockMinimo)
+                {
+                    <span class="kardex-kpi-flag">
+                        <i class="bi bi-exclamation-triangle-fill"></i> Bajo stock
+                    </span>
+                }
+            </article>
+
+            <article class="kardex-kpi">
+                <span class="kardex-kpi-label">Stock mínimo</span>
+                <span class="kardex-kpi-value">
+                    @_bienSeleccionado.StockMinimo.ToString("N2")
                 </span>
-            </div>
-            <div class="resumen-card">
-                <span class="resumen-label">Valor total</span>
-                <span class="resumen-valor">
-                    @_bienSeleccionado.ValorStock.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("es-CO"))
+            </article>
+
+            <article class="kardex-kpi">
+                <span class="kardex-kpi-label">CPP actual</span>
+                <span class="kardex-kpi-value">
+                    @_bienSeleccionado.CppActual.ToString("C2", CulturaCOP)
                 </span>
-            </div>
+            </article>
+
+            <article class="kardex-kpi kardex-kpi-highlight">
+                <span class="kardex-kpi-label">Valor del stock</span>
+                <span class="kardex-kpi-value">
+                    @_bienSeleccionado.ValorStock.ToString("C0", CulturaCOP)
+                </span>
+            </article>
         </section>
 
-        <!-- ═══ FORMULARIO DE MOVIMIENTO ═══ -->
-        <div class="modern-card">
-            <div class="card-top-compact">
-                <h5><i class="bi bi-arrow-left-right"></i> Registrar movimiento</h5>
-            </div>
+        @* ═══════════════════════════════════════════════════
+           FORMULARIO DE MOVIMIENTO
+           ═══════════════════════════════════════════════════ *@
+        <section class="kardex-panel">
+            <header class="kardex-panel-header">
+                <div class="kardex-panel-title">
+                    <i class="bi bi-arrow-left-right" aria-hidden="true"></i>
+                    <div>
+                        <h2>Registrar movimiento</h2>
+                        <p>Los movimientos no se editan ni eliminan. Use ajustes para corregir.</p>
+                    </div>
+                </div>
+            </header>
 
             <EditForm Model="_movDTO" OnValidSubmit="RegistrarMovimiento">
                 <DataAnnotationsValidator />
 
-                <div class="row g-2 mb-2">
-                    <div class="col-md-2">
-                        <label class="mini-label">Tipo *</label>
-                        <InputSelect class="form-select" @bind-Value="_movDTO.TipoMovimiento">
-                            <option value="ENTRADA">ENTRADA (+)</option>
-                            <option value="SALIDA">SALIDA (−)</option>
-                            <option value="AJUSTE_POS">AJUSTE (+)</option>
-                            <option value="AJUSTE_NEG">AJUSTE (−)</option>
-                        </InputSelect>
+                <div class="kardex-form-grid">
+                    <div class="kardex-form-field">
+                        <label for="mov-tipo">Tipo *</label>
+                        <div class="kardex-input-icon">
+                            <i class="bi bi-arrow-left-right"></i>
+                            <InputSelect id="mov-tipo" class="form-select"
+                                         @bind-Value="_movDTO.TipoMovimiento">
+                                <option value="ENTRADA">ENTRADA (+)</option>
+                                <option value="SALIDA">SALIDA (−)</option>
+                                <option value="AJUSTE_POS">AJUSTE (+)</option>
+                                <option value="AJUSTE_NEG">AJUSTE (−)</option>
+                            </InputSelect>
+                        </div>
                     </div>
-                    <div class="col-md-2">
-                        <label class="mini-label">Fecha *</label>
-                        <InputDate class="form-control" @bind-Value="_movDTO.FechaMovimiento" />
+
+                    <div class="kardex-form-field">
+                        <label for="mov-fecha">Fecha *</label>
+                        <div class="kardex-input-icon">
+                            <i class="bi bi-calendar-event"></i>
+                            <InputDate id="mov-fecha" class="form-control"
+                                       @bind-Value="_movDTO.FechaMovimiento" />
+                        </div>
                     </div>
-                    <div class="col-md-2">
-                        <label class="mini-label">Cantidad *</label>
-                        <InputNumber class="form-control" @bind-Value="_movDTO.Cantidad" step="0.01" />
-                        <ValidationMessage For="() => _movDTO.Cantidad" />
+
+                    <div class="kardex-form-field">
+                        <label for="mov-cantidad">Cantidad *</label>
+                        <div class="kardex-input-icon">
+                            <i class="bi bi-123"></i>
+                            <InputNumber id="mov-cantidad" class="form-control"
+                                         @bind-Value="_movDTO.Cantidad" step="0.01" />
+                        </div>
+                        <ValidationMessage For="() => _movDTO.Cantidad" class="form-error" />
                     </div>
-                    <div class="col-md-2">
-                        <label class="mini-label">Costo unitario</label>
-                        <InputNumber class="form-control" @bind-Value="_movDTO.CostoUnitario" step="0.01"
-                                     disabled="@(EsSalida)" />
-                        @if (EsSalida)
-                        {
-                            <small class="text-muted" style="font-size:0.68rem;">Usa CPP actual</small>
-                        }
-                    </div>
-                    <div class="col-md-2">
-                        <label class="mini-label">N° documento</label>
-                        <InputText class="form-control" @bind-Value="_movDTO.DocumentoReferencia" placeholder="Factura / Acta" />
-                    </div>
-                    <div class="col-md-2">
-                        <label class="mini-label">Proveedor</label>
-                        <InputSelect class="form-select" @bind-Value="_movDTO.ProveedorId" disabled="@(EsSalida)">
-                            <option value="">— Sin proveedor —</option>
-                            @foreach (var p in _proveedores)
+
+                    <div class="kardex-form-field">
+                        <label for="mov-costo">
+                            Costo unitario
+                            @if (EsSalida)
                             {
-                                <option value="@p.Id">@p.Nombre</option>
+                                <span class="kardex-label-hint">— usa CPP</span>
                             }
-                        </InputSelect>
+                        </label>
+                        <div class="kardex-input-icon">
+                            <i class="bi bi-currency-dollar"></i>
+                            <InputNumber id="mov-costo" class="form-control"
+                                         @bind-Value="_movDTO.CostoUnitario"
+                                         step="0.01"
+                                         disabled="@EsSalida" />
+                        </div>
+                    </div>
+
+                    <div class="kardex-form-field">
+                        <label for="mov-doc">N° documento</label>
+                        <div class="kardex-input-icon">
+                            <i class="bi bi-receipt"></i>
+                            <InputText id="mov-doc" class="form-control"
+                                       @bind-Value="_movDTO.DocumentoReferencia"
+                                       placeholder="Factura / Acta" />
+                        </div>
+                    </div>
+
+                    <div class="kardex-form-field">
+                        <label for="mov-prov">Proveedor</label>
+                        <div class="kardex-input-icon">
+                            <i class="bi bi-shop"></i>
+                            <InputSelect id="mov-prov" class="form-select"
+                                         @bind-Value="_movDTO.ProveedorId"
+                                         disabled="@EsSalida">
+                                <option value="">— Sin proveedor —</option>
+                                @foreach (var p in _proveedores)
+                                {
+                                    <option value="@p.Id">@p.Nombre</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    <div class="kardex-form-field">
+                        <label for="mov-recibe">Recibe</label>
+                        <div class="kardex-input-icon">
+                            <i class="bi bi-person-check"></i>
+                            <InputSelect id="mov-recibe" class="form-select"
+                                         @bind-Value="_movDTO.FuncionarioRecibeId">
+                                <option value="">— Sin asignar —</option>
+                                @foreach (var f in _funcionarios)
+                                {
+                                    <option value="@f.Id">@f.NombreCompleto</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    <div class="kardex-form-field kardex-form-field-full">
+                        <label for="mov-obs">Observaciones</label>
+                        <div class="kardex-input-icon">
+                            <i class="bi bi-chat-left-text"></i>
+                            <InputText id="mov-obs" class="form-control"
+                                       @bind-Value="_movDTO.Observaciones"
+                                       placeholder="Notas opcionales" />
+                        </div>
                     </div>
                 </div>
 
-                <div class="row g-2 mb-2">
-                    <div class="col-md-3">
-                        <label class="mini-label">Recibe (funcionario)</label>
-                        <InputSelect class="form-select" @bind-Value="_movDTO.FuncionarioRecibeId">
-                            <option value="">— Sin asignar —</option>
-                            @foreach (var f in _funcionarios)
-                            {
-                                <option value="@f.Id">@f.NombreCompleto</option>
-                            }
-                        </InputSelect>
-                    </div>
-                    <div class="col-md-9">
-                        <label class="mini-label">Observaciones</label>
-                        <InputText class="form-control" @bind-Value="_movDTO.Observaciones" />
-                    </div>
-                </div>
-
-                <div class="d-flex gap-2 mt-2 justify-content-end">
-                    <button type="submit" class="btn btn-save px-4">
-                        <i class="bi bi-check-circle me-1"></i> Registrar Movimiento
+                <div class="kardex-panel-actions">
+                    <button type="submit" class="btn btn-save">
+                        <i class="bi bi-check-circle-fill"></i>
+                        Registrar movimiento
                     </button>
                 </div>
             </EditForm>
-        </div>
+        </section>
 
-        <!-- ═══ TABLA KÁRDEX ═══ -->
-        <div class="modern-card">
-            <div class="card-top-compact">
-                <h5><i class="bi bi-clock-history"></i> Histórico de movimientos</h5>
-            </div>
-            <div class="table-responsive">
-                <table class="table modern-table align-middle m-0">
+        @* ═══════════════════════════════════════════════════
+           TABLA CON PAGINACIÓN
+           ═══════════════════════════════════════════════════ *@
+        <section class="kardex-panel">
+            <header class="kardex-panel-header">
+                <div class="kardex-panel-title">
+                    <i class="bi bi-clock-history" aria-hidden="true"></i>
+                    <div>
+                        <h2>Histórico de movimientos</h2>
+                        <p>Libro cronológico · Inmutable</p>
+                    </div>
+                </div>
+                <span class="kardex-panel-badge">
+                    @((_movimientos?.Count ?? 0)) movimientos
+                </span>
+            </header>
+
+            <div class="kardex-table-wrapper">
+                <table class="kardex-table">
                     <thead>
                         <tr>
                             <th>Fecha</th>
                             <th>Tipo</th>
-                            <th class="text-end">Cant.</th>
-                            <th class="text-end">Costo unit.</th>
-                            <th class="text-end">Valor mov.</th>
-                            <th class="text-end">Saldo cant.</th>
-                            <th class="text-end">Saldo valor</th>
-                            <th class="text-end">CPP</th>
+                            <th class="kardex-num">Cant.</th>
+                            <th class="kardex-num">Costo unit.</th>
+                            <th class="kardex-num">Valor mov.</th>
+                            <th class="kardex-num">Saldo cant.</th>
+                            <th class="kardex-num">Saldo valor</th>
+                            <th class="kardex-num">CPP</th>
                             <th>Documento</th>
                             <th>Observaciones</th>
                         </tr>
@@ -197,47 +270,108 @@
                     <tbody>
                         @if (_movimientos is null || !_movimientos.Any())
                         {
-                            <tr><td colspan="10" class="text-center py-3 text-muted">
-                                Sin movimientos registrados.
-                            </td></tr>
+                            <tr>
+                                <td colspan="10" class="kardex-table-empty">
+                                    <i class="bi bi-inbox"></i>
+                                    <span>Sin movimientos registrados.</span>
+                                </td>
+                            </tr>
                         }
                         else
                         {
-                            @foreach (var m in _movimientos)
+                            @foreach (var m in _movimientosPaginados)
                             {
                                 <tr>
-                                    <td>@m.FechaMovimiento?.ToString("dd/MM/yyyy")</td>
+                                    <td class="kardex-text-mono">@m.FechaMovimiento?.ToString("dd/MM/yyyy")</td>
                                     <td>
-                                        <span class="tipo-badge tipo-@m.TipoMovimiento.ToLower()">
+                                        <span class="kardex-tipo kardex-tipo-@m.TipoMovimiento.ToLower()">
                                             @m.TipoMovimiento
                                         </span>
                                     </td>
-                                    <td class="text-end">@m.Cantidad.ToString("N2")</td>
-                                    <td class="text-end">@m.CostoUnitario.ToString("C2", System.Globalization.CultureInfo.GetCultureInfo("es-CO"))</td>
-                                    <td class="text-end">@m.ValorMovimiento.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("es-CO"))</td>
-                                    <td class="text-end"><strong>@m.SaldoCantidad.ToString("N2")</strong></td>
-                                    <td class="text-end">@m.SaldoValor.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("es-CO"))</td>
-                                    <td class="text-end">@m.Cpp.ToString("C2", System.Globalization.CultureInfo.GetCultureInfo("es-CO"))</td>
-                                    <td>@m.DocumentoReferencia</td>
-                                    <td>@m.Observaciones</td>
+                                    <td class="kardex-num">@m.Cantidad.ToString("N2")</td>
+                                    <td class="kardex-num">@m.CostoUnitario.ToString("C2", CulturaCOP)</td>
+                                    <td class="kardex-num">@m.ValorMovimiento.ToString("C0", CulturaCOP)</td>
+                                    <td class="kardex-num"><strong>@m.SaldoCantidad.ToString("N2")</strong></td>
+                                    <td class="kardex-num">@m.SaldoValor.ToString("C0", CulturaCOP)</td>
+                                    <td class="kardex-num">@m.Cpp.ToString("C2", CulturaCOP)</td>
+                                    <td class="kardex-text-mono">@m.DocumentoReferencia</td>
+                                    <td class="kardex-text-muted">@m.Observaciones</td>
                                 </tr>
                             }
                         }
                     </tbody>
                 </table>
             </div>
-        </div>
+
+            @* ─── PAGINACIÓN ─── *@
+            @if (_movimientos is not null && _movimientos.Count > 0)
+            {
+                <footer class="kardex-pagination">
+                    <div class="kardex-pagination-info">
+                        Mostrando <strong>@((_paginaMovimientos - 1) * _tamanoMovimientos + 1)</strong>
+                        a <strong>@Math.Min(_paginaMovimientos * _tamanoMovimientos, _movimientos.Count)</strong>
+                        de <strong>@_movimientos.Count</strong> movimientos
+                    </div>
+
+                    <div class="kardex-pagination-controls">
+                        <button type="button"
+                                class="kardex-pg-btn"
+                                @onclick="() => CambiarPaginaMovimientos(_paginaMovimientos - 1)"
+                                disabled="@(_paginaMovimientos <= 1)"
+                                title="Anterior">
+                            <i class="bi bi-chevron-left"></i>
+                        </button>
+
+                        <span class="kardex-pg-page">
+                            Página <strong>@_paginaMovimientos</strong> de <strong>@_totalPaginasMovimientos</strong>
+                        </span>
+
+                        <button type="button"
+                                class="kardex-pg-btn"
+                                @onclick="() => CambiarPaginaMovimientos(_paginaMovimientos + 1)"
+                                disabled="@(_paginaMovimientos >= _totalPaginasMovimientos)"
+                                title="Siguiente">
+                            <i class="bi bi-chevron-right"></i>
+                        </button>
+                    </div>
+
+                    <div class="kardex-pagination-size">
+                        <label for="kardex-tamano">Mostrar:</label>
+                        <select id="kardex-tamano"
+                                @bind="_tamanoMovimientos"
+                                @bind:after="CambiarTamanoMovimientos">
+                            <option value="10">10</option>
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+                </footer>
+            }
+        </section>
     }
     else
     {
-        <div class="empty-state">
-            <i class="bi bi-journal-text"></i>
-            <p>Seleccione un bien para ver su kárdex</p>
-        </div>
+        @* ═══════════════════════════════════════════════════
+           EMPTY STATE
+           ═══════════════════════════════════════════════════ *@
+        <section class="kardex-empty">
+            <div class="kardex-empty-icon">
+                <i class="bi bi-journal-text"></i>
+            </div>
+            <h2>Seleccione un bien para ver su kárdex</h2>
+            <p>
+                Busque un bien de consumo en la barra superior para visualizar
+                su historial de movimientos, calcular su CPP y registrar nuevas
+                entradas o salidas.
+            </p>
+        </section>
     }
 </div>
 
 @code {
+    private static readonly CultureInfo CulturaCOP = CultureInfo.GetCultureInfo("es-CO");
+
     [SupplyParameterFromQuery(Name = "bienId")]
     public int? BienIdQuery { get; set; }
 
@@ -253,7 +387,24 @@
 
     private MovimientoConsumoDTO _movDTO = new();
 
-    private bool EsSalida => _movDTO.TipoMovimiento == "SALIDA" || _movDTO.TipoMovimiento == "AJUSTE_NEG";
+    // ═══ Estado de paginación del histórico ═══
+    private int _paginaMovimientos = 1;
+    private int _tamanoMovimientos = 25;
+
+    private IEnumerable<MovimientoConsumoDTO> _movimientosPaginados =>
+        _movimientos is null
+            ? Enumerable.Empty<MovimientoConsumoDTO>()
+            : _movimientos
+                .Skip((_paginaMovimientos - 1) * _tamanoMovimientos)
+                .Take(_tamanoMovimientos);
+
+    private int _totalPaginasMovimientos =>
+        _movimientos is null || _movimientos.Count == 0
+            ? 1
+            : (int)Math.Ceiling((double)_movimientos.Count / _tamanoMovimientos);
+
+    private bool EsSalida => _movDTO.TipoMovimiento == "SALIDA"
+                          || _movDTO.TipoMovimiento == "AJUSTE_NEG";
 
     protected override async Task OnInitializedAsync()
     {
@@ -266,7 +417,6 @@
         _bienes = (await KardexRepo.ObtenerBienesConsumoAsync()).ToList();
         _proveedores = (await ProveedorRepo.ObtenerTodosAsync()).ToList();
         _funcionarios = (await FuncRepo.ObtenerTodosAsync()).ToList();
-
         _bienesFiltrados = _bienes.ToList();
 
         if (BienIdQuery.HasValue && BienIdQuery.Value > 0)
@@ -288,9 +438,8 @@
         {
             var filtro = _textoBusquedaBien.ToLower().Trim();
             _bienesFiltrados = _bienes
-                .Where(b =>
-                    b.Codigo.ToLower().Contains(filtro) ||
-                    b.Nombre.ToLower().Contains(filtro))
+                .Where(b => b.Codigo.ToLower().Contains(filtro)
+                         || b.Nombre.ToLower().Contains(filtro))
                 .ToList();
         }
     }
@@ -306,7 +455,6 @@
         }
 
         var codigoBuscado = valor.Split('—')[0].Trim();
-
         var bienEncontrado = _bienes.FirstOrDefault(b =>
             b.Codigo.Equals(codigoBuscado, StringComparison.OrdinalIgnoreCase));
 
@@ -326,6 +474,7 @@
         _bienSeleccionado = null;
         _movimientos = null;
         _bienesFiltrados = _bienes.ToList();
+        _paginaMovimientos = 1;
         await Task.CompletedTask;
         StateHasChanged();
     }
@@ -334,6 +483,9 @@
     {
         _bienSeleccionado = await KardexRepo.ObtenerBienConsumoPorIdAsync(_bienIdSeleccionado);
         _movimientos = (await KardexRepo.ObtenerKardexAsync(_bienIdSeleccionado)).ToList();
+
+        // Resetear paginación al cambiar de bien
+        _paginaMovimientos = 1;
 
         if (_bienSeleccionado != null)
         {
@@ -363,7 +515,7 @@
             _movDTO.BienId = _bienIdSeleccionado;
             await KardexRepo.RegistrarMovimientoAsync(_movDTO);
 
-            Toast.Exito($"Movimiento registrado correctamente");
+            Toast.Exito("Movimiento registrado correctamente");
 
             _bienes = (await KardexRepo.ObtenerBienesConsumoAsync()).ToList();
             _bienesFiltrados = _bienes.ToList();
@@ -373,5 +525,22 @@
         {
             Toast.Error($"Error: {ex.Message}");
         }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // MÉTODOS DE PAGINACIÓN
+    // ═══════════════════════════════════════════════════════════════
+
+    private void CambiarPaginaMovimientos(int nuevaPagina)
+    {
+        if (nuevaPagina < 1 || nuevaPagina > _totalPaginasMovimientos) return;
+        _paginaMovimientos = nuevaPagina;
+        StateHasChanged();
+    }
+
+    private void CambiarTamanoMovimientos()
+    {
+        _paginaMovimientos = 1;
+        StateHasChanged();
     }
 }

@@ -7,8 +7,8 @@ namespace Almacen.Services;
 
 /// <summary>
 /// Servicio transversal de auditoría.
-/// Los repositorios/páginas llaman a Registrar* sin bloquear el flujo principal:
-/// si falla la auditoría, NO rompe la operación del usuario.
+/// Registra operaciones sensibles en la tabla auditoria.
+/// Si falla la auditoría, se loguea el error pero NO se interrumpe la operación del usuario.
 /// </summary>
 public class AuditoriaService
 {
@@ -54,10 +54,16 @@ public class AuditoriaService
         => RegistrarAsync("ELIMINAR", modulo, objetoTipo, objetoId, objetoCodigo,
             objetoDescripcion, antes, null, motivo, docRef, "CRITICO");
 
+    /// <summary>
+    /// Registra una ANULACIÓN (soft-delete). Operación CRÍTICA.
+    /// Guarda el estado antes y después para auditoría completa.
+    /// </summary>
     public Task RegistrarAnulacionAsync(string modulo, string objetoTipo, int? objetoId,
-        string? objetoCodigo, string? objetoDescripcion, string? motivo = null)
+        string? objetoCodigo, string? objetoDescripcion,
+        object? antes = null, object? despues = null,
+        string? motivo = null, string? docRef = null)
         => RegistrarAsync("ANULAR", modulo, objetoTipo, objetoId, objetoCodigo,
-            objetoDescripcion, null, null, motivo, null, "CRITICO");
+            objetoDescripcion, antes, despues, motivo, docRef, "CRITICO");
 
     public Task RegistrarAprobacionAsync(string modulo, string objetoTipo, int? objetoId,
         string? objetoCodigo, string? objetoDescripcion, string? motivo = null)
@@ -94,7 +100,9 @@ public class AuditoriaService
             null, null, null, null, "INFO");
 
     /// <summary>
-    /// Método genérico. Si algo falla, se silencia — la auditoría NUNCA debe romper la operación.
+    /// Método genérico. Si falla, se loguea en consola pero NO se interrumpe la operación.
+    /// VALIDACIÓN CRÍTICA: si no hay institución válida en sesión, NO se registra el evento
+    /// (evita fallar la FK de auditoria.institucion_id).
     /// </summary>
     public async Task RegistrarAsync(
         string operacion,
@@ -111,11 +119,20 @@ public class AuditoriaService
     {
         try
         {
+            // ═══════════════════════════════════════════════════
+            // VALIDACIÓN: ¿Hay institución válida en sesión?
+            // ═══════════════════════════════════════════════════
+            if (_sesion.InstitucionId <= 0)
+            {
+                Console.WriteLine($"⚠️ AUDITORÍA: Sin institución en sesión. Evento NO registrado ({operacion} · {modulo})");
+                return;
+            }
+
             var u = _sesion.UsuarioActual;
 
             var reg = new Auditoria
             {
-                InstitucionId = _sesion.InstitucionId > 0 ? _sesion.InstitucionId : 1,
+                InstitucionId = _sesion.InstitucionId,
                 UsuarioId = u?.Id,
                 UsuarioEmail = u?.Email,
                 UsuarioNombre = u?.NombreCompleto,
@@ -136,10 +153,20 @@ public class AuditoriaService
             };
 
             await _repo.InsertarAsync(reg);
+
+            Console.WriteLine($"✅ AUDITORÍA: {operacion} · {modulo} · {objetoDescripcion}");
         }
-        catch
+        catch (Exception ex)
         {
-            // Silencioso por diseño: la auditoría no debe tumbar la operación del usuario
+            // ═══════════════════════════════════════════════════
+            // LOGGING: mostrar el error en consola para diagnóstico
+            // ═══════════════════════════════════════════════════
+            Console.WriteLine("═══════════════════════════════════════════════════");
+            Console.WriteLine($"❌ AUDITORÍA FALLÓ: {operacion} · {modulo}");
+            Console.WriteLine($"   Tipo: {ex.GetType().FullName}");
+            Console.WriteLine($"   Mensaje: {ex.Message}");
+            Console.WriteLine($"   Inner: {ex.InnerException?.Message}");
+            Console.WriteLine("═══════════════════════════════════════════════════");
         }
     }
 

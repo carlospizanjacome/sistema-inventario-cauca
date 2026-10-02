@@ -1,32 +1,27 @@
 ﻿namespace Almacen.Models;
 
-public class Mantenimiento
+public class Salida
 {
     public int Id { get; set; }
     public int BienId { get; set; }
     public int InstitucionId { get; set; }
 
-    public string Tipo { get; set; } = "CORRECTIVO";
-    public string Estado { get; set; } = "ABIERTO";
+    public string TipoBaja { get; set; } = "Obsolescencia";
+    public string Motivo { get; set; } = "";
 
-    public DateTime FechaIngreso { get; set; }
-    public DateTime? FechaSalida { get; set; }
-    public DateTime? FechaDevolucionPrevista { get; set; }
+    public DateTime FechaSalida { get; set; }
 
-    public int? ProveedorId { get; set; }
-    public string? TecnicoResponsable { get; set; }
+    public string? NumeroActaComite { get; set; }
+    public string? NumeroDenuncia { get; set; }
 
-    public string? Diagnostico { get; set; }
-    public string? TrabajoRealizado { get; set; }
-    public string? RepuestosUtilizados { get; set; }
-    public decimal Costo { get; set; }
+    public decimal ValorSalida { get; set; }
+    public int? FuncionarioApruebaId { get; set; }
 
-    public string? EstadoBienIngreso { get; set; }
-    public string? EstadoBienEgreso { get; set; }
     public string? Observaciones { get; set; }
 
     // ═══════════════════════════════════════════════════════════
     // PROPIEDADES DE SOFT-DELETE (ANULACIÓN)
+    // Preservan la trazabilidad completa del registro para auditoría.
     // ═══════════════════════════════════════════════════════════
     public bool Anulada { get; set; }
     public int? AnuladaPor { get; set; }

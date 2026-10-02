@@ -1,4 +1,5 @@
 ﻿using Almacen.DTOs;
+using Almacen.Helpers;
 using Almacen.Interfaces;
 using Almacen.Services;
 using Dapper;
@@ -9,11 +10,13 @@ namespace Almacen.Repositories;
 public class ReporteNormativoRepository : IReporteNormativoRepository
 {
     private readonly string _cs;
+    private readonly UsuarioSesionService _sesion;
 
-    public ReporteNormativoRepository(IConfiguration cfg)
+    public ReporteNormativoRepository(IConfiguration cfg, UsuarioSesionService sesion)
     {
         _cs = cfg.GetConnectionString("DefaultConnection")
             ?? throw new InvalidOperationException("Falta DefaultConnection.");
+        _sesion = sesion;
     }
 
     private const string BaseSelect = @"
@@ -185,24 +188,37 @@ public class ReporteNormativoRepository : IReporteNormativoRepository
         await cn.ExecuteAsync(sql, new { Id = id });
     }
 
+    // ═══════════════════════════════════════════════════════════
+    // OBTENER ENTRADAS (FIXED: filtro institución + anulada + legacy)
+    // ═══════════════════════════════════════════════════════════
     public async Task<IEnumerable<EntradaConBienDTO>> ObtenerEntradasAsync()
     {
-        const string sql = @"
-        SELECT
-            e.bien_id              AS BienId,
-            e.tipo_fuente          AS TipoFuente,
-            e.numero_factura       AS NumeroFactura,
-            e.fecha_entrada::timestamp AS FechaEntrada,
-            e.valor                AS Valor,
-            p.nombre               AS ProveedorNombre,
-            p.nit                  AS ProveedorNit
-        FROM entradas e
-        LEFT JOIN proveedores p ON p.id = e.proveedor_id
-        ORDER BY e.fecha_entrada DESC;";
+        // Filtro por institución (regla de oro #1)
+        var (filtro, param) = FiltroInstitucion.Construir(
+            _sesion.EsSuperAdmin,
+            _sesion.InstitucionId,
+            tabla: "e");
+
+        var sql = $@"
+            SELECT
+                e.bien_id                    AS BienId,
+                e.tipo_fuente                AS TipoFuente,
+                e.numero_factura             AS NumeroFactura,
+                e.fecha_entrada::timestamp   AS FechaEntrada,
+                e.valor                      AS Valor,
+                -- Fallback: si no hay FK, usar texto legacy
+                COALESCE(p.nombre, e.proveedor) AS ProveedorNombre,
+                p.nit                        AS ProveedorNit
+            FROM entradas e
+            LEFT JOIN proveedores p ON p.id = e.proveedor_id
+            WHERE e.anulada = FALSE
+              {filtro}
+            ORDER BY e.fecha_entrada DESC;";
 
         using var cn = new NpgsqlConnection(_cs);
-        return await cn.QueryAsync<EntradaConBienDTO>(sql);
+        return await cn.QueryAsync<EntradaConBienDTO>(sql, param);
     }
+
     public async Task<(int Borradores, int Vigentes, int Retirados, int Total)> ObtenerMetricasAsync()
     {
         const string sql = @"

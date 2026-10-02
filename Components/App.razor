@@ -8,13 +8,17 @@
 
     <title>Sistema de Inventario y Almacén</title>
 
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+          rel="stylesheet" />
+
     <!-- Bootstrap Icons -->
-    <link rel="stylesheet"
-          href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+          rel="stylesheet" />
 
     <!-- Estilos globales -->
-    <link rel="stylesheet" href="app.css" />
     <link rel="stylesheet" href="Almacen.styles.css" />
+    <link rel="stylesheet" href="app.css" />
 
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="favicon.png" />
@@ -30,28 +34,91 @@
         <div class="app-loading-text">Cargando sistema…</div>
     </div>
 
-    <Routes @rendermode="InteractiveServer" />
+    <!-- Rutas de Blazor -->
+    <Routes @rendermode="new InteractiveServerRenderMode(prerender: false)" />
 
+    <!-- Blazor Error UI -->
     <div id="blazor-error-ui" data-nosnippet>
         Ocurrió un error inesperado.
         <a href="" class="reload">Recargar</a>
         <span class="dismiss">🗙</span>
     </div>
 
+    <!-- ═══════════════════════════════════════════════════════════
+         FUNCIONES JS CRÍTICAS — INLINE
+         Deben ir ANTES de blazor.web.js para que Blazor las
+         encuentre cuando las invoque desde C#.
+         ═══════════════════════════════════════════════════════════ -->
+    <script>
+            // ─── Descarga de archivos (Excel, PDF, CSV, etc.) ───
+            window.descargarArchivo = function (base64, nombre, mimeType) {
+                try {
+                    console.log('📥 descargarArchivo llamado:', nombre);
+
+                    const binario = atob(base64);
+                    const bytes = new Uint8Array(binario.length);
+                    for (let i = 0; i < binario.length; i++) {
+                        bytes[i] = binario.charCodeAt(i);
+                    }
+
+                    const blob = new Blob([bytes], {
+                        type: mimeType || "application/octet-stream"
+                    });
+
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = nombre;
+                    link.style.display = 'none';
+                    document.body.appendChild(link);
+                    link.click();
+
+                    setTimeout(() => {
+                        document.body.removeChild(link);
+                        URL.revokeObjectURL(url);
+                    }, 100);
+
+                    console.log('✅ Descarga iniciada:', nombre);
+                    return true;
+                } catch (error) {
+                    console.error('❌ Error al descargar:', error);
+                    alert('Error: ' + error.message);
+                    return false;
+                }
+            };
+
+            console.log('✅ window.descargarArchivo registrada');
+    </script>
+
+    <!-- Scripts estáticos -->
+    <script src="js/layout.js"></script>
+    <script src="js/qr-reader.js"></script>
+
+    <!-- Blazor al final -->
     <script src="_framework/blazor.web.js"></script>
 
+    <!-- Script del loader -->
     <script>
-            // Ocultar loader al primer render
-            window.addEventListener('DOMContentLoaded', function () {
-                const loader = document.getElementById('app-loading');
-                if (loader) {
-                    setTimeout(() => {
-                        loader.style.opacity = '0';
-                        setTimeout(() => loader.remove(), 200);
-                    }, 150);
+            (function () {
+                var loader = document.getElementById('app-loading');
+                if (!loader) return;
+                var oculto = false;
+                function ocultarLoader() {
+                    if (oculto) return;
+                    oculto = true;
+                    loader.style.opacity = '0';
+                    setTimeout(function () { loader.style.display = 'none'; }, 150);
                 }
-            });
+                document.addEventListener('DOMContentLoaded', function () {
+                    setTimeout(ocultarLoader, 400);
+                });
+                setTimeout(ocultarLoader, 2500);
+                window.addEventListener('load', function () {
+                    setTimeout(ocultarLoader, 200);
+                });
+            })();
     </script>
+
 </body>
 
 </html>

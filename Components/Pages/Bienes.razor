@@ -23,6 +23,7 @@
 @inject ExcelExportService ExcelService
 @inject UsuarioSesionService Sesion
 @inject IInstitucionRepository InstRepo
+@inject AuditoriaService Auditoria
 
 <PageTitle>Bienes · Almacén</PageTitle>
 
@@ -495,6 +496,7 @@
     private BienDTO bienDTO = new();
     private bool editando;
     private int bienEditandoId;
+    private Bien? _bienAntesDeEditar;
 
     private ResultadoPaginado<Bien>? _pagina;
     private List<Categoria> categorias = new();
@@ -573,6 +575,7 @@
         };
         editando = false;
         bienEditandoId = 0;
+        _bienAntesDeEditar = null;
         _mostrarFormulario = true;
         _mostrarFiltros = false;
     }
@@ -583,6 +586,7 @@
         bienDTO = new();
         editando = false;
         bienEditandoId = 0;
+        _bienAntesDeEditar = null;
         StateHasChanged();
     }
 
@@ -594,6 +598,7 @@
             bienDTO = new();
             editando = false;
             bienEditandoId = 0;
+            _bienAntesDeEditar = null;
         }
 
         _mostrarFiltros = !_mostrarFiltros;
@@ -726,12 +731,66 @@
 
             if (editando)
             {
+                // ═══ GUARDAR EL "ANTES" PARA AUDITORÍA ═══
+                var antes = new
+                {
+                    Nombre = _bienAntesDeEditar?.Nombre,
+                    ValorAdquisicion = _bienAntesDeEditar?.ValorAdquisicion,
+                    EstadoFisico = _bienAntesDeEditar?.EstadoFisico,
+                    AulaId = _bienAntesDeEditar?.AulaId,
+                    FuncionarioId = _bienAntesDeEditar?.FuncionarioId,
+                    Activo = _bienAntesDeEditar?.Activo,
+                    Cantidad = _bienAntesDeEditar?.Cantidad
+                };
+
                 await BienRepository.ActualizarAsync(bien);
+
+                // ═══ REGISTRAR AUDITORÍA (EDITAR) ═══
+                await Auditoria.RegistrarEdicionAsync(
+                    modulo: "bienes",
+                    objetoTipo: "Bien",
+                    objetoId: bien.Id,
+                    objetoCodigo: bien.Codigo,
+                    objetoDescripcion: bien.Nombre,
+                    antes: antes,
+                    despues: new
+                    {
+                        Nombre = bien.Nombre,
+                        ValorAdquisicion = bien.ValorAdquisicion,
+                        EstadoFisico = bien.EstadoFisico,
+                        AulaId = bien.AulaId,
+                        FuncionarioId = bien.FuncionarioId,
+                        Activo = bien.Activo,
+                        Cantidad = bien.Cantidad
+                    },
+                    motivo: "Edición de datos del bien"
+                );
+
                 Toast.Exito($"Bien '{bien.Nombre}' actualizado. Puede seguir editando.");
             }
             else
             {
                 await BienRepository.CrearAsync(bien);
+
+                // ═══ REGISTRAR AUDITORÍA (CREAR) ═══
+                await Auditoria.RegistrarCreacionAsync(
+                    modulo: "bienes",
+                    objetoTipo: "Bien",
+                    objetoId: bien.Id,
+                    objetoCodigo: bien.Codigo,
+                    objetoDescripcion: bien.Nombre,
+                    despues: new
+                    {
+                        bien.Codigo,
+                        bien.Nombre,
+                        bien.ValorAdquisicion,
+                        bien.EstadoFisico,
+                        bien.Cantidad,
+                        bien.AulaId,
+                        bien.FuncionarioId
+                    }
+                );
+
                 Toast.Exito($"Bien '{bien.Nombre}' creado con código {bien.Codigo}.");
 
                 var estadoActual = bienDTO.EstadoFisico;
@@ -767,6 +826,7 @@
     {
         editando = true;
         bienEditandoId = bien.Id;
+        _bienAntesDeEditar = bien;
         _mostrarFormulario = true;
         _mostrarFiltros = false;
 
@@ -811,6 +871,17 @@
         try
         {
             await BienRepository.EliminarAsync(id);
+
+            // ═══ REGISTRAR AUDITORÍA (ELIMINAR - CRÍTICO) ═══
+            await Auditoria.RegistrarEliminacionAsync(
+                modulo: "bienes",
+                objetoTipo: "Bien",
+                objetoId: id,
+                objetoCodigo: null,
+                objetoDescripcion: nombre,
+                motivo: "Eliminación de bien"
+            );
+
             Toast.Exito("Bien eliminado correctamente");
             await CargarBienes();
             StateHasChanged();
@@ -860,6 +931,12 @@
                 Convert.ToBase64String(bytes),
                 nombreArchivo,
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+
+            // ═══ REGISTRAR AUDITORÍA (EXPORTAR) ═══
+            await Auditoria.RegistrarExportacionAsync(
+                "bienes",
+                $"Exportación Excel de inventario CGN con {todos.Count} bienes"
+            );
 
             Toast.Exito($"Excel generado con {todos.Count} bienes");
         }

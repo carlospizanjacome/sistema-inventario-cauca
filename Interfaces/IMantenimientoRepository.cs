@@ -21,7 +21,13 @@ public interface IMantenimientoRepository
     Task CerrarAsync(int id, DateTime fechaSalida, string trabajoRealizado,
                      string? repuestos, decimal costo, string? estadoBienEgreso,
                      string? observaciones);
-    Task EliminarAsync(int id);
+
+    // ═══════════════════════════════════════════════════════════
+    // SOFT-DELETE (reemplaza al antiguo EliminarAsync)
+    // Los registros nunca se borran físicamente: se marcan como anulados
+    // con motivo, usuario y fecha, para preservar la trazabilidad completa.
+    // ═══════════════════════════════════════════════════════════
+    Task AnularAsync(int id, string motivo);
 
     Task<(int Abiertos, int EnProceso, int CerradosMes, decimal CostoMes)> ObtenerMetricasAsync();
 }

@@ -18,6 +18,7 @@
 @inject ToastService Toast
 @inject ConfirmService Confirm
 @inject UsuarioSesionService Sesion
+@inject AuditoriaService Auditoria
 
 <PageTitle>Garantías · Almacén</PageTitle>
 
@@ -272,6 +273,9 @@
                     {
                         @foreach (var g in _pagina.Items)
                         {
+                            // ═══ REGLA DE NEGOCIO: solo se anulan VENCIDAS ═══
+                            var esAnulable = g.EstadoCalculado == "VENCIDA" && !g.Anulada;
+
                             <tr class="table-row-hover @(g.EstaVencida ? "row-danger" : g.PorVencer ? "row-warning" : "")" @key="g.Id">
                                 <td>
                                     <div class="table-cell-primary">
@@ -300,7 +304,14 @@
                                     </div>
                                 </td>
                                 <td class="text-center">
-                                    <span class="badge @GetClaseBadgeEstado(g.EstadoCalculado)">@g.EstadoCalculado</span>
+                                    @if (g.Anulada)
+                                    {
+                                        <span class="badge badge-off" title="Motivo: @g.AnuladaMotivo">ANULADA</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge @GetClaseBadgeEstado(g.EstadoCalculado)">@g.EstadoCalculado</span>
+                                    }
                                 </td>
                                 <td class="text-center">
                                     <div class="action-buttons">
@@ -309,7 +320,7 @@
                                             <i class="bi bi-eye-fill"></i>
                                         </button>
 
-                                        @if (puedeEditar)
+                                        @if (puedeEditar && !g.Anulada)
                                         {
                                             <button class="btn-action btn-action-edit"
                                                     @onclick="() => Editar(g)" title="Editar">
@@ -317,11 +328,13 @@
                                             </button>
                                         }
 
-                                        @if (puedeEliminar)
+                                        @* ═══ BOTÓN DE ANULAR (reemplaza al de eliminar) ═══ *@
+                                        @if (esAnulable && puedeAnular)
                                         {
                                             <button class="btn-action btn-action-delete"
-                                                    @onclick="() => Eliminar(g)" title="Eliminar">
-                                                <i class="bi bi-trash-fill"></i>
+                                                    @onclick="() => IntentarAnular(g)"
+                                                    title="Anular garantía (soft-delete)">
+                                                <i class="bi bi-slash-circle-fill"></i>
                                             </button>
                                         }
                                     </div>
@@ -343,6 +356,7 @@
     </div>
 </div>
 
+@* ═══════════════ MODAL — Detalle ═══════════════ *@
 @if (_detalleAbierto && _detalle is not null)
 {
     var g = _detalle;
@@ -351,7 +365,14 @@
         <div class="modal-det" @onclick:stopPropagation="true">
             <div class="modal-det-header">
                 <div class="modal-det-header-left">
-                    <span class="badge @GetClaseBadgeEstado(g.EstadoCalculado)">@g.EstadoCalculado</span>
+                    @if (g.Anulada)
+                    {
+                        <span class="badge badge-off">ANULADA</span>
+                    }
+                    else
+                    {
+                        <span class="badge @GetClaseBadgeEstado(g.EstadoCalculado)">@g.EstadoCalculado</span>
+                    }
                     <h3>Garantía #@g.Id</h3>
                 </div>
                 <button class="modal-det-close" @onclick="CerrarDetalle">
@@ -360,6 +381,19 @@
             </div>
 
             <div class="modal-det-body">
+                @if (g.Anulada)
+                {
+                    <div class="det-section" style="background: #fef2f2; border-left: 4px solid #dc2626;">
+                        <h4><i class="bi bi-exclamation-triangle-fill"></i> Garantía Anulada</h4>
+                        <dl class="det-dl">
+                            <dt>Motivo</dt>
+                            <dd>@(g.AnuladaMotivo ?? "—")</dd>
+                            <dt>Fecha</dt>
+                            <dd>@(g.AnuladaFecha?.ToString("dd/MM/yyyy HH:mm") ?? "—")</dd>
+                        </dl>
+                    </div>
+                }
+
                 <div class="det-section">
                     <h4><i class="bi bi-box-seam"></i> Bien</h4>
                     <dl class="det-dl">
@@ -416,6 +450,74 @@
     </div>
 }
 
+@* ═══════════════ MODAL — Anular ═══════════════ *@
+@if (_modalAnulacionAbierto && _itemAAnular is not null)
+{
+    var g = _itemAAnular;
+
+    <div class="modal-backdrop-det" @onclick="CancelarAnulacion">
+        <div class="modal-det" @onclick:stopPropagation="true">
+
+            <div class="modal-det-header">
+                <div class="modal-det-header-left">
+                    <span class="badge badge-off">Anular garantía</span>
+                    <h3>@g.BienNombre</h3>
+                </div>
+                <button class="modal-det-close" @onclick="CancelarAnulacion" title="Cerrar">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <div class="modal-det-body">
+                <div class="det-section" style="background: #fffbeb; border-left: 4px solid #f59e0b;">
+                    <h4><i class="bi bi-exclamation-triangle-fill"></i> ¿Qué es anular?</h4>
+                    <p style="margin: 0;">
+                        El registro <strong>NO se elimina de la base de datos</strong>. Se marca como "Anulada" y se excluye de los reportes operativos.
+                        El historial completo queda disponible para auditoría y para el expediente del bien.
+                    </p>
+                </div>
+
+                <div class="det-section">
+                    <h4><i class="bi bi-info-circle"></i> Garantía a anular</h4>
+                    <dl class="det-dl">
+                        <dt>Garantía</dt>
+                        <dd>#@g.Id</dd>
+                        <dt>Bien</dt>
+                        <dd><code>@g.BienCodigo</code> — @g.BienNombre</dd>
+                        <dt>Tipo</dt>
+                        <dd><span class="badge @GetClaseBadgeTipo(g.Tipo)">@g.Tipo</span></dd>
+                        <dt>Estado</dt>
+                        <dd><span class="badge badge-danger">VENCIDA</span></dd>
+                        <dt>Venció el</dt>
+                        <dd>@g.FechaVencimiento.ToString("dd/MM/yyyy")</dd>
+                    </dl>
+                </div>
+
+                <div class="form-group form-group-full">
+                    <label>Motivo de la anulación *</label>
+                    <div class="input-icon">
+                        <i class="bi bi-pencil-square"></i>
+                        <InputTextArea class="form-control" rows="3"
+                                       @bind-Value="_motivoAnulacion"
+                                       placeholder="Ej: Garantía vencida, limpieza de registros..." />
+                    </div>
+                    <small class="text-muted">Este motivo quedará registrado en la bitácora de auditoría.</small>
+                </div>
+            </div>
+
+            <div class="modal-det-footer">
+                <button class="btn-det-cerrar" @onclick="CancelarAnulacion">
+                    <i class="bi bi-x-lg"></i> Cancelar
+                </button>
+                <button class="btn btn-save" @onclick="ConfirmarAnulacionAsync" disabled="@(string.IsNullOrWhiteSpace(_motivoAnulacion))">
+                    <i class="bi bi-slash-circle-fill"></i> Confirmar Anulación
+                </button>
+            </div>
+
+        </div>
+    </div>
+}
+
 @code {
     private ResultadoPaginado<GarantiaDTO>? _pagina;
     private List<Bien> bienes = new();
@@ -435,9 +537,14 @@
     private bool _detalleAbierto = false;
     private GarantiaDTO? _detalle;
 
+    // ═══ Estado del modal de anulación ═══
+    private bool _modalAnulacionAbierto = false;
+    private GarantiaDTO? _itemAAnular;
+    private string _motivoAnulacion = "";
+
     private bool puedeCrear;
     private bool puedeEditar;
-    private bool puedeEliminar;
+    private bool puedeAnular;
 
     protected override async Task OnInitializedAsync()
     {
@@ -447,9 +554,10 @@
             return;
         }
 
-        puedeCrear    = await Seguridad.TienePermisoAsync("garantias.crear");
-        puedeEditar   = await Seguridad.TienePermisoAsync("garantias.editar");
-        puedeEliminar = await Seguridad.TienePermisoAsync("garantias.eliminar");
+        puedeCrear  = await Seguridad.TienePermisoAsync("garantias.crear");
+        puedeEditar = await Seguridad.TienePermisoAsync("garantias.editar");
+        // ═══ Permiso nuevo: garantias.anular ═══
+        puedeAnular = await Seguridad.TienePermisoAsync("garantias.anular");
 
         var t1 = BienRepo.ObtenerTodosAsync();
         var t2 = ProveedorRepo.ObtenerTodosAsync();
@@ -480,7 +588,7 @@
         _metricas = await GarantiaRepo.ObtenerMetricasAsync();
     }
 
-    private Task FiltrarTodas()   => FiltrarPorPill(null);
+    private Task FiltrarTodas()    => FiltrarPorPill(null);
     private Task FiltrarVigentes() => FiltrarPorPill("vigentes");
     private Task FiltrarPorVencer() => FiltrarPorPill("por_vencer");
     private Task FiltrarVencidas() => FiltrarPorPill("vencidas");
@@ -599,11 +707,51 @@
             if (_editando)
             {
                 await GarantiaRepo.ActualizarAsync(dto);
+
+                // ═══ AUDITORÍA — EDITAR ═══
+                await Auditoria.RegistrarEdicionAsync(
+                    modulo: "garantias",
+                    objetoTipo: "Garantia",
+                    objetoId: dto.Id,
+                    objetoCodigo: null,
+                    objetoDescripcion: $"Garantía de bien ID {dto.BienId}",
+                    antes: null,
+                    despues: new
+                    {
+                        dto.BienId,
+                        dto.Tipo,
+                        dto.NumeroGarantia,
+                        dto.FechaInicio,
+                        dto.FechaVencimiento,
+                        dto.ProveedorId
+                    },
+                    motivo: "Edición de garantía"
+                );
+
                 Toast.Exito("Garantía actualizada.");
             }
             else
             {
                 await GarantiaRepo.CrearAsync(dto);
+
+                // ═══ AUDITORÍA — CREAR ═══
+                await Auditoria.RegistrarCreacionAsync(
+                    modulo: "garantias",
+                    objetoTipo: "Garantia",
+                    objetoId: dto.Id,
+                    objetoCodigo: null,
+                    objetoDescripcion: $"Garantía {dto.Tipo} de bien ID {dto.BienId}",
+                    despues: new
+                    {
+                        dto.BienId,
+                        dto.Tipo,
+                        dto.NumeroGarantia,
+                        dto.FechaInicio,
+                        dto.FechaVencimiento,
+                        dto.ProveedorId
+                    }
+                );
+
                 Toast.Exito("Garantía registrada.");
             }
 
@@ -612,22 +760,98 @@
         }
         catch (Exception ex)
         {
-            Toast.Error($"Error: {ex.Message}");
+            ErrorHelper.Mostrar(Toast, ex, "la garantía", "guardar");
         }
     }
 
-    private async Task Eliminar(GarantiaDTO g)
+    // ═══════════════════════════════════════════════════════════════
+    // MÉTODOS DE ANULACIÓN (Soft-Delete)
+    // ═══════════════════════════════════════════════════════════════
+
+    private void IntentarAnular(GarantiaDTO g)
     {
-        var ok = await Confirm.Peligroso($"¿Eliminar la garantía de '{g.BienNombre}'?");
-        if (!ok) return;
+        if (!puedeAnular)
+        {
+            Toast.Error("No tiene permiso para anular garantías.");
+            return;
+        }
+
+        // ═══ VALIDACIÓN: solo garantías VENCIDAS ═══
+        if (g.EstadoCalculado != "VENCIDA")
+        {
+            Toast.Warning(
+                $"No se puede anular la garantía de '{g.BienNombre}': " +
+                $"está en estado '{g.EstadoCalculado}'. Solo se pueden anular garantías vencidas.");
+            return;
+        }
+
+        if (g.Anulada)
+        {
+            Toast.Warning("Esta garantía ya está anulada.");
+            return;
+        }
+
+        // Abrir modal de anulación
+        _itemAAnular = g;
+        _motivoAnulacion = "";
+        _modalAnulacionAbierto = true;
+        StateHasChanged();
+    }
+
+    private void CancelarAnulacion()
+    {
+        _modalAnulacionAbierto = false;
+        _itemAAnular = null;
+        _motivoAnulacion = "";
+    }
+
+    private async Task ConfirmarAnulacionAsync()
+    {
+        if (_itemAAnular is null) return;
+        if (string.IsNullOrWhiteSpace(_motivoAnulacion))
+        {
+            Toast.Warning("Debe ingresar un motivo para la anulación.");
+            return;
+        }
 
         try
         {
-            await GarantiaRepo.EliminarAsync(g.Id);
-            Toast.Exito("Garantía eliminada.");
+            await GarantiaRepo.AnularAsync(_itemAAnular.Id, _motivoAnulacion);
+
+            // ═══ AUDITORÍA — ANULAR (operación CRÍTICA) ═══
+            await Auditoria.RegistrarAnulacionAsync(
+                modulo: "garantias",
+                objetoTipo: "Garantia",
+                objetoId: _itemAAnular.Id,
+                objetoCodigo: _itemAAnular.BienCodigo,
+                objetoDescripcion: $"Anulación de garantía para '{_itemAAnular.BienNombre}'",
+                antes: new
+                {
+                    Estado = _itemAAnular.EstadoCalculado,
+                    Anulada = false,
+                    FechaVencimiento = _itemAAnular.FechaVencimiento,
+                    Tipo = _itemAAnular.Tipo
+                },
+                despues: new
+                {
+                    Estado = "ANULADA",
+                    Anulada = true,
+                    Motivo = _motivoAnulacion,
+                    AnuladaPor = Sesion.UsuarioActual?.Id,
+                    AnuladaFecha = DateTime.Now
+                },
+                motivo: _motivoAnulacion
+            );
+
+            Toast.Exito("Garantía anulada correctamente.");
+            CancelarAnulacion();
             await Cargar();
+            StateHasChanged();
         }
-        catch (Exception ex) { Toast.Error($"Error: {ex.Message}"); }
+        catch (Exception ex)
+        {
+            ErrorHelper.Mostrar(Toast, ex, "la garantía", "anular");
+        }
     }
 
     private static string GetClaseBadgeTipo(string tipo) => tipo switch

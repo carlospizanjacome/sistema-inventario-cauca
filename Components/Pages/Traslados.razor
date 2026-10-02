@@ -19,6 +19,8 @@
 @inject NavigationManager Navigation
 @inject ToastService Toast
 @inject ConfirmService Confirm
+@inject AuditoriaService Auditoria
+@inject UsuarioSesionService Sesion
 
 <PageTitle>Traslados · Almacén</PageTitle>
 
@@ -274,7 +276,7 @@
                     {
                         @foreach (var t in _pagina.Items)
                         {
-                           <tr class="table-row-hover">
+                           <tr class="table-row-hover" @key="t.Id">
                                 <td class="text-mono">@t.FechaTraslado?.ToString("dd/MM/yyyy")</td>
                                 <td>
                                     <div class="table-cell-primary">
@@ -321,12 +323,15 @@
                                 </td>
                                 <td class="text-center">
                                     <div class="action-buttons">
-                                        @if (puedeEliminar)
+                                        @* ═══ BOTÓN DE ANULAR (soft-delete) ═══ *@
+                                        @if (puedeAnular)
                                         {
-                                            <button class="btn-action btn-action-delete"
-                                                    @onclick="() => Eliminar(t)"
-                                                    title="Eliminar del histórico">
-                                                <i class="bi bi-trash-fill"></i>
+                                            <button type="button"
+                                                    class="btn-action btn-action-delete"
+                                                    @onclick="() => IntentarAnular(t)"
+                                                    @onclick:stopPropagation="true"
+                                                    title="Anular traslado (soft-delete)">
+                                                <i class="bi bi-slash-circle-fill"></i>
                                             </button>
                                         }
                                     </div>
@@ -346,7 +351,84 @@
                        OnCambioTamano="CambioTamano" />
         }
     </div>
+
 </div>
+
+@* ═══════════════════════════════════════════════════════════════
+   MODAL — Anular (FUERA del page-container para evitar overflow:hidden)
+   ═══════════════════════════════════════════════════════════════ *@
+@if (_modalAnulacionAbierto && _itemAAnular is not null)
+{
+    var t = _itemAAnular;
+
+    <div class="modal-backdrop-det" @onclick="CancelarAnulacion">
+        <div class="modal-det" @onclick:stopPropagation="true">
+
+            <div class="modal-det-header">
+                <div class="modal-det-header-left">
+                    <span class="badge badge-off">Anular traslado</span>
+                    <h3>@t.BienNombre</h3>
+                </div>
+                <button type="button" class="modal-det-close" @onclick="CancelarAnulacion" title="Cerrar">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <div class="modal-det-body">
+                <div class="det-section" style="background: #fffbeb; border-left: 4px solid #f59e0b;">
+                    <h4><i class="bi bi-exclamation-triangle-fill"></i> ¿Qué es anular?</h4>
+                    <p style="margin: 0;">
+                        El registro <strong>NO se elimina de la base de datos</strong>. Se marca como "Anulado" y se excluye de los reportes operativos.
+                        El historial completo queda disponible para auditoría y para el expediente del bien.
+                    </p>
+                    <p style="margin: 8px 0 0 0; font-size: 0.85rem;">
+                        <i class="bi bi-info-circle"></i> <strong>Regla:</strong> solo se puede anular si es el <strong>último traslado</strong> del bien.
+                    </p>
+                </div>
+
+                <div class="det-section">
+                    <h4><i class="bi bi-info-circle"></i> Traslado a anular</h4>
+                    <dl class="det-dl">
+                        <dt>Bien</dt>
+                        <dd><code>@t.BienCodigo</code> — @t.BienNombre</dd>
+                        <dt>Aula origen</dt>
+                        <dd>@(t.AulaOrigenNombre ?? "—")</dd>
+                        <dt>Aula destino</dt>
+                        <dd>@t.AulaDestinoNombre</dd>
+                        <dt>Funcionario anterior</dt>
+                        <dd>@(t.FuncionarioAnteriorNombre ?? "—")</dd>
+                        <dt>Funcionario nuevo</dt>
+                        <dd>@(t.FuncionarioNuevoNombre ?? "—")</dd>
+                        <dt>Fecha</dt>
+                        <dd>@t.FechaTraslado?.ToString("dd/MM/yyyy")</dd>
+                    </dl>
+                </div>
+
+                <div class="form-group form-group-full">
+                    <label>Motivo de la anulación *</label>
+                    <div class="input-icon">
+                        <i class="bi bi-pencil-square"></i>
+                        <InputTextArea class="form-control" rows="3"
+                                       @bind-Value="_motivoAnulacion"
+                                       placeholder="Ej: Error de digitación, traslado duplicado, prueba del sistema..." />
+                    </div>
+                    <small class="text-muted">Este motivo quedará registrado en la bitácora de auditoría.</small>
+                </div>
+            </div>
+
+            <div class="modal-det-footer">
+                <button type="button" class="btn-det-cerrar" @onclick="CancelarAnulacion">
+                    <i class="bi bi-x-lg"></i> Cancelar
+                </button>
+                <button type="button" class="btn btn-save" @onclick="ConfirmarAnulacionAsync"
+                        disabled="@(string.IsNullOrWhiteSpace(_motivoAnulacion))">
+                    <i class="bi bi-slash-circle-fill"></i> Confirmar Anulación
+                </button>
+            </div>
+
+        </div>
+    </div>
+}
 
 @code {
     private ResultadoPaginado<TrasladoDTO>? _pagina;
@@ -372,7 +454,12 @@
 
     private bool puedeCrear;
     private bool puedeEditar;
-    private bool puedeEliminar;
+    private bool puedeAnular;
+
+    // ═══ Estado del modal de anulación ═══
+    private bool _modalAnulacionAbierto = false;
+    private TrasladoDTO? _itemAAnular;
+    private string _motivoAnulacion = "";
 
     private bool _hayFiltrosActivos =>
         !string.IsNullOrEmpty(_filtroTexto) ||
@@ -391,9 +478,9 @@
             return;
         }
 
-        puedeCrear = await Seguridad.TienePermisoAsync("traslados.crear");
+        puedeCrear  = await Seguridad.TienePermisoAsync("traslados.crear");
         puedeEditar = await Seguridad.TienePermisoAsync("traslados.editar");
-        puedeEliminar = await Seguridad.TienePermisoAsync("traslados.eliminar");
+        puedeAnular = await Seguridad.TienePermisoAsync("traslados.anular");
 
         bienes = await BienRepo.ObtenerTodosAsync();
         aulas = await AulaRepo.ObtenerTodasAsync();
@@ -567,32 +654,114 @@
 
         try
         {
-            await TrasladoRepo.CrearAsync(trasladoDTO);
+            var nuevoId = await TrasladoRepo.CrearAsync(trasladoDTO);
             await TrasladoRepo.ActualizarUbicacionBienAsync(
                 trasladoDTO.BienId,
                 trasladoDTO.AulaDestinoId,
                 trasladoDTO.FuncionarioNuevoId);
 
+            await Auditoria.RegistrarCreacionAsync(
+                modulo: "traslados",
+                objetoTipo: "Traslado",
+                objetoId: nuevoId,
+                objetoCodigo: null,
+                objetoDescripcion: $"Traslado de bien ID {trasladoDTO.BienId}",
+                despues: new
+                {
+                    trasladoDTO.BienId,
+                    trasladoDTO.AulaOrigenId,
+                    trasladoDTO.AulaDestinoId,
+                    trasladoDTO.FuncionarioAnteriorId,
+                    trasladoDTO.FuncionarioNuevoId,
+                    trasladoDTO.FechaTraslado,
+                    trasladoDTO.Motivo
+                }
+            );
+
             Toast.Exito("Traslado registrado. El bien fue actualizado.");
             Cancelar();
             await Cargar();
         }
-        catch (Exception ex) { Toast.Error($"Error: {ex.Message}"); }
+        catch (Exception ex)
+        {
+            ErrorHelper.Mostrar(Toast, ex, "el traslado", "guardar");
+        }
     }
 
-    private async Task Eliminar(TrasladoDTO t)
+    // ═══════════════════════════════════════════════════════════════
+    // MÉTODOS DE ANULACIÓN (Soft-Delete)
+    // ═══════════════════════════════════════════════════════════════
+
+    private void IntentarAnular(TrasladoDTO t)
     {
-        if (!puedeEliminar) { Toast.Error("No tiene permiso para eliminar traslados."); return; }
-        var ok = await Confirm.Peligroso(
-            "¿Eliminar este traslado del histórico? El bien NO se revertirá automáticamente.");
-        if (!ok) return;
+        if (!puedeAnular)
+        {
+            Toast.Error("No tiene permiso para anular traslados.");
+            return;
+        }
+
+        _itemAAnular = t;
+        _motivoAnulacion = "";
+        _modalAnulacionAbierto = true;
+        StateHasChanged();
+    }
+
+    private void CancelarAnulacion()
+    {
+        _modalAnulacionAbierto = false;
+        _itemAAnular = null;
+        _motivoAnulacion = "";
+    }
+
+    private async Task ConfirmarAnulacionAsync()
+    {
+        if (_itemAAnular is null) return;
+        if (string.IsNullOrWhiteSpace(_motivoAnulacion))
+        {
+            Toast.Warning("Debe ingresar un motivo para la anulación.");
+            return;
+        }
 
         try
         {
-            await TrasladoRepo.EliminarAsync(t.Id);
-            Toast.Exito("Traslado eliminado del histórico.");
+            await TrasladoRepo.AnularAsync(_itemAAnular.Id, _motivoAnulacion);
+
+            await Auditoria.RegistrarAnulacionAsync(
+                modulo: "traslados",
+                objetoTipo: "Traslado",
+                objetoId: _itemAAnular.Id,
+                objetoCodigo: _itemAAnular.BienCodigo,
+                objetoDescripcion: $"Anulación de traslado para '{_itemAAnular.BienNombre}'",
+                antes: new
+                {
+                    AulaOrigen = _itemAAnular.AulaOrigenNombre,
+                    AulaDestino = _itemAAnular.AulaDestinoNombre,
+                    FuncionarioAnterior = _itemAAnular.FuncionarioAnteriorNombre,
+                    FuncionarioNuevo = _itemAAnular.FuncionarioNuevoNombre,
+                    Anulada = false
+                },
+                despues: new
+                {
+                    Anulada = true,
+                    Motivo = _motivoAnulacion,
+                    AnuladaPor = Sesion.UsuarioActual?.Id,
+                    AnuladaFecha = DateTime.Now
+                },
+                motivo: _motivoAnulacion
+            );
+
+            Toast.Exito("Traslado anulado correctamente.");
+            CancelarAnulacion();
             await Cargar();
+            StateHasChanged();
         }
-        catch (Exception ex) { Toast.Error($"Error: {ex.Message}"); }
+        catch (InvalidOperationException iex)
+        {
+            Toast.Warning(iex.Message);
+        }
+        catch (Exception ex)
+        {
+            ErrorHelper.Mostrar(Toast, ex, "el traslado", "anular");
+        }
     }
 }

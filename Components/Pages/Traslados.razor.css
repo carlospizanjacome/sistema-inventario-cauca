@@ -18,7 +18,6 @@
         margin-bottom: 0 !important;
     }
 
-    /* Botón "Nuevo Traslado" en violeta */
     .page-crud .btn-nuevo-traslado {
         background: #7c3aed;
         box-shadow: 0 1px 2px rgba(124, 58, 237, 0.2);
@@ -61,7 +60,6 @@
                 background: #94a3b8 !important;
             }
 
-        /* HEADER DEL FORM */
         .page-crud > .card-form .form-header {
             display: flex !important;
             align-items: center !important;
@@ -138,7 +136,6 @@
                 color: #dc2626 !important;
             }
 
-        /* Secciones del form */
         .page-crud > .card-form .form-section {
             padding: 10px 0 !important;
             border-bottom: 1px solid #f1f5f9 !important;
@@ -196,7 +193,6 @@
                 font-size: 0.82rem !important;
             }
 
-    /* Botón Guardar en violeta */
     .page-crud .btn-save-traslado {
         background: #7c3aed;
         box-shadow: 0 1px 2px rgba(124, 58, 237, 0.2);
@@ -211,7 +207,6 @@
             background: #5b21b6;
         }
 
-    /* Banner informativo del form (solo cuando no está editando) */
     .page-crud > .card-form .info-banner {
         display: flex;
         align-items: center;
@@ -231,7 +226,6 @@
             flex-shrink: 0;
         }
 
-    /* Input readonly (aula origen / funcionario anterior) */
     .page-crud > .card-form .input-icon-readonly {
         position: relative;
         display: flex;
@@ -311,10 +305,169 @@
         box-shadow: 0 1px 0 #e2e8f0 !important;
     }
 
-    /* Badge de Aula Destino (con flechita) */
     .page-crud .badge-traslado-destino {
         background: #ede9fe;
         color: #6d28d9;
         display: inline-flex;
         align-items: center;
-        gap:
+        gap: 4px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+
+/* ═══════════════════════════════════════════════════════════
+   MODAL DE ANULACIÓN — Fuera del page-container
+   position: fixed permite que se muestre por encima de todo
+   ═══════════════════════════════════════════════════════════ */
+
+.modal-backdrop-det {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: rgba(15, 23, 42, 0.5) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    z-index: 99999 !important;
+    padding: 20px !important;
+    box-sizing: border-box !important;
+    backdrop-filter: blur(2px);
+}
+
+.modal-det {
+    background: #fff !important;
+    border-radius: 12px !important;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3) !important;
+    max-width: 620px !important;
+    width: 100% !important;
+    max-height: 90vh !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+}
+
+.modal-det-header {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    padding: 16px 20px !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    background: #fafbfc !important;
+    flex-shrink: 0 !important;
+}
+
+.modal-det-header-left {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+}
+
+    .modal-det-header-left h3 {
+        font-size: 1rem !important;
+        font-weight: 700 !important;
+        color: #0f172a !important;
+        margin: 0 !important;
+    }
+
+.modal-det-body {
+    padding: 20px !important;
+    overflow-y: auto !important;
+    flex: 1 1 auto !important;
+}
+
+    .modal-det-body::-webkit-scrollbar {
+        width: 8px !important;
+    }
+
+    .modal-det-body::-webkit-scrollbar-thumb {
+        background: #cbd5e1 !important;
+        border-radius: 4px !important;
+    }
+
+.modal-det-footer {
+    display: flex !important;
+    justify-content: flex-end !important;
+    gap: 8px !important;
+    padding: 14px 20px !important;
+    border-top: 1px solid #e2e8f0 !important;
+    background: #fafbfc !important;
+    flex-shrink: 0 !important;
+}
+
+.modal-det-close {
+    background: transparent !important;
+    border: none !important;
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 8px !important;
+    color: #94a3b8 !important;
+    cursor: pointer !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: all 0.12s !important;
+}
+
+    .modal-det-close:hover {
+        background: #fee2e2 !important;
+        color: #dc2626 !important;
+    }
+
+.btn-det-cerrar {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    padding: 8px 16px !important;
+    border-radius: 8px !important;
+    border: 1px solid #e2e8f0 !important;
+    background: #fff !important;
+    color: #475569 !important;
+    font-size: 0.85rem !important;
+    font-weight: 500 !important;
+    cursor: pointer !important;
+    transition: all 0.12s !important;
+}
+
+    .btn-det-cerrar:hover {
+        background: #f8fafc !important;
+        border-color: #cbd5e1 !important;
+    }
+
+.det-section {
+    padding: 12px 16px !important;
+    margin-bottom: 12px !important;
+    border-radius: 8px !important;
+    background: #f8fafc !important;
+}
+
+    .det-section h4 {
+        font-size: 0.85rem !important;
+        font-weight: 700 !important;
+        color: #475569 !important;
+        margin: 0 0 8px 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 6px !important;
+    }
+
+.det-dl {
+    display: grid !important;
+    grid-template-columns: 160px 1fr !important;
+    gap: 6px 12px !important;
+    margin: 0 !important;
+    font-size: 0.85rem !important;
+}
+
+    .det-dl dt {
+        color: #64748b !important;
+        font-weight: 500 !important;
+    }
+
+    .det-dl dd {
+        color: #0f172a !important;
+        margin: 0 !important;
+    }

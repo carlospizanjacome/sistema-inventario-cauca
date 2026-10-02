@@ -26,6 +26,15 @@ public class GarantiaDTO
     public string? ContactoProveedor { get; set; }
     public string? Observaciones { get; set; }
 
+    // ═══════════════════════════════════════════════════════════
+    // PROPIEDADES DE SOFT-DELETE (ANULACIÓN)
+    // ═══════════════════════════════════════════════════════════
+    public bool Anulada { get; set; }
+    public int? AnuladaPor { get; set; }
+    public DateTime? AnuladaFecha { get; set; }
+    public string? AnuladaMotivo { get; set; }
+    // ═══════════════════════════════════════════════════════════
+
     // ── Navegación ──
     public string? BienCodigo { get; set; }
     public string? BienNombre { get; set; }

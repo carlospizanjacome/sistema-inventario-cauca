@@ -17,6 +17,15 @@ public class Garantia
     public string? ContactoProveedor { get; set; }
     public string? Observaciones { get; set; }
 
+    // ═══════════════════════════════════════════════════════════
+    // PROPIEDADES DE SOFT-DELETE (ANULACIÓN)
+    // ═══════════════════════════════════════════════════════════
+    public bool Anulada { get; set; }
+    public int? AnuladaPor { get; set; }
+    public DateTime? AnuladaFecha { get; set; }
+    public string? AnuladaMotivo { get; set; }
+    // ═══════════════════════════════════════════════════════════
+
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }

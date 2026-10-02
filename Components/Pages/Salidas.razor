@@ -18,6 +18,8 @@
 @inject NavigationManager Navigation
 @inject ToastService Toast
 @inject ConfirmService Confirm
+@inject AuditoriaService Auditoria
+@inject UsuarioSesionService Sesion
 
 <PageTitle>Salidas · Almacén</PageTitle>
 
@@ -62,6 +64,22 @@
                 </button>
             </div>
 
+            @if (editando && _esSalidaFormal)
+            {
+                <div class="alert alert-warning">
+                    <i class="bi bi-lock-fill"></i>
+                    <div>
+                        <strong>Esta es una salida formal.</strong>
+                        <p>
+                            Tiene Acta Comité y/o Denuncia penal radicada.
+                            <br />
+                            Solo se pueden modificar las <strong>observaciones</strong>.
+                            Para modificar otros campos, <strong>anule esta salida y cree una nueva</strong>.
+                        </p>
+                    </div>
+                </div>
+            }
+
             <EditForm @key="salidaEditandoId" Model="salidaDTO" OnValidSubmit="Guardar">
                 <DataAnnotationsValidator />
 
@@ -75,7 +93,8 @@
                                 <i class="bi bi-box-seam"></i>
                                 <InputSelect class="form-select"
                                              @bind-Value="salidaDTO.BienId"
-                                             @bind-Value:after="OnBienCambiadoAsync">
+                                             @bind-Value:after="OnBienCambiadoAsync"
+                                             disabled="@_esSalidaFormal">
                                     <option value="0">— Seleccione bien —</option>
                                     @foreach (var b in bienes)
                                     {
@@ -90,7 +109,9 @@
                             <label>Tipo de Baja *</label>
                             <div class="input-icon">
                                 <i class="bi bi-x-circle"></i>
-                                <InputSelect class="form-select" @bind-Value="salidaDTO.TipoBaja">
+                                <InputSelect class="form-select" 
+                                             @bind-Value="salidaDTO.TipoBaja"
+                                             disabled="@_esSalidaFormal">
                                     <option value="Obsolescencia">Obsolescencia</option>
                                     <option value="Daño">Daño irreparable</option>
                                     <option value="Hurto">Hurto</option>
@@ -105,7 +126,9 @@
                             <label>Fecha Salida *</label>
                             <div class="input-icon">
                                 <i class="bi bi-calendar-x"></i>
-                                <InputDate class="form-control" @bind-Value="salidaDTO.FechaSalida" />
+                                <InputDate class="form-control" 
+                                           @bind-Value="salidaDTO.FechaSalida" 
+                                           disabled="@_esSalidaFormal" />
                             </div>
                             <ValidationMessage For="() => salidaDTO.FechaSalida" class="form-error" />
                         </div>
@@ -114,8 +137,10 @@
                             <label>N° Acta Comité</label>
                             <div class="input-icon">
                                 <i class="bi bi-file-earmark-text"></i>
-                                <InputText class="form-control" @bind-Value="salidaDTO.NumeroActaComite"
-                                           placeholder="Acta 001-2026" />
+                                <InputText class="form-control" 
+                                           @bind-Value="salidaDTO.NumeroActaComite"
+                                           placeholder="Acta 001-2026"
+                                           disabled="@_esSalidaFormal" />
                             </div>
                         </div>
 
@@ -123,8 +148,10 @@
                             <label>N° Radicado Denuncia</label>
                             <div class="input-icon">
                                 <i class="bi bi-shield-exclamation"></i>
-                                <InputText class="form-control" @bind-Value="salidaDTO.NumeroDenuncia"
-                                           placeholder="Solo si es hurto" />
+                                <InputText class="form-control" 
+                                           @bind-Value="salidaDTO.NumeroDenuncia"
+                                           placeholder="Solo si es hurto"
+                                           disabled="@_esSalidaFormal" />
                             </div>
                         </div>
 
@@ -143,7 +170,9 @@
                             <label>Aprueba (Funcionario)</label>
                             <div class="input-icon">
                                 <i class="bi bi-person-check"></i>
-                                <InputSelect class="form-select" @bind-Value="salidaDTO.FuncionarioApruebaId">
+                                <InputSelect class="form-select" 
+                                             @bind-Value="salidaDTO.FuncionarioApruebaId"
+                                             disabled="@_esSalidaFormal">
                                     <option value="">— Sin asignar —</option>
                                     @foreach (var f in funcionarios)
                                     {
@@ -157,8 +186,10 @@
                             <label>Motivo *</label>
                             <div class="input-icon">
                                 <i class="bi bi-chat-left-text"></i>
-                                <InputText class="form-control" @bind-Value="salidaDTO.Motivo"
-                                           placeholder="Descripción del motivo" />
+                                <InputText class="form-control" 
+                                           @bind-Value="salidaDTO.Motivo"
+                                           placeholder="Descripción del motivo"
+                                           disabled="@_esSalidaFormal" />
                             </div>
                             <ValidationMessage For="() => salidaDTO.Motivo" class="form-error" />
                         </div>
@@ -167,8 +198,15 @@
                             <label>Observaciones</label>
                             <div class="input-icon">
                                 <i class="bi bi-chat-left-text textarea-icon"></i>
-                                <InputTextArea class="form-control" rows="2" @bind-Value="salidaDTO.Observaciones" />
+                                <InputTextArea class="form-control" rows="2" 
+                                               @bind-Value="salidaDTO.Observaciones" />
                             </div>
+                            <small class="form-hint">
+                                @if (editando && _esSalidaFormal)
+                                {
+                                    <span>⚠️ Único campo editable de una salida formal.</span>
+                                }
+                            </small>
                         </div>
 
                     </div>
@@ -303,7 +341,10 @@
                     {
                         @foreach (var s in _pagina.Items)
                         {
-                            <tr class="table-row-hover">
+                            var esFormal = !string.IsNullOrWhiteSpace(s.NumeroActaComite)
+                                        || !string.IsNullOrWhiteSpace(s.NumeroDenuncia);
+                            
+                            <tr class="table-row-hover" @key="s.Id">
                                 <td class="text-mono">@s.FechaSalida?.ToString("dd/MM/yyyy")</td>
                                 <td>
                                     <div class="table-cell-primary">
@@ -334,18 +375,23 @@
                                     <div class="action-buttons">
                                         @if (puedeEditar)
                                         {
-                                            <button class="btn-action btn-action-edit"
+                                            <button type="button"
+                                                    class="btn-action btn-action-edit"
                                                     @onclick="() => Editar(s)"
-                                                    title="Editar / Adjuntos">
+                                                    title="@(esFormal ? "Editar (solo observaciones)" : "Editar")">
                                                 <i class="bi bi-pencil-fill"></i>
                                             </button>
                                         }
-                                        @if (puedeEliminar)
+                                        @if (puedeAnular)
                                         {
-                                            <button class="btn-action btn-action-delete"
-                                                    @onclick="() => Eliminar(s)"
-                                                    title="Eliminar">
-                                                <i class="bi bi-trash-fill"></i>
+                                            <button type="button"
+                                                    class="btn-action btn-action-delete"
+                                                    @onclick="() => IntentarAnular(s)"
+                                                    @onclick:stopPropagation="true"
+                                                    title="@(esFormal 
+                                                        ? "No se puede anular: tiene Acta/Denuncia" 
+                                                        : "Anular salida (soft-delete)")">
+                                                <i class="bi bi-slash-circle-fill"></i>
                                             </button>
                                         }
                                     </div>
@@ -367,11 +413,84 @@
     </div>
 </div>
 
+@* ═══════════════════════════════════════════════════════════════
+   MODAL — Anular (FUERA del page-container para evitar overflow:hidden)
+   ═══════════════════════════════════════════════════════════════ *@
+@if (_modalAnulacionAbierto && _itemAAnular is not null)
+{
+    var s = _itemAAnular;
+
+    <div class="modal-backdrop-det" @onclick="CancelarAnulacion">
+        <div class="modal-det" @onclick:stopPropagation="true">
+
+            <div class="modal-det-header">
+                <div class="modal-det-header-left">
+                    <span class="badge badge-off">Anular salida</span>
+                    <h3>@s.BienNombre</h3>
+                </div>
+                <button type="button" class="modal-det-close" @onclick="CancelarAnulacion" title="Cerrar">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <div class="modal-det-body">
+                <div class="det-section" style="background: #fffbeb; border-left: 4px solid #f59e0b;">
+                    <h4><i class="bi bi-exclamation-triangle-fill"></i> ¿Qué es anular?</h4>
+                    <p style="margin: 0;">
+                        El registro <strong>NO se elimina de la base de datos</strong>. Se marca como "Anulada" y se excluye de los reportes operativos.
+                        El historial completo queda disponible para auditoría y para el expediente del bien.
+                    </p>
+                    <p style="margin: 8px 0 0 0; font-size: 0.85rem;">
+                        <i class="bi bi-info-circle"></i> <strong>Efecto:</strong> El bien será <strong>reactivado automáticamente</strong> (volverá a estar activo en el inventario).
+                    </p>
+                </div>
+
+                <div class="det-section">
+                    <h4><i class="bi bi-info-circle"></i> Salida a anular</h4>
+                    <dl class="det-dl">
+                        <dt>Bien</dt>
+                        <dd><code>@s.BienCodigo</code> — @s.BienNombre</dd>
+                        <dt>Tipo de baja</dt>
+                        <dd><span class="badge @GetClaseBadgeTipoBaja(s.TipoBaja)">@s.TipoBaja</span></dd>
+                        <dt>Motivo</dt>
+                        <dd>@s.Motivo</dd>
+                        <dt>Fecha</dt>
+                        <dd>@s.FechaSalida?.ToString("dd/MM/yyyy")</dd>
+                        <dt>Valor</dt>
+                        <dd>@s.ValorSalida.ToString("C0", CulturaCOP)</dd>
+                    </dl>
+                </div>
+
+                <div class="form-group form-group-full">
+                    <label>Motivo de la anulación *</label>
+                    <div class="input-icon">
+                        <i class="bi bi-pencil-square"></i>
+                        <InputTextArea class="form-control" rows="3"
+                                       @bind-Value="_motivoAnulacion"
+                                       placeholder="Ej: Error de digitación, baja duplicada, prueba del sistema..." />
+                    </div>
+                    <small class="text-muted">Este motivo quedará registrado en la bitácora de auditoría.</small>
+                </div>
+            </div>
+
+            <div class="modal-det-footer">
+                <button type="button" class="btn-det-cerrar" @onclick="CancelarAnulacion">
+                    <i class="bi bi-x-lg"></i> Cancelar
+                </button>
+                <button type="button" class="btn btn-save" @onclick="ConfirmarAnulacionAsync"
+                        disabled="@(string.IsNullOrWhiteSpace(_motivoAnulacion))">
+                    <i class="bi bi-slash-circle-fill"></i> Confirmar Anulación
+                </button>
+            </div>
+
+        </div>
+    </div>
+}
+
 @code {
     private static readonly System.Globalization.CultureInfo CulturaCOP =
         System.Globalization.CultureInfo.GetCultureInfo("es-CO");
 
-    // ✨ NUEVO — Recibe bienId desde /bienes cuando el usuario clickea "Registrar Baja"
     [SupplyParameterFromQuery(Name = "bienId")]
     public int? BienIdQuery { get; set; }
 
@@ -380,10 +499,12 @@
     private IEnumerable<FuncionarioDTO> funcionarios = [];
 
     private SalidaDTO salidaDTO = new();
+    private SalidaDTO? _salidaAntesDeEditar;
     private bool editando = false;
     private int salidaEditandoId;
     private bool _mostrarFormulario = false;
     private bool _mostrarFiltros = false;
+    private bool _esSalidaFormal = false;
 
     private int _paginaActual = 1;
     private int _tamanoPagina = 25;
@@ -395,7 +516,11 @@
 
     private bool puedeCrear;
     private bool puedeEditar;
-    private bool puedeEliminar;
+    private bool puedeAnular;
+
+    private bool _modalAnulacionAbierto = false;
+    private SalidaDTO? _itemAAnular;
+    private string _motivoAnulacion = "";
 
     private bool _hayFiltrosActivos =>
         !string.IsNullOrEmpty(_filtroTexto) ||
@@ -410,26 +535,21 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // 1. Verificar permisos
         if (!await Seguridad.TienePermisoAsync("salidas.ver"))
         {
             Navigation.NavigateTo("/");
             return;
         }
 
-        // 2. Cargar permisos
-        puedeCrear = await Seguridad.TienePermisoAsync("salidas.crear");
+        puedeCrear  = await Seguridad.TienePermisoAsync("salidas.crear");
         puedeEditar = await Seguridad.TienePermisoAsync("salidas.editar");
-        puedeEliminar = await Seguridad.TienePermisoAsync("salidas.eliminar");
+        puedeAnular = await Seguridad.TienePermisoAsync("salidas.anular");
 
-        // 3. Cargar datos base
         bienes = await BienRepo.ObtenerTodosAsync();
         funcionarios = await FuncRepo.ObtenerTodosAsync();
 
-        // 4. Cargar lista paginada
         await Cargar();
 
-        // 5. Si viene bienId por query → abrir form con el bien precargado
         if (BienIdQuery.HasValue && BienIdQuery.Value > 0)
         {
             AbrirFormulario();
@@ -462,9 +582,6 @@
         }
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // AUTOCOMPLETADO DEL VALOR — al seleccionar el bien
-    // ═══════════════════════════════════════════════════════════
     private async Task OnBienCambiadoAsync()
     {
         var bienId = salidaDTO.BienId;
@@ -483,10 +600,7 @@
                 salidaDTO.ValorSalida = bien.ValorAdquisicion;
             }
         }
-        catch
-        {
-            // Silencioso — si falla, deja el valor en 0
-        }
+        catch { }
 
         StateHasChanged();
     }
@@ -496,6 +610,8 @@
         salidaDTO = new SalidaDTO { FechaSalida = DateTime.Today, TipoBaja = "Obsolescencia" };
         editando = false;
         salidaEditandoId = 0;
+        _salidaAntesDeEditar = null;
+        _esSalidaFormal = false;
         _mostrarFormulario = true;
         _mostrarFiltros = false;
     }
@@ -506,6 +622,8 @@
         salidaDTO = new SalidaDTO { FechaSalida = DateTime.Today, TipoBaja = "Obsolescencia" };
         editando = false;
         salidaEditandoId = 0;
+        _salidaAntesDeEditar = null;
+        _esSalidaFormal = false;
         _filtroTexto = string.Empty;
         StateHasChanged();
     }
@@ -518,6 +636,8 @@
             salidaDTO = new SalidaDTO { FechaSalida = DateTime.Today, TipoBaja = "Obsolescencia" };
             editando = false;
             salidaEditandoId = 0;
+            _salidaAntesDeEditar = null;
+            _esSalidaFormal = false;
         }
         _mostrarFiltros = !_mostrarFiltros;
     }
@@ -595,7 +715,41 @@
         {
             if (editando)
             {
+                var antes = _salidaAntesDeEditar is null ? null : new
+                {
+                    _salidaAntesDeEditar.BienId,
+                    _salidaAntesDeEditar.TipoBaja,
+                    _salidaAntesDeEditar.Motivo,
+                    _salidaAntesDeEditar.FechaSalida,
+                    _salidaAntesDeEditar.NumeroActaComite,
+                    _salidaAntesDeEditar.NumeroDenuncia,
+                    _salidaAntesDeEditar.ValorSalida
+                };
+
                 await SalidaRepo.ActualizarAsync(salidaDTO);
+
+                await Auditoria.RegistrarEdicionAsync(
+                    modulo: "salidas",
+                    objetoTipo: "Salida",
+                    objetoId: salidaDTO.Id,
+                    objetoCodigo: salidaDTO.NumeroActaComite,
+                    objetoDescripcion: $"Salida de {salidaDTO.TipoBaja}",
+                    antes: antes,
+                    despues: new
+                    {
+                        salidaDTO.BienId,
+                        salidaDTO.TipoBaja,
+                        salidaDTO.Motivo,
+                        salidaDTO.FechaSalida,
+                        salidaDTO.NumeroActaComite,
+                        salidaDTO.NumeroDenuncia,
+                        salidaDTO.ValorSalida
+                    },
+                    motivo: _esSalidaFormal 
+                        ? "Edición de observaciones (salida formal)" 
+                        : "Edición de salida"
+                );
+
                 Toast.Exito("Salida actualizada correctamente");
                 _filtroTexto = string.Empty;
                 await Cargar();
@@ -612,12 +766,33 @@
                 await SalidaRepo.CrearAsync(salidaDTO);
                 await SalidaRepo.DesactivarBienAsync(salidaDTO.BienId);
 
+                await Auditoria.RegistrarCreacionAsync(
+                    modulo: "salidas",
+                    objetoTipo: "Salida",
+                    objetoId: salidaDTO.Id,
+                    objetoCodigo: salidaDTO.NumeroActaComite,
+                    objetoDescripcion: $"Salida de {salidaDTO.TipoBaja}",
+                    despues: new
+                    {
+                        salidaDTO.BienId,
+                        salidaDTO.TipoBaja,
+                        salidaDTO.Motivo,
+                        salidaDTO.FechaSalida,
+                        salidaDTO.NumeroActaComite,
+                        salidaDTO.NumeroDenuncia,
+                        salidaDTO.ValorSalida
+                    }
+                );
+
                 Toast.Exito("Salida registrada. El bien fue dado de baja.");
                 Cancelar();
                 await Cargar();
             }
         }
-        catch (Exception ex) { Toast.Error($"Error: {ex.Message}"); }
+        catch (Exception ex)
+        {
+            ErrorHelper.Mostrar(Toast, ex, "la salida", "guardar");
+        }
     }
 
     private void Editar(SalidaDTO s)
@@ -625,8 +800,12 @@
         if (!puedeEditar) return;
         editando = true;
         salidaEditandoId = s.Id;
+        _salidaAntesDeEditar = s;
         _mostrarFormulario = true;
         _mostrarFiltros = false;
+
+        _esSalidaFormal = !string.IsNullOrWhiteSpace(s.NumeroActaComite)
+                       || !string.IsNullOrWhiteSpace(s.NumeroDenuncia);
 
         salidaDTO.Id = s.Id;
         salidaDTO.BienId = s.BienId;
@@ -643,21 +822,95 @@
         StateHasChanged();
     }
 
-    private async Task Eliminar(SalidaDTO s)
+    // ═══════════════════════════════════════════════════════════════
+    // MÉTODOS DE ANULACIÓN (Soft-Delete)
+    // ═══════════════════════════════════════════════════════════════
+
+    private void IntentarAnular(SalidaDTO s)
     {
-        if (!puedeEliminar) { Toast.Error("No tiene permiso para eliminar salidas."); return; }
-        var ok = await Confirm.Peligroso(
-            $"¿Eliminar la salida del bien '{s.BienNombre}'? El bien volverá a estado Activo.");
-        if (!ok) return;
+        if (!puedeAnular)
+        {
+            Toast.Error("No tiene permiso para anular salidas.");
+            return;
+        }
+
+        if (s.EsFormal)
+        {
+            var motivos = new List<string>();
+            if (!string.IsNullOrWhiteSpace(s.NumeroActaComite))
+                motivos.Add($"Acta Comité '{s.NumeroActaComite}'");
+            if (!string.IsNullOrWhiteSpace(s.NumeroDenuncia))
+                motivos.Add($"Denuncia '{s.NumeroDenuncia}'");
+
+            Toast.Warning(
+                $"No se puede anular la salida del bien '{s.BienNombre}': " +
+                $"tiene {string.Join(" y ", motivos)}. " +
+                "Use el proceso administrativo de 'Anular Baja'.");
+            return;
+        }
+
+        _itemAAnular = s;
+        _motivoAnulacion = "";
+        _modalAnulacionAbierto = true;
+        StateHasChanged();
+    }
+
+    private void CancelarAnulacion()
+    {
+        _modalAnulacionAbierto = false;
+        _itemAAnular = null;
+        _motivoAnulacion = "";
+    }
+
+    private async Task ConfirmarAnulacionAsync()
+    {
+        if (_itemAAnular is null) return;
+        if (string.IsNullOrWhiteSpace(_motivoAnulacion))
+        {
+            Toast.Warning("Debe ingresar un motivo para la anulación.");
+            return;
+        }
 
         try
         {
-            await SalidaRepo.EliminarAsync(s.Id);
-            await SalidaRepo.ReactivarBienAsync(s.BienId);
-            Toast.Exito("Salida eliminada. El bien fue reactivado.");
+            await SalidaRepo.AnularAsync(_itemAAnular.Id, _motivoAnulacion);
+
+            await Auditoria.RegistrarAnulacionAsync(
+                modulo: "salidas",
+                objetoTipo: "Salida",
+                objetoId: _itemAAnular.Id,
+                objetoCodigo: _itemAAnular.BienCodigo,
+                objetoDescripcion: $"Anulación de salida para '{_itemAAnular.BienNombre}' — Tipo: {_itemAAnular.TipoBaja}",
+                antes: new
+                {
+                    TipoBaja = _itemAAnular.TipoBaja,
+                    Motivo = _itemAAnular.Motivo,
+                    ValorSalida = _itemAAnular.ValorSalida,
+                    Anulada = false
+                },
+                despues: new
+                {
+                    Anulada = true,
+                    Motivo = _motivoAnulacion,
+                    AnuladaPor = Sesion.UsuarioActual?.Id,
+                    AnuladaFecha = DateTime.Now
+                },
+                motivo: _motivoAnulacion
+            );
+
+            Toast.Exito("Salida anulada. El bien fue reactivado.");
+            CancelarAnulacion();
             await Cargar();
+            StateHasChanged();
         }
-        catch (Exception ex) { Toast.Error($"Error: {ex.Message}"); }
+        catch (InvalidOperationException iex)
+        {
+            Toast.Warning(iex.Message);
+        }
+        catch (Exception ex)
+        {
+            ErrorHelper.Mostrar(Toast, ex, "la salida", "anular");
+        }
     }
 
     private static string GetClaseBadgeTipoBaja(string? tipo) => tipo switch

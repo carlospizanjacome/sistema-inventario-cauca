@@ -38,6 +38,10 @@ public class MantenimientoRepository : IMantenimientoRepository
             m.estado_bien_ingreso        AS EstadoBienIngreso,
             m.estado_bien_egreso         AS EstadoBienEgreso,
             m.observaciones,
+            m.anulada,
+            m.anulada_por                AS AnuladaPor,
+            m.anulada_fecha::timestamp   AS AnuladaFecha,
+            m.anulada_motivo             AS AnuladaMotivo,
             m.created_at                 AS CreatedAt,
             m.updated_at                 AS UpdatedAt,
             b.codigo                     AS BienCodigo,
@@ -65,7 +69,8 @@ public class MantenimientoRepository : IMantenimientoRepository
         var (filtroInst, _) = FiltroInstitucion.Construir(
             _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "m");
 
-        var condiciones = new List<string> { "1=1" };
+        // Regla de negocio: las vistas operativas solo muestran registros vigentes.
+        var condiciones = new List<string> { "m.anulada = FALSE" };
         var parametros = new DynamicParameters();
         parametros.Add("InstitucionId", _sesion.InstitucionId);
 
@@ -143,6 +148,7 @@ public class MantenimientoRepository : IMantenimientoRepository
         var (filtroInst, _) = FiltroInstitucion.Construir(
             _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "m");
 
+        // El expediente del bien debe mostrar TODO el historial, incluyendo anulados.
         var sql = $"{BaseSelect} WHERE m.id = @Id {filtroInst};";
 
         using var cn = new NpgsqlConnection(_cs);
@@ -155,6 +161,7 @@ public class MantenimientoRepository : IMantenimientoRepository
         var (filtroInst, _) = FiltroInstitucion.Construir(
             _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "m");
 
+        // El expediente del bien debe mostrar TODO el historial, incluyendo anulados.
         var sql = $@"{BaseSelect}
                      WHERE m.bien_id = @BienId {filtroInst}
                      ORDER BY m.fecha_ingreso DESC, m.id DESC;";
@@ -172,14 +179,14 @@ public class MantenimientoRepository : IMantenimientoRepository
                  fecha_ingreso, fecha_devolucion_prevista,
                  proveedor_id, tecnico_responsable,
                  diagnostico, costo, estado_bien_ingreso,
-                 observaciones,
+                 observaciones, anulada,
                  created_at, updated_at)
             VALUES
                 (@BienId, @InstitucionId, @Tipo, 'ABIERTO',
                  @FechaIngreso, @FechaDevolucionPrevista,
                  @ProveedorId, @TecnicoResponsable,
                  @Diagnostico, @Costo, @EstadoBienIngreso,
-                 @Observaciones,
+                 @Observaciones, FALSE,
                  NOW(), NOW())
             RETURNING id;";
 
@@ -214,7 +221,7 @@ public class MantenimientoRepository : IMantenimientoRepository
                 estado_bien_ingreso = @EstadoBienIngreso,
                 observaciones = @Observaciones,
                 updated_at = NOW()
-            WHERE id = @Id AND estado IN ('ABIERTO','EN_PROCESO');";
+            WHERE id = @Id AND estado IN ('ABIERTO','EN_PROCESO') AND anulada = FALSE;";
 
         using var cn = new NpgsqlConnection(_cs);
         await cn.ExecuteAsync(sql, new
@@ -246,7 +253,7 @@ public class MantenimientoRepository : IMantenimientoRepository
                 estado_bien_egreso = @EstadoBienEgreso,
                 observaciones = COALESCE(@Observaciones, observaciones),
                 updated_at = NOW()
-            WHERE id = @Id AND estado IN ('ABIERTO','EN_PROCESO');";
+            WHERE id = @Id AND estado IN ('ABIERTO','EN_PROCESO') AND anulada = FALSE;";
 
         using var cn = new NpgsqlConnection(_cs);
         await cn.ExecuteAsync(sql, new
@@ -261,14 +268,32 @@ public class MantenimientoRepository : IMantenimientoRepository
         });
     }
 
-    public async Task EliminarAsync(int id)
+    /// <summary>
+    /// Anula lógicamente un mantenimiento (soft-delete).
+    /// No elimina el registro físico para preservar la auditoría.
+    /// </summary>
+    /// <param name="id">ID del mantenimiento a anular.</param>
+    /// <param name="motivo">Razón de la anulación (obligatorio para auditoría).</param>
+    public async Task AnularAsync(int id, string motivo)
     {
         const string sql = @"
-            DELETE FROM mantenimientos 
-            WHERE id = @Id AND estado IN ('CERRADO','ANULADO');";
+            UPDATE mantenimientos
+            SET anulada = TRUE,
+                anulada_por = @UsuarioId,
+                anulada_fecha = NOW(),
+                anulada_motivo = @Motivo,
+                updated_at = NOW()
+            WHERE id = @Id 
+              AND estado IN ('CERRADO', 'ANULADO')
+              AND anulada = FALSE;";
 
         using var cn = new NpgsqlConnection(_cs);
-        await cn.ExecuteAsync(sql, new { Id = id });
+        await cn.ExecuteAsync(sql, new
+        {
+            Id = id,
+            UsuarioId = _sesion.UsuarioActual?.Id,
+            Motivo = motivo
+        });
     }
 
     public async Task<(int Abiertos, int EnProceso, int CerradosMes, decimal CostoMes)> ObtenerMetricasAsync()
@@ -285,7 +310,7 @@ public class MantenimientoRepository : IMantenimientoRepository
                 COALESCE(SUM(m.costo) FILTER (WHERE m.estado = 'CERRADO'
                                  AND DATE_TRUNC('month', m.fecha_salida) = DATE_TRUNC('month', NOW())), 0)::numeric AS CostoMes
             FROM mantenimientos m
-            WHERE 1=1 {filtroInst};";
+            WHERE m.anulada = FALSE {filtroInst};";
 
         using var cn = new NpgsqlConnection(_cs);
         return await cn.QueryFirstAsync<(int Abiertos, int EnProceso, int CerradosMes, decimal CostoMes)>(

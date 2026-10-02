@@ -32,6 +32,10 @@ public class SalidaRepository : ISalidaRepository
             s.funcionario_aprueba_id AS FuncionarioApruebaId,
             s.observaciones,
             s.institucion_id       AS InstitucionId,
+            s.anulada,
+            s.anulada_por          AS AnuladaPor,
+            s.anulada_fecha::timestamp AS AnuladaFecha,
+            s.anulada_motivo       AS AnuladaMotivo,
             b.codigo               AS BienCodigo,
             b.nombre               AS BienNombre,
             f.nombre_completo      AS FuncionarioNombre
@@ -44,7 +48,7 @@ public class SalidaRepository : ISalidaRepository
         var (filtro, param) = FiltroInstitucion.Construir(
             _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "s");
 
-        var sql = $"{BaseSelect} WHERE 1=1 {filtro} ORDER BY s.fecha_salida DESC, s.id DESC;";
+        var sql = $"{BaseSelect} WHERE s.anulada = FALSE {filtro} ORDER BY s.fecha_salida DESC, s.id DESC;";
 
         using var cn = new NpgsqlConnection(_cs);
         return await cn.QueryAsync<SalidaDTO>(sql, param);
@@ -68,11 +72,11 @@ public class SalidaRepository : ISalidaRepository
             INSERT INTO salidas
                 (bien_id, tipo_baja, motivo, fecha_salida, numero_acta_comite,
                  numero_denuncia, valor_salida, funcionario_aprueba_id, observaciones,
-                 institucion_id)
+                 institucion_id, anulada)
             VALUES
                 (@BienId, @TipoBaja, @Motivo, @FechaSalida, @NumeroActaComite,
                  @NumeroDenuncia, @ValorSalida, @FuncionarioApruebaId, @Observaciones,
-                 @InstitucionId)
+                 @InstitucionId, FALSE)
             RETURNING id;";
 
         using var cn = new NpgsqlConnection(_cs);
@@ -93,6 +97,31 @@ public class SalidaRepository : ISalidaRepository
 
     public async Task<bool> ActualizarAsync(SalidaDTO dto)
     {
+        var original = await ObtenerPorIdAsync(dto.Id);
+        if (original is null)
+            throw new InvalidOperationException("No se encontró la salida a actualizar.");
+
+        if (original.Anulada)
+            throw new InvalidOperationException("No se puede editar una salida anulada.");
+
+        var esFormal = !string.IsNullOrWhiteSpace(original.NumeroActaComite)
+                    || !string.IsNullOrWhiteSpace(original.NumeroDenuncia);
+
+        if (esFormal)
+        {
+            const string sqlSoloObservaciones = @"
+                UPDATE salidas
+                SET observaciones = @Observaciones
+                WHERE id = @Id AND anulada = FALSE;";
+
+            using var cn = new NpgsqlConnection(_cs);
+            return await cn.ExecuteAsync(sqlSoloObservaciones, new
+            {
+                dto.Id,
+                dto.Observaciones
+            }) > 0;
+        }
+
         const string sql = @"
             UPDATE salidas
             SET bien_id = @BienId,
@@ -104,17 +133,75 @@ public class SalidaRepository : ISalidaRepository
                 valor_salida = @ValorSalida,
                 funcionario_aprueba_id = @FuncionarioApruebaId,
                 observaciones = @Observaciones
-            WHERE id = @Id;";
+            WHERE id = @Id AND anulada = FALSE;";
 
-        using var cn = new NpgsqlConnection(_cs);
-        return await cn.ExecuteAsync(sql, dto) > 0;
+        using var cnFull = new NpgsqlConnection(_cs);
+        return await cnFull.ExecuteAsync(sql, dto) > 0;
     }
 
-    public async Task<bool> EliminarAsync(int id)
+    public async Task AnularAsync(int id, string motivo)
     {
         using var cn = new NpgsqlConnection(_cs);
-        return await cn.ExecuteAsync("DELETE FROM salidas WHERE id = @Id;",
-            new { Id = id }) > 0;
+        await cn.OpenAsync();
+        using var tx = await cn.BeginTransactionAsync();
+
+        try
+        {
+            var salida = await cn.QueryFirstOrDefaultAsync<dynamic>(
+                @"SELECT bien_id, numero_acta_comite, numero_denuncia, anulada
+                  FROM salidas WHERE id = @Id",
+                new { Id = id }, tx);
+
+            if (salida is null)
+                throw new InvalidOperationException("La salida no existe.");
+
+            if ((bool)salida.anulada)
+                throw new InvalidOperationException("La salida ya está anulada.");
+
+            string? acta = salida.numero_acta_comite as string;
+            string? denuncia = salida.numero_denuncia as string;
+
+            if (!string.IsNullOrWhiteSpace(acta) || !string.IsNullOrWhiteSpace(denuncia))
+            {
+                var motivos = new List<string>();
+                if (!string.IsNullOrWhiteSpace(acta)) motivos.Add($"Acta '{acta}'");
+                if (!string.IsNullOrWhiteSpace(denuncia)) motivos.Add($"Denuncia '{denuncia}'");
+
+                throw new InvalidOperationException(
+                    $"No se puede anular una salida formal. Tiene {string.Join(" y ", motivos)}. " +
+                    "Use el proceso de 'Anular Baja' administrativo.");
+            }
+
+            int bienId = (int)salida.bien_id;
+
+            await cn.ExecuteAsync(@"
+                UPDATE salidas
+                SET anulada = TRUE,
+                    anulada_por = @UsuarioId,
+                    anulada_fecha = NOW(),
+                    anulada_motivo = @Motivo
+                WHERE id = @Id;",
+                new
+                {
+                    Id = id,
+                    UsuarioId = _sesion.UsuarioActual?.Id,
+                    Motivo = motivo
+                }, tx);
+
+            await cn.ExecuteAsync(@"
+                UPDATE bienes
+                SET activo = TRUE,
+                    updated_at = NOW()
+                WHERE id = @BienId;",
+                new { BienId = bienId }, tx);
+
+            await tx.CommitAsync();
+        }
+        catch
+        {
+            await tx.RollbackAsync();
+            throw;
+        }
     }
 
     public async Task<bool> BienTieneSalidaAsync(int bienId, int? excluirId = null)
@@ -122,6 +209,7 @@ public class SalidaRepository : ISalidaRepository
         const string sql = @"
             SELECT COUNT(*) FROM salidas
             WHERE bien_id = @BienId
+              AND anulada = FALSE
               AND (@ExcluirId IS NULL OR id <> @ExcluirId);";
 
         using var cn = new NpgsqlConnection(_cs);
@@ -170,11 +258,11 @@ public class SalidaRepository : ISalidaRepository
         var sqlCount = $@"
             SELECT COUNT(*) FROM salidas s
             LEFT JOIN bienes b ON b.id = s.bien_id
-            WHERE 1=1 {filtroInst} {filtroBusqueda};";
+            WHERE s.anulada = FALSE {filtroInst} {filtroBusqueda};";
 
         var sqlData = $@"
             {BaseSelect}
-            WHERE 1=1 {filtroInst} {filtroBusqueda}
+            WHERE s.anulada = FALSE {filtroInst} {filtroBusqueda}
             ORDER BY s.fecha_salida DESC, s.id DESC
             LIMIT @Tamano OFFSET @Offset;";
 
@@ -211,7 +299,7 @@ public class SalidaRepository : ISalidaRepository
         var (filtroInst, _) = FiltroInstitucion.Construir(
             _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "s");
 
-        var condiciones = new List<string>();
+        var condiciones = new List<string> { "s.anulada = FALSE" };
         var parametros = new DynamicParameters();
         parametros.Add("InstitucionId", _sesion.InstitucionId);
 
@@ -240,7 +328,7 @@ public class SalidaRepository : ISalidaRepository
             parametros.Add("Tipo", filtro.Tipo);
         }
 
-        var whereExtra = condiciones.Any() ? " AND " + string.Join(" AND ", condiciones) : "";
+        var whereExtra = string.Join(" AND ", condiciones);
 
         parametros.Add("Tamano", tamano);
         parametros.Add("Offset", (pagina - 1) * tamano);
@@ -248,11 +336,11 @@ public class SalidaRepository : ISalidaRepository
         var sqlCount = $@"
             SELECT COUNT(*) FROM salidas s
             LEFT JOIN bienes b ON b.id = s.bien_id
-            WHERE 1=1 {filtroInst} {whereExtra};";
+            WHERE {whereExtra} {filtroInst};";
 
         var sqlData = $@"
             {BaseSelect}
-            WHERE 1=1 {filtroInst} {whereExtra}
+            WHERE {whereExtra} {filtroInst}
             ORDER BY s.fecha_salida DESC, s.id DESC
             LIMIT @Tamano OFFSET @Offset;";
 

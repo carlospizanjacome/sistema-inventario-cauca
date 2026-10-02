@@ -95,15 +95,15 @@ public class AuditoriaRepository : IAuditoriaRepository
             _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "a");
 
         var sql = $@"
-            SELECT
-                COUNT(*) FILTER (WHERE a.fecha_hora::date = CURRENT_DATE)::int AS EventosHoy,
-                COUNT(*) FILTER (WHERE a.fecha_hora >= CURRENT_DATE - INTERVAL '7 days')::int AS EventosSemana,
-                COUNT(*) FILTER (WHERE a.fecha_hora >= CURRENT_DATE - INTERVAL '30 days')::int AS EventosMes,
-                COUNT(*) FILTER (WHERE a.severidad = 'CRITICO'
-                                   AND a.fecha_hora >= CURRENT_DATE - INTERVAL '30 days')::int AS EventosCriticos,
-                COUNT(*)::int AS TotalRegistros
-            FROM auditoria a
-            WHERE 1=1 {filtro};";
+        SELECT
+            COUNT(*) FILTER (WHERE a.fecha_hora::date = CURRENT_DATE)::int AS eventos_hoy,
+            COUNT(*) FILTER (WHERE a.fecha_hora >= CURRENT_DATE - INTERVAL '7 days')::int AS eventos_semana,
+            COUNT(*) FILTER (WHERE a.fecha_hora >= CURRENT_DATE - INTERVAL '30 days')::int AS eventos_mes,
+            COUNT(*) FILTER (WHERE a.severidad = 'CRITICO'
+                               AND a.fecha_hora >= CURRENT_DATE - INTERVAL '30 days')::int AS eventos_criticos,
+            COUNT(*)::int AS total_registros
+        FROM auditoria a
+        WHERE 1=1 {filtro};";
 
         using var cn = new NpgsqlConnection(_cs);
         return await cn.QueryFirstAsync<AuditoriaResumenDTO>(sql, param);

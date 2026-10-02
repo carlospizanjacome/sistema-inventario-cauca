@@ -85,22 +85,33 @@ namespace Almacen.Repositories
         {
             bien.InstitucionId = _sesion.InstitucionId;
 
+            // ═══════════════════════════════════════════════════════════
+            // CÁLCULO AUTOMÁTICO DE VALOR NETO
+            // Al crear un bien, valor_neto = valor_adquisicion - valor_residual
+            // (no hay depreciación acumulada todavía)
+            // ═══════════════════════════════════════════════════════════
+            bien.DepreciacionAcumulada = 0;
+            bien.ValorNeto = bien.ValorAdquisicion - bien.ValorResidual;
+            // ═══════════════════════════════════════════════════════════
+
             const string sql = @"
-                INSERT INTO bienes
-                (codigo, nombre, descripcion, categoria_id, tipo_bien,
-                 marca, modelo, serie, valor_adquisicion, fecha_adquisicion,
-                 estado_fisico, ubicacion, responsable, activo,
-                 institucion_id, aula_id, funcionario_id, vida_util_id,
-                 codigo_qr, valor_residual, cantidad,
-                 created_at, updated_at)
-                VALUES
-                (@Codigo, @Nombre, @Descripcion, @CategoriaId, @TipoBien,
-                 @Marca, @Modelo, @Serie, @ValorAdquisicion, @FechaAdquisicion,
-                 @EstadoFisico, @Ubicacion, @Responsable, @Activo,
-                 @InstitucionId, @AulaId, @FuncionarioId, @VidaUtilId,
-                 @CodigoQr, @ValorResidual, @Cantidad,
-                 NOW(), NOW())
-                RETURNING id;";
+        INSERT INTO bienes
+        (codigo, nombre, descripcion, categoria_id, tipo_bien,
+         marca, modelo, serie, valor_adquisicion, fecha_adquisicion,
+         estado_fisico, ubicacion, responsable, activo,
+         institucion_id, aula_id, funcionario_id, vida_util_id,
+         codigo_qr, valor_residual, cantidad,
+         depreciacion_acumulada, valor_neto, fecha_ultimo_calculo,
+         created_at, updated_at)
+        VALUES
+        (@Codigo, @Nombre, @Descripcion, @CategoriaId, @TipoBien,
+         @Marca, @Modelo, @Serie, @ValorAdquisicion, @FechaAdquisicion,
+         @EstadoFisico, @Ubicacion, @Responsable, @Activo,
+         @InstitucionId, @AulaId, @FuncionarioId, @VidaUtilId,
+         @CodigoQr, @ValorResidual, @Cantidad,
+         @DepreciacionAcumulada, @ValorNeto, NOW(),
+         NOW(), NOW())
+        RETURNING id;";
 
             const int maxIntentos = 3;
             for (int intento = 1; intento <= maxIntentos; intento++)
@@ -127,7 +138,6 @@ namespace Almacen.Repositories
             throw new InvalidOperationException(
                 "No se pudo generar un código único. Intente nuevamente.");
         }
-
         private async Task<string> GenerarSiguienteCodigoAsync(string tipoBien)
         {
             var prefijo = tipoBien == "consumo" ? "CONS" : "DEVO";
@@ -157,19 +167,39 @@ namespace Almacen.Repositories
 
         public async Task ActualizarAsync(Bien bien)
         {
+            // ═══════════════════════════════════════════════════════════
+            // CÁLCULO AUTOMÁTICO DE VALOR NETO
+            // Si cambia el valor de adquisición, hay que recalcular
+            // el valor_neto manteniendo la depreciación acumulada.
+            // ═══════════════════════════════════════════════════════════
+
+            // Obtener la depreciación acumulada actual
+            decimal depreciacionActual;
+            using (var cnLeer = Connection)
+            {
+                depreciacionActual = await cnLeer.ExecuteScalarAsync<decimal>(
+                    "SELECT COALESCE(depreciacion_acumulada, 0) FROM bienes WHERE id = @Id;",
+                    new { Id = bien.Id });
+            }
+
+            bien.DepreciacionAcumulada = depreciacionActual;
+            bien.ValorNeto = bien.ValorAdquisicion - depreciacionActual - bien.ValorResidual;
+            // ═══════════════════════════════════════════════════════════
+
             const string sql = @"
-                UPDATE bienes
-                SET codigo = @Codigo, nombre = @Nombre, descripcion = @Descripcion,
-                    categoria_id = @CategoriaId, tipo_bien = @TipoBien,
-                    marca = @Marca, modelo = @Modelo, serie = @Serie,
-                    valor_adquisicion = @ValorAdquisicion, fecha_adquisicion = @FechaAdquisicion,
-                    estado_fisico = @EstadoFisico, ubicacion = @Ubicacion,
-                    responsable = @Responsable, activo = @Activo,
-                    aula_id = @AulaId, funcionario_id = @FuncionarioId,
-                    vida_util_id = @VidaUtilId, codigo_qr = @CodigoQr,
-                    valor_residual = @ValorResidual, cantidad = @Cantidad,
-                    updated_at = NOW()
-                WHERE id = @Id;";
+        UPDATE bienes
+        SET codigo = @Codigo, nombre = @Nombre, descripcion = @Descripcion,
+            categoria_id = @CategoriaId, tipo_bien = @TipoBien,
+            marca = @Marca, modelo = @Modelo, serie = @Serie,
+            valor_adquisicion = @ValorAdquisicion, fecha_adquisicion = @FechaAdquisicion,
+            estado_fisico = @EstadoFisico, ubicacion = @Ubicacion,
+            responsable = @Responsable, activo = @Activo,
+            aula_id = @AulaId, funcionario_id = @FuncionarioId,
+            vida_util_id = @VidaUtilId, codigo_qr = @CodigoQr,
+            valor_residual = @ValorResidual, cantidad = @Cantidad,
+            valor_neto = @ValorNeto,
+            updated_at = NOW()
+        WHERE id = @Id;";
 
             using var connection = Connection;
             await connection.ExecuteAsync(sql, bien);

@@ -25,6 +25,8 @@ public class ArchivoAdjuntoDTO
 /// <summary>
 /// Gestiona archivos adjuntos (PDFs, imágenes) en el sistema de archivos
 /// y su metadata en la tabla archivos_adjuntos.
+/// AHORA usa las columnas FK reales (entrada_id, salida_id, traslado_id, etc.)
+/// en lugar del patrón polimórfico viejo (entidad_tipo, entidad_id).
 /// </summary>
 public class ArchivoService
 {
@@ -51,6 +53,23 @@ public class ArchivoService
         if (!Directory.Exists(_carpetaBase))
             Directory.CreateDirectory(_carpetaBase);
     }
+
+    /// <summary>
+    /// Mapea el nombre lógico de la entidad a la columna FK real de la tabla.
+    /// Whitelist estricta para prevenir SQL Injection.
+    /// </summary>
+    private static string MapearColumnaFk(string entidadTipo) => entidadTipo.ToLowerInvariant() switch
+    {
+        "entrada" => "entrada_id",
+        "salida" => "salida_id",
+        "traslado" => "traslado_id",
+        "mantenimiento" => "mantenimiento_id",
+        "prestamo" => "prestamo_id",
+        "garantia" => "garantia_id",
+        "toma_fisica" => "toma_fisica_id",
+        _ => throw new ArgumentException($"Tipo de entidad no soportado: '{entidadTipo}'. " +
+            "Los válidos son: entrada, salida, traslado, mantenimiento, prestamo, garantia, toma_fisica.")
+    };
 
     /// <summary>
     /// Valida un archivo antes de subirlo.
@@ -86,6 +105,9 @@ public class ArchivoService
         string entidadTipo,
         int entidadId)
     {
+        // Validar tipo de entidad
+        var columnaFk = MapearColumnaFk(entidadTipo);
+
         // Generar nombre único
         var extension = Path.GetExtension(nombreOriginal);
         var nombreUnico = $"{Guid.NewGuid():N}{extension}";
@@ -106,20 +128,19 @@ public class ArchivoService
 
         var info = new FileInfo(rutaFisica);
 
-        // Guardar metadata en BD
+        // Guardar metadata en BD usando la columna FK correcta
         using var cn = _factory.CrearConexion();
-        const string sql = @"
+        var sql = $@"
             INSERT INTO archivos_adjuntos
-                (entidad_tipo, entidad_id, nombre_original, ruta_almacen,
+                ({columnaFk}, nombre_original, ruta_almacen,
                  mime_type, tamano_bytes)
             VALUES
-                (@EntidadTipo, @EntidadId, @NombreOriginal, @Ruta,
+                (@EntidadId, @NombreOriginal, @Ruta,
                  @MimeType, @TamanoBytes)
             RETURNING id;";
 
         return await cn.ExecuteScalarAsync<int>(sql, new
         {
-            EntidadTipo = entidadTipo,
             EntidadId = entidadId,
             NombreOriginal = nombreOriginal,
             Ruta = rutaRelativa,
@@ -134,13 +155,19 @@ public class ArchivoService
     public async Task<IEnumerable<ArchivoAdjuntoDTO>> ObtenerAsync(
         string entidadTipo, int entidadId)
     {
-        const string sql = @"
-            SELECT id, entidad_tipo AS EntidadTipo, entidad_id AS EntidadId,
-                   nombre_original AS NombreOriginal, ruta_almacen AS RutaAlmacen,
-                   mime_type AS MimeType, tamano_bytes AS TamanoBytes,
+        var columnaFk = MapearColumnaFk(entidadTipo);
+
+        var sql = $@"
+            SELECT id, 
+                   @EntidadTipo AS EntidadTipo, 
+                   {columnaFk} AS EntidadId,
+                   nombre_original AS NombreOriginal, 
+                   ruta_almacen AS RutaAlmacen,
+                   mime_type AS MimeType, 
+                   tamano_bytes AS TamanoBytes,
                    created_at AS CreatedAt
             FROM archivos_adjuntos
-            WHERE entidad_tipo = @EntidadTipo AND entidad_id = @EntidadId
+            WHERE {columnaFk} = @EntidadId
             ORDER BY created_at DESC;";
 
         using var cn = _factory.CrearConexion();

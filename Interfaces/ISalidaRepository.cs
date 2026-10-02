@@ -9,7 +9,14 @@ public interface ISalidaRepository
     Task<SalidaDTO?> ObtenerPorIdAsync(int id);
     Task<int> CrearAsync(SalidaDTO dto);
     Task<bool> ActualizarAsync(SalidaDTO dto);
-    Task<bool> EliminarAsync(int id);
+
+    // ═══════════════════════════════════════════════════════════
+    // SOFT-DELETE (reemplaza a EliminarAsync)
+    // Solo se pueden anular salidas SIN Acta ni Denuncia.
+    // Al anular, el bien se REACTIVA automáticamente.
+    // ═══════════════════════════════════════════════════════════
+    Task AnularAsync(int id, string motivo);
+
     Task<bool> BienTieneSalidaAsync(int bienId, int? excluirId = null);
     Task ReactivarBienAsync(int bienId);
     Task DesactivarBienAsync(int bienId);

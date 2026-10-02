@@ -238,7 +238,7 @@
         }
 
         <!-- ═══ SEGURIDAD ═══ -->
-        @if (_puedeVer("usuarios.ver") || _puedeVer("roles.ver") || _puedeVer("permisos.ver") || _puedeVer("roles.permisos"))
+        @if (_puedeVer("usuarios.ver") || _puedeVer("roles.ver") || _puedeVer("permisos.ver") || _puedeVer("roles.permisos") || _puedeVer("auditoria.ver"))
         {
             <div class="nav-group">
                 <button class="nav-group-header" type="button" @onclick="@(() => ToggleSeccion("seguridad"))">
@@ -274,6 +274,13 @@
                             <NavLink class="nav-btn-neutral" href="rol-permisos">
                                 <i class="bi bi-shield-check"></i>
                                 <span>Asignar Permisos</span>
+                            </NavLink>
+                        }
+                        @if (_puedeVer("auditoria.ver"))
+                        {
+                            <NavLink class="nav-btn-neutral" href="auditoria">
+                                <i class="bi bi-shield-check"></i>
+                                <span>Auditoría</span>
                             </NavLink>
                         }
                     </div>
@@ -390,7 +397,7 @@
             "depreciacion.ver", "reportes.ver", "toma_fisica.ver",
             "mantenimiento.ver", "garantias.ver",
             "usuarios.ver", "roles.ver", "permisos.ver", "roles.permisos",
-            "vidas_utiles.ver"
+            "vidas_utiles.ver", "auditoria.ver"
         };
 
         foreach (var c in codigos)

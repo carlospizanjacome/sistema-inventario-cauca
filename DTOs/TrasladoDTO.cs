@@ -25,6 +25,15 @@ public class TrasladoDTO
 
     public int InstitucionId { get; set; }
 
+    // ═══════════════════════════════════════════════════════════
+    // PROPIEDADES DE SOFT-DELETE (ANULACIÓN)
+    // ═══════════════════════════════════════════════════════════
+    public bool Anulada { get; set; }
+    public int? AnuladaPor { get; set; }
+    public DateTime? AnuladaFecha { get; set; }
+    public string? AnuladaMotivo { get; set; }
+    // ═══════════════════════════════════════════════════════════
+
     // ── Navegación (read-only) ──
     public string? BienCodigo { get; set; }
     public string? BienNombre { get; set; }
@@ -32,6 +41,4 @@ public class TrasladoDTO
     public string? AulaDestinoNombre { get; set; }
     public string? FuncionarioAnteriorNombre { get; set; }
     public string? FuncionarioNuevoNombre { get; set; }
-
-    
 }

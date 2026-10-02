@@ -185,12 +185,20 @@ public class PlantillaNormativaService
         }
         else if (esFubConEntradas)
         {
-            // ═══ MODO 2: FUB con datos de entradas ═══
+            // ═══ MODO 2: FUB con datos de entradas vigentes ═══
+            // IMPORTANTE: Un bien sin entrada vigente (anulada = FALSE) NO
+            // debe aparecer en el FUB, porque contablemente no tiene soporte.
+            // Regla: solo se reportan bienes que tienen una entrada vigente.
             var entradasPorBien = entradas
                 .GroupBy(e => e.BienId)
                 .ToDictionary(g => g.Key, g => g.First());
 
-            foreach (var b in bienes)
+            // Filtrar: solo bienes que tienen entrada vigente
+            var bienesConSoporte = bienes
+                .Where(b => entradasPorBien.ContainsKey(b.Id))
+                .ToList();
+
+            foreach (var b in bienesConSoporte)
             {
                 entradasPorBien.TryGetValue(b.Id, out var entrada);
 
@@ -307,10 +315,14 @@ public class PlantillaNormativaService
             var x when x.Contains("TIPO MOVIMIENTO") => entrada?.TipoFuente == "FSE" ? "ADQUISICION" : "ADQUISICION",
             var x when x == "FECHA" => entrada?.FechaEntrada?.ToString("dd/MM/yyyy") ?? b.FechaAdquisicion?.ToString("dd/MM/yyyy") ?? "",
             var x when x == "VALOR" => entrada?.Valor ?? b.ValorAdquisicion,
-            var x when x.Contains("PROVEEDOR") => entrada?.ProveedorNombre ?? "",
+
+            // ⚠️ ORDEN CORREGIDO: específicas ANTES que genéricas
+            // El switch evalúa en orden. "NIT PROVEEDOR" contiene "PROVEEDOR",
+            // por eso debe ir primero o matchea la condición genérica.
             var x when x.Contains("NIT PROVEEDOR") => entrada?.ProveedorNit ?? "",
             var x when x.Contains("NUMERO FACTURA") => entrada?.NumeroFactura ?? "",
             var x when x.Contains("FACTURA") => entrada?.NumeroFactura ?? "",
+            var x when x.Contains("PROVEEDOR") => entrada?.ProveedorNombre ?? "",
 
             var x when x.Contains("UBICACION") => b.AulaNombre ?? b.Ubicacion ?? "",
             var x when x.Contains("RESPONSABLE") => b.FuncionarioNombre ?? b.Responsable ?? "",

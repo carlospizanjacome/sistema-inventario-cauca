@@ -28,13 +28,22 @@ public class EntradaDTO
 
     public string? Observaciones { get; set; }
 
+    // ═══════════════════════════════════════════════════════════
+    // PROPIEDADES DE SOFT-DELETE (ANULACIÓN)
+    // ═══════════════════════════════════════════════════════════
+    public bool Anulada { get; set; }
+    public int? AnuladaPor { get; set; }
+    public DateTime? AnuladaFecha { get; set; }
+    public string? AnuladaMotivo { get; set; }
+    // ═══════════════════════════════════════════════════════════
+
     // ── Navegación (read-only) ──
     public string? BienCodigo { get; set; }
     public string? BienNombre { get; set; }
     public string? FuncionarioNombre { get; set; }
 
     public int? ProveedorId { get; set; }
-    public string? ProveedorNombre { get; set; }   // para mostrar en tabla
+    public string? ProveedorNombre { get; set; }
 
     public int InstitucionId { get; set; }
 }

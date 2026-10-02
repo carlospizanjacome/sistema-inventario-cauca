@@ -16,7 +16,12 @@ public interface IGarantiaRepository
 
     Task<int> CrearAsync(GarantiaDTO dto);
     Task ActualizarAsync(GarantiaDTO dto);
-    Task EliminarAsync(int id);
+
+    // ═══════════════════════════════════════════════════════════
+    // SOFT-DELETE (reemplaza a EliminarAsync)
+    // Solo se pueden anular garantías VENCIDAS.
+    // ═══════════════════════════════════════════════════════════
+    Task AnularAsync(int id, string motivo);
 
     Task<(int Vigentes, int PorVencer, int Vencidas, int Total)> ObtenerMetricasAsync();
 }
