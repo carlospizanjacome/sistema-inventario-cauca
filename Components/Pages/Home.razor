@@ -13,229 +13,268 @@
 
 <PageTitle>Dashboard · Almacén</PageTitle>
 
-<div class="dashboard">
+<div class="dash-container">
 
-    <!-- ═══ HEADER ═══ -->
-    <header class="dashboard-header">
-        <div class="header-left">
-            <h1><i class="bi bi-grid-1x2-fill"></i> Dashboard Institucional</h1>
-            <p class="header-sub">
-                <span>@Sesion.InstitucionNombre</span>
-                <span class="sep">·</span>
-                <span>@DateTime.Now.ToString("dddd, dd 'de' MMMM 'de' yyyy", CulturaCOP)</span>
-                <span class="sep">·</span>
-                <span>@DateTime.Now.ToString("HH:mm")</span>
+    <!-- ═══ HEADER CARD ═══ -->
+    <div class="dash-header-card">
+        <div class="dash-header-info">
+            <h2>Dashboard Institucional</h2>
+            <p>
+                <i class="bi bi-calendar3"></i>
+                @DateTime.Now.ToString("dddd, dd 'de' MMMM 'de' yyyy", CulturaCOP)
+                <span class="dot">•</span>
+                @DateTime.Now.ToString("hh:mm tt")
             </p>
         </div>
-        <button class="btn-refresh" @onclick="Recargar" disabled="@_cargando">
+        <button class="btn-dash-primary" @onclick="Recargar" disabled="@_cargando">
             <i class="bi @(_cargando ? "bi-hourglass-split" : "bi-arrow-clockwise")"></i>
-            <span>Actualizar</span>
+            <span>@(_cargando ? "Actualizando…" : "Actualizar Datos")</span>
         </button>
-    </header>
+    </div>
 
     @if (_cargando)
     {
-        <div class="loading">
-            <div class="spinner"></div>
+        <div class="dash-loading">
+            <div class="dash-spinner"></div>
             <p>Cargando indicadores…</p>
         </div>
     }
     else if (_kpis is not null)
     {
-        <!-- ═══ 4 KPIs PRINCIPALES ═══ -->
-        <section class="kpi-row">
-            <div class="kpi-card kpi-indigo">
-                <div class="kpi-icon"><i class="bi bi-box-seam"></i></div>
-                <div class="kpi-body">
-                    <span class="kpi-label">Bienes registrados</span>
-                    <span class="kpi-value">@Moneda.Numero(_kpis.TotalBienes)</span>
-                    <span class="kpi-sub">
-                        @_kpis.TotalDevolutivos devolutivos · @_kpis.TotalConsumibles consumibles
-                    </span>
+        <!-- ═══ 4 KPIs (icono a la derecha) ═══ -->
+        <div class="kpi-dash-grid">
+
+            <div class="kpi-dash-card">
+                <div class="kpi-dash-info">
+                    <span class="kpi-dash-title">Bienes Registrados</span>
+                    <h3 class="kpi-dash-value">@Moneda.Numero(_kpis.TotalBienes)</h3>
+                    <p class="kpi-dash-sub">
+                        @_kpis.TotalDevolutivos devolutivo@(_kpis.TotalDevolutivos != 1 ? "s" : "")
+                        <span class="dot">•</span>
+                        @_kpis.TotalConsumibles consumible@(_kpis.TotalConsumibles != 1 ? "s" : "")
+                    </p>
+                </div>
+                <div class="kpi-dash-icon kpi-icon-indigo">
+                    <i class="bi bi-box-seam"></i>
                 </div>
             </div>
 
-            <div class="kpi-card kpi-blue">
-                <div class="kpi-icon"><i class="bi bi-cash-stack"></i></div>
-                <div class="kpi-body">
-                    <span class="kpi-label">Valor inventario</span>
-                    <span class="kpi-value">@Moneda.Kpi(_kpis.ValorInventario)</span>
-                    <span class="kpi-sub">
-                        PPE: @Moneda.Kpi(_kpis.ValorPPE) · Stock: @Moneda.Kpi(_kpis.ValorStockConsumo)
-                    </span>
+            <div class="kpi-dash-card">
+                <div class="kpi-dash-info">
+                    <span class="kpi-dash-title">Valor Inventario</span>
+                    <h3 class="kpi-dash-value">@Moneda.Kpi(_kpis.ValorInventario)</h3>
+                    <p class="kpi-dash-sub">
+                        PPE: @Moneda.Kpi(_kpis.ValorPPE)
+                        <span class="dot">•</span>
+                        Stock: @Moneda.Kpi(_kpis.ValorStockConsumo)
+                    </p>
+                </div>
+                <div class="kpi-dash-icon kpi-icon-emerald">
+                    <i class="bi bi-cash-coin"></i>
                 </div>
             </div>
 
-            <div class="kpi-card kpi-orange">
-                <div class="kpi-icon"><i class="bi bi-graph-down-arrow"></i></div>
-                <div class="kpi-body">
-                    <span class="kpi-label">Depreciación acumulada</span>
-                    <span class="kpi-value">@Moneda.Kpi(_kpis.DepreciacionAcumulada)</span>
-                    <span class="kpi-sub">
-                        Valor neto: @Moneda.Kpi(_kpis.ValorNeto)
-                    </span>
+            <div class="kpi-dash-card">
+                <div class="kpi-dash-info">
+                    <span class="kpi-dash-title">Depreciación Acum.</span>
+                    <h3 class="kpi-dash-value">@Moneda.Kpi(_kpis.DepreciacionAcumulada)</h3>
+                    <p class="kpi-dash-sub">
+                        Valor Neto: @Moneda.Kpi(_kpis.ValorNeto)
+                    </p>
+                </div>
+                <div class="kpi-dash-icon kpi-icon-amber">
+                    <i class="bi bi-graph-down-arrow"></i>
                 </div>
             </div>
 
-            <div class="kpi-card kpi-green">
-                <div class="kpi-icon"><i class="bi bi-people"></i></div>
-                <div class="kpi-body">
-                    <span class="kpi-label">Usuarios activos</span>
-                    <span class="kpi-value">@Moneda.Numero(_kpis.UsuariosActivos)</span>
-                    <span class="kpi-sub">@Sesion.InstitucionNombre</span>
+            <div class="kpi-dash-card">
+                <div class="kpi-dash-info">
+                    <span class="kpi-dash-title">Usuarios Activos</span>
+                    <h3 class="kpi-dash-value">@Moneda.Numero(_kpis.UsuariosActivos)</h3>
+                    <p class="kpi-dash-sub">@Sesion.InstitucionNombre</p>
+                </div>
+                <div class="kpi-dash-icon kpi-icon-sky">
+                    <i class="bi bi-people-fill"></i>
                 </div>
             </div>
-        </section>
+
+        </div>
 
         <!-- ═══ ALERTAS ═══ -->
         @if (HayAlertas())
         {
-            <section class="alertas-panel">
-                <div class="alertas-titulo">
+            <div class="alerts-dash-card">
+                <div class="alerts-dash-header">
                     <i class="bi bi-bell-fill"></i>
-                    <span>Alertas que requieren atención</span>
+                    <h4>Alertas y Notificaciones</h4>
                 </div>
-                <div class="alertas-grid">
-                    @if (_kpis.BienesSinResponsable > 0)
-                    {
-                        <a href="/bienes" class="alerta alerta-warn">
-                            <i class="bi bi-person-x-fill"></i>
-                            <div>
-                                <strong>@_kpis.BienesSinResponsable</strong>
-                                <small>Bienes sin responsable</small>
-                            </div>
-                        </a>
-                    }
-                    @if (_kpis.BienesSinUbicacion > 0)
-                    {
-                        <a href="/bienes" class="alerta alerta-warn">
-                            <i class="bi bi-geo-alt-fill"></i>
-                            <div>
-                                <strong>@_kpis.BienesSinUbicacion</strong>
-                                <small>Bienes sin ubicación</small>
-                            </div>
-                        </a>
-                    }
-                    @if (_kpis.BienesBajoStock > 0)
-                    {
-                        <a href="/consumo" class="alerta alerta-info">
-                            <i class="bi bi-exclamation-triangle-fill"></i>
-                            <div>
-                                <strong>@_kpis.BienesBajoStock</strong>
-                                <small>Bienes bajo stock mínimo</small>
-                            </div>
-                        </a>
-                    }
-                    @if (_kpis.PrestamosVencidos > 0)
-                    {
-                        <a href="/prestamos" class="alerta alerta-danger">
-                            <i class="bi bi-clock-history"></i>
-                            <div>
-                                <strong>@_kpis.PrestamosVencidos</strong>
-                                <small>Préstamos vencidos</small>
-                            </div>
-                        </a>
-                    }
+                <div class="alerts-dash-grid">
+
                     @if (_kpis.GarantiasPorVencer > 0)
                     {
-                        <a href="/garantias" class="alerta alerta-danger">
+                        <a href="/garantias" class="alert-dash-item alert-dash-warn">
                             <i class="bi bi-shield-exclamation"></i>
                             <div>
                                 <strong>@_kpis.GarantiasPorVencer</strong>
-                                <small>Garantías por vencer</small>
+                                <span>Garantía@(_kpis.GarantiasPorVencer != 1 ? "s" : "") por vencer</span>
                             </div>
+                            <i class="bi bi-chevron-right alert-arrow"></i>
                         </a>
                     }
+
+                    @if (_kpis.PrestamosVencidos > 0)
+                    {
+                        <a href="/prestamos" class="alert-dash-item alert-dash-danger">
+                            <i class="bi bi-clock-history"></i>
+                            <div>
+                                <strong>@_kpis.PrestamosVencidos</strong>
+                                <span>Préstamo@(_kpis.PrestamosVencidos != 1 ? "s" : "") vencido@(_kpis.PrestamosVencidos != 1 ? "s" : "")</span>
+                            </div>
+                            <i class="bi bi-chevron-right alert-arrow"></i>
+                        </a>
+                    }
+
+                    @if (_kpis.BienesBajoStock > 0)
+                    {
+                        <a href="/consumo" class="alert-dash-item alert-dash-warn">
+                            <i class="bi bi-exclamation-triangle-fill"></i>
+                            <div>
+                                <strong>@_kpis.BienesBajoStock</strong>
+                                <span>Bajo stock mínimo</span>
+                            </div>
+                            <i class="bi bi-chevron-right alert-arrow"></i>
+                        </a>
+                    }
+
+                    @if (_kpis.BienesSinUbicacion > 0)
+                    {
+                        <a href="/bienes" class="alert-dash-item alert-dash-info">
+                            <i class="bi bi-geo-alt-fill"></i>
+                            <div>
+                                <strong>@_kpis.BienesSinUbicacion</strong>
+                                <span>Bien@(_kpis.BienesSinUbicacion != 1 ? "es" : "") sin ubicación</span>
+                            </div>
+                            <i class="bi bi-chevron-right alert-arrow"></i>
+                        </a>
+                    }
+
+                    @if (_kpis.BienesSinResponsable > 0)
+                    {
+                        <a href="/bienes" class="alert-dash-item alert-dash-info">
+                            <i class="bi bi-person-x-fill"></i>
+                            <div>
+                                <strong>@_kpis.BienesSinResponsable</strong>
+                                <span>Bien@(_kpis.BienesSinResponsable != 1 ? "es" : "") sin responsable</span>
+                            </div>
+                            <i class="bi bi-chevron-right alert-arrow"></i>
+                        </a>
+                    }
+
                 </div>
-            </section>
+            </div>
         }
 
-        <!-- ═══ GRÁFICOS PRINCIPALES ═══ -->
-        <section class="charts-grid">
+        <!-- ═══ FILA 1: BAR CHART + DONUT ═══ -->
+        <div class="dash-charts-row">
 
-            <div class="chart-card chart-wide">
-                <header class="chart-header">
+            <div class="dash-chart-card dash-chart-wide">
+                <div class="dash-chart-head">
                     <div>
-                        <h2>Bienes por categoría</h2>
-                        <p>Distribución del inventario según categoría contable</p>
+                        <h3>Bienes por categoría</h3>
+                        <p>Distribución del inventario según clasificación contable</p>
                     </div>
-                    <i class="bi bi-bar-chart-line-fill chart-icon"></i>
-                </header>
-                <div class="chart-body">
+                    <div class="dash-chart-icon">
+                        <i class="bi bi-bar-chart-fill"></i>
+                    </div>
+                </div>
+                <div class="dash-chart-body">
                     @if (_porCategoria.Count == 0)
                     {
                         <p class="empty">Sin datos.</p>
                     }
                     else
                     {
-                        <canvas id="chartCategorias"></canvas>
+                        <canvas id="barChart"></canvas>
                     }
                 </div>
             </div>
 
-            <div class="chart-card">
-                <header class="chart-header">
+            <div class="dash-chart-card">
+                <div class="dash-chart-head">
                     <div>
-                        <h2>Distribución por tipo</h2>
+                        <h3>Distribución por tipo</h3>
                         <p>Devolutivos vs Consumibles</p>
                     </div>
-                    <i class="bi bi-pie-chart-fill chart-icon"></i>
-                </header>
-                <div class="chart-body chart-body-donut">
-                    <canvas id="chartTipo"></canvas>
+                    <div class="dash-chart-icon">
+                        <i class="bi bi-pie-chart-fill"></i>
+                    </div>
+                </div>
+                <div class="dash-chart-body dash-chart-body-donut">
+                    @if (_kpis.TotalDevolutivos > 0 || _kpis.TotalConsumibles > 0)
+                    {
+                        <canvas id="doughnutChart"></canvas>
+                    }
+                    else
+                    {
+                        <p class="empty">Sin datos.</p>
+                    }
                 </div>
             </div>
 
-        </section>
+        </div>
 
-        <!-- ═══ GRÁFICOS SECUNDARIOS + TOP 5 ═══ -->
-        <section class="charts-grid">
+        <!-- ═══ FILA 2: LINE CHART + TOP 5 ═══ -->
+        <div class="dash-charts-row">
 
-            <div class="chart-card chart-wide">
-                <header class="chart-header">
+            <div class="dash-chart-card dash-chart-wide">
+                <div class="dash-chart-head">
                     <div>
-                        <h2>Depreciación mensual</h2>
+                        <h3>Depreciación mensual</h3>
                         <p>Evolución del último año</p>
                     </div>
-                    <i class="bi bi-graph-down-arrow chart-icon"></i>
-                </header>
-                <div class="chart-body">
+                    <div class="dash-chart-icon">
+                        <i class="bi bi-graph-down-arrow"></i>
+                    </div>
+                </div>
+                <div class="dash-chart-body">
                     @if (_depreciacion.Count == 0)
                     {
                         <p class="empty">Sin datos de depreciación.</p>
                     }
                     else
                     {
-                        <canvas id="chartDepreciacion"></canvas>
+                        <canvas id="lineChart"></canvas>
                     }
                 </div>
             </div>
 
-            <div class="chart-card">
-                <header class="chart-header">
+            <div class="dash-chart-card">
+                <div class="dash-chart-head">
                     <div>
-                        <h2>Top 5 bienes</h2>
+                        <h3>Top 5 bienes</h3>
                         <p>Por valor de adquisición</p>
                     </div>
-                    <i class="bi bi-trophy-fill chart-icon"></i>
-                </header>
-                <div class="chart-body">
+                    <div class="dash-chart-icon">
+                        <i class="bi bi-trophy-fill"></i>
+                    </div>
+                </div>
+                <div class="dash-chart-body dash-chart-body-list">
                     @if (_topBienes.Count == 0)
                     {
                         <p class="empty">Sin datos.</p>
                     }
                     else
                     {
-                        <ul class="top-list">
+                        <ul class="top-dash-list">
                             @foreach (var (b, i) in _topBienes.Select((x, idx) => (x, idx)))
                             {
-                                <li class="top-item">
-                                    <span class="top-rank">@(i + 1)</span>
-                                    <div class="top-info">
+                                <li class="top-dash-item">
+                                    <span class="top-dash-rank top-dash-rank-@(i + 1)">@(i + 1)</span>
+                                    <div class="top-dash-info">
                                         <strong>@b.Nombre</strong>
                                         <small>@b.CategoriaNombre</small>
                                     </div>
-                                    <span class="top-valor">@Moneda.Kpi(b.ValorAdquisicion)</span>
+                                    <span class="top-dash-valor">@Moneda.Kpi(b.ValorAdquisicion)</span>
                                 </li>
                             }
                         </ul>
@@ -243,30 +282,33 @@
                 </div>
             </div>
 
-        </section>
+        </div>
 
-        <!-- ═══ ÚLTIMOS BIENES REGISTRADOS ═══ -->
-        <section class="chart-card">
-            <header class="chart-header">
+        <!-- ═══ TABLA ÚLTIMOS BIENES ═══ -->
+        <div class="dash-chart-card">
+            <div class="dash-chart-head">
                 <div>
-                    <h2>Últimos bienes registrados</h2>
+                    <h3>Últimos bienes registrados</h3>
                     <p>Los 5 más recientes del inventario</p>
                 </div>
-                <i class="bi bi-clock-history chart-icon"></i>
-            </header>
-            <div class="chart-body">
+                <div class="dash-chart-icon">
+                    <i class="bi bi-clock-history"></i>
+                </div>
+            </div>
+            <div class="dash-chart-body dash-chart-body-table">
                 @if (_ultimos.Count == 0)
                 {
                     <p class="empty">Aún no hay bienes registrados.</p>
                 }
                 else
                 {
-                    <table class="tabla-mini">
+                    <table class="tabla-dash">
                         <thead>
                             <tr>
                                 <th>Código</th>
                                 <th>Bien</th>
                                 <th>Categoría</th>
+                                <th class="text-center">Estado</th>
                                 <th class="text-end">Valor</th>
                             </tr>
                         </thead>
@@ -277,22 +319,26 @@
                                     <td><code>@b.Codigo</code></td>
                                     <td>@b.Nombre</td>
                                     <td>@b.CategoriaNombre</td>
-                                    <td class="text-end">@Moneda.Entero(b.Valor)</td>
+                                    <td class="text-center">
+                                        <span class="badge-dash badge-dash-ok">Activo</span>
+                                    </td>
+                                    <td class="text-end"><strong>@Moneda.Entero(b.Valor)</strong></td>
                                 </tr>
                             }
                         </tbody>
                     </table>
                 }
             </div>
-        </section>
+        </div>
     }
     else
     {
-        <div class="error-box">
+        <div class="dash-error">
             <i class="bi bi-exclamation-triangle"></i>
-            <p>No se pudieron cargar los indicadores. Revisa la conexión a la base de datos.</p>
+            <p>No se pudieron cargar los indicadores. Revisá la conexión a la base de datos.</p>
         </div>
     }
+
 </div>
 
 @code {
@@ -373,27 +419,25 @@
             return;
         }
 
-        // Inicializar gráficos cuando los datos estén listos
         if (!_cargando && _kpis is not null && !_chartsInit)
         {
             _chartsInit = true;
-            await Task.Delay(100); // Esperar a que el DOM esté listo
+            await Task.Delay(150);
 
             // Bar chart
             if (_porCategoria.Any())
             {
                 var labels = _porCategoria.Select(c => c.CategoriaNombre).ToArray();
                 var data = _porCategoria.Select(c => c.Cantidad).ToArray();
-                var valores = _porCategoria.Select(c => c.ValorTotal).ToArray();
                 await JS.InvokeVoidAsync("dashboardCharts.crearBarCategorias",
-                    "chartCategorias", labels, data, valores);
+                    "barChart", labels, data);
             }
 
             // Donut chart
             if (_kpis.TotalDevolutivos > 0 || _kpis.TotalConsumibles > 0)
             {
                 await JS.InvokeVoidAsync("dashboardCharts.crearDonutTipo",
-                    "chartTipo", _kpis.TotalDevolutivos, _kpis.TotalConsumibles);
+                    "doughnutChart", _kpis.TotalDevolutivos, _kpis.TotalConsumibles);
             }
 
             // Line chart
@@ -403,7 +447,7 @@
                 var depMes = _depreciacion.Select(d => d.DepreciacionMes).ToArray();
                 var depAcum = _depreciacion.Select(d => d.DepreciacionAcumulada).ToArray();
                 await JS.InvokeVoidAsync("dashboardCharts.crearLineDepreciacion",
-                    "chartDepreciacion", labels, depMes, depAcum);
+                    "lineChart", labels, depMes, depAcum);
             }
         }
     }

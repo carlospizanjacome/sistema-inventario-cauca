@@ -1,47 +1,37 @@
 ﻿// ═══════════════════════════════════════════════════════════
 // Dashboard Charts — Chart.js 4.4
+// Paleta y estilo: indigo/slate profesional
 // ═══════════════════════════════════════════════════════════
 
 window.dashboardCharts = {
 
-    // Paleta profesional
     palette: {
         indigo: '#4f46e5',
-        indigoLight: 'rgba(79, 70, 229, 0.15)',
+        indigoSoft: '#818cf8',
         blue: '#3b82f6',
-        blueLight: 'rgba(59, 130, 246, 0.15)',
-        green: '#10b981',
-        orange: '#f97316',
-        red: '#ef4444',
-        gray: '#94a3b8'
+        cyan: '#06b6d4',
+        slate: '#94a3b8',
+        darkBg: '#0f172a'
     },
 
-    // Configuración común de opciones
-    commonOptions() {
+    tooltipConfig() {
         return {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: false
-                },
-                tooltip: {
-                    backgroundColor: '#0f172a',
-                    titleColor: '#ffffff',
-                    bodyColor: '#cbd5e1',
-                    padding: 12,
-                    cornerRadius: 8,
-                    titleFont: { size: 13, weight: '600' },
-                    bodyFont: { size: 12 }
-                }
-            }
+            padding: 12,
+            backgroundColor: '#0f172a',
+            titleColor: '#ffffff',
+            bodyColor: '#cbd5e1',
+            titleFont: { size: 13, weight: '700' },
+            bodyFont: { size: 12 },
+            cornerRadius: 8,
+            borderColor: 'transparent',
+            displayColors: false
         };
     },
 
     // ═══════════════════════════════════════════════════════
     // 1. BAR CHART — Bienes por categoría
     // ═══════════════════════════════════════════════════════
-    crearBarCategorias(canvasId, labels, data, valores) {
+    crearBarCategorias(canvasId, labels, data) {
         const ctx = document.getElementById(canvasId);
         if (!ctx) return;
 
@@ -52,47 +42,46 @@ window.dashboardCharts = {
             data: {
                 labels: labels,
                 datasets: [{
-                    label: 'Bienes',
+                    label: 'Cantidad de Activos',
                     data: data,
                     backgroundColor: this.palette.indigo,
                     hoverBackgroundColor: '#4338ca',
-                    borderRadius: 6,
-                    borderSkipped: false,
-                    barThickness: 24
+                    borderRadius: 8,
+                    barThickness: 32,
+                    maxBarThickness: 40
                 }]
             },
             options: {
-                ...this.commonOptions(),
+                responsive: true,
+                maintainAspectRatio: false,
                 plugins: {
-                    ...this.commonOptions().plugins,
+                    legend: { display: false },
                     tooltip: {
-                        ...this.commonOptions().plugins.tooltip,
+                        ...this.tooltipConfig(),
                         callbacks: {
-                            label: (context) => {
-                                const i = context.dataIndex;
-                                const valor = valores[i] || 0;
-                                return [
-                                    ` Cantidad: ${context.parsed.y} bienes`,
-                                    ` Valor: ${this.formatMoneda(valor)}`
-                                ];
-                            }
+                            label: (context) => ` ${context.parsed.y} activo${context.parsed.y !== 1 ? 's' : ''}`
                         }
                     }
                 },
                 scales: {
                     y: {
                         beginAtZero: true,
-                        grid: { color: '#f1f5f9', drawBorder: false },
-                        ticks: { color: '#64748b', font: { size: 11 }, precision: 0 }
+                        ticks: {
+                            stepSize: 1,
+                            color: '#94a3b8',
+                            font: { size: 11, weight: '500' }
+                        },
+                        grid: {
+                            color: '#f1f5f9',
+                            drawBorder: false
+                        }
                     },
                     x: {
-                        grid: { display: false },
                         ticks: {
-                            color: '#475569',
-                            font: { size: 11, weight: '500' },
-                            maxRotation: 45,
-                            minRotation: 0
-                        }
+                            color: '#64748b',
+                            font: { size: 11, weight: '600' }
+                        },
+                        grid: { display: false }
                     }
                 }
             }
@@ -100,7 +89,7 @@ window.dashboardCharts = {
     },
 
     // ═══════════════════════════════════════════════════════
-    // 2. DONUT CHART — Distribución por tipo
+    // 2. DONUT — Distribución por tipo
     // ═══════════════════════════════════════════════════════
     crearDonutTipo(canvasId, devolutivos, consumibles) {
         const ctx = document.getElementById(canvasId);
@@ -114,32 +103,31 @@ window.dashboardCharts = {
                 labels: ['Devolutivos', 'Consumibles'],
                 datasets: [{
                     data: [devolutivos, consumibles],
-                    backgroundColor: [this.palette.indigo, this.palette.blue],
-                    hoverBackgroundColor: ['#4338ca', '#2563eb'],
+                    backgroundColor: ['#3b82f6', '#06b6d4'],
+                    borderWidth: 4,
                     borderColor: '#ffffff',
-                    borderWidth: 3,
-                    hoverOffset: 8
+                    hoverOffset: 6
                 }]
             },
             options: {
-                ...this.commonOptions(),
-                cutout: '70%',
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '72%',
                 plugins: {
-                    ...this.commonOptions().plugins,
                     legend: {
-                        display: true,
                         position: 'bottom',
                         labels: {
+                            boxWidth: 12,
+                            boxHeight: 12,
+                            padding: 20,
                             color: '#475569',
-                            padding: 16,
-                            font: { size: 12, weight: '500' },
+                            font: { size: 12, weight: '600' },
                             usePointStyle: true,
-                            pointStyle: 'circle',
-                            boxWidth: 8
+                            pointStyle: 'circle'
                         }
                     },
                     tooltip: {
-                        ...this.commonOptions().plugins.tooltip,
+                        ...this.tooltipConfig(),
                         callbacks: {
                             label: (context) => {
                                 const total = devolutivos + consumibles;
@@ -154,19 +142,15 @@ window.dashboardCharts = {
     },
 
     // ═══════════════════════════════════════════════════════
-    // 3. LINE CHART — Depreciación mensual
+    // 3. LINE — Depreciación mensual
     // ═══════════════════════════════════════════════════════
     crearLineDepreciacion(canvasId, labels, depMes, depAcum) {
         const ctx = document.getElementById(canvasId);
         if (!ctx) return;
 
-        if (window._lineDepreciacion) window._lineDepreciacion.destroy();
+        if (window._lineDep) window._lineDep.destroy();
 
-        const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 280);
-        gradient.addColorStop(0, 'rgba(79, 70, 229, 0.25)');
-        gradient.addColorStop(1, 'rgba(79, 70, 229, 0.02)');
-
-        window._lineDepreciacion = new Chart(ctx, {
+        window._lineDep = new Chart(ctx, {
             type: 'line',
             data: {
                 labels: labels,
@@ -174,53 +158,55 @@ window.dashboardCharts = {
                     {
                         label: 'Depreciación del mes',
                         data: depMes,
-                        borderColor: this.palette.indigo,
-                        backgroundColor: gradient,
-                        fill: true,
-                        tension: 0.4,
-                        borderWidth: 2.5,
+                        borderColor: '#4f46e5',
+                        borderWidth: 3,
                         pointRadius: 0,
-                        pointHoverRadius: 5,
-                        pointHoverBackgroundColor: this.palette.indigo,
+                        pointHoverRadius: 6,
+                        pointHoverBackgroundColor: '#4f46e5',
                         pointHoverBorderColor: '#ffffff',
-                        pointHoverBorderWidth: 2
+                        pointHoverBorderWidth: 2,
+                        tension: 0.15,
+                        fill: false
                     },
                     {
                         label: 'Depreciación acumulada',
                         data: depAcum,
-                        borderColor: this.palette.blue,
-                        backgroundColor: 'transparent',
-                        borderDash: [5, 5],
-                        tension: 0.4,
+                        borderColor: '#94a3b8',
                         borderWidth: 2,
+                        borderDash: [6, 5],
                         pointRadius: 0,
-                        pointHoverRadius: 5,
-                        pointHoverBackgroundColor: this.palette.blue,
+                        pointHoverRadius: 6,
+                        pointHoverBackgroundColor: '#94a3b8',
                         pointHoverBorderColor: '#ffffff',
-                        pointHoverBorderWidth: 2
+                        pointHoverBorderWidth: 2,
+                        tension: 0.1,
+                        fill: false
                     }
                 ]
             },
             options: {
-                ...this.commonOptions(),
-                interaction: { mode: 'index', intersect: false },
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
                 plugins: {
-                    ...this.commonOptions().plugins,
                     legend: {
-                        display: true,
                         position: 'top',
                         align: 'end',
                         labels: {
-                            color: '#475569',
+                            boxWidth: 12,
+                            boxHeight: 12,
                             padding: 14,
-                            font: { size: 11, weight: '500' },
+                            color: '#475569',
+                            font: { size: 11.5, weight: '600' },
                             usePointStyle: true,
-                            pointStyle: 'circle',
-                            boxWidth: 8
+                            pointStyle: 'circle'
                         }
                     },
                     tooltip: {
-                        ...this.commonOptions().plugins.tooltip,
+                        ...this.tooltipConfig(),
                         callbacks: {
                             label: (context) => ` ${context.dataset.label}: ${this.formatMoneda(context.parsed.y)}`
                         }
@@ -229,16 +215,22 @@ window.dashboardCharts = {
                 scales: {
                     y: {
                         beginAtZero: true,
-                        grid: { color: '#f1f5f9', drawBorder: false },
                         ticks: {
-                            color: '#64748b',
+                            color: '#94a3b8',
                             font: { size: 11 },
-                            callback: (v) => this.formatMonedaCorto(v)
+                            callback: (value) => this.formatCorto(value)
+                        },
+                        grid: {
+                            color: '#f1f5f9',
+                            drawBorder: false
                         }
                     },
                     x: {
-                        grid: { display: false },
-                        ticks: { color: '#64748b', font: { size: 11 } }
+                        ticks: {
+                            color: '#94a3b8',
+                            font: { size: 11, weight: '500' }
+                        },
+                        grid: { display: false }
                     }
                 }
             }
@@ -257,7 +249,7 @@ window.dashboardCharts = {
         }).format(valor);
     },
 
-    formatMonedaCorto(valor) {
+    formatCorto(valor) {
         if (valor >= 1_000_000_000) return '$' + (valor / 1_000_000_000).toFixed(1) + 'B';
         if (valor >= 1_000_000) return '$' + (valor / 1_000_000).toFixed(1) + 'M';
         if (valor >= 1_000) return '$' + (valor / 1_000).toFixed(0) + 'K';
