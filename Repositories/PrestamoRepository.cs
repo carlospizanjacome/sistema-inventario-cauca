@@ -40,6 +40,13 @@ public class PrestamoRepository : IPrestamoRepository
             p.estado_bien_entrega        AS EstadoBienEntrega,
             p.estado_bien_devolucion     AS EstadoBienDevolucion,
 
+            p.anulada                    AS Anulada,
+            p.anulada_por                AS AnuladaPor,
+            p.anulada_fecha              AS AnuladaFecha,
+            p.anulada_motivo             AS AnuladaMotivo,
+            p.anulada_por_email          AS AnuladaPorEmail,
+            p.anulada_por_nombre         AS AnuladaPorNombre,
+
             b.codigo                     AS BienCodigo,
             b.nombre                     AS BienNombre,
             c.nombre                     AS BienCategoriaNombre,
@@ -67,7 +74,7 @@ public class PrestamoRepository : IPrestamoRepository
         var (filtroInst, _) = FiltroInstitucion.Construir(
             _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "p");
 
-        var condiciones = new List<string> { "1=1" };
+        var condiciones = new List<string> { "p.anulada = FALSE" };
         var parametros = new DynamicParameters();
         parametros.Add("InstitucionId", _sesion.InstitucionId);
 
@@ -143,7 +150,7 @@ public class PrestamoRepository : IPrestamoRepository
         var (filtroInst, _) = FiltroInstitucion.Construir(
             _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "p");
 
-        var sql = $"{BaseSelect} WHERE p.id = @Id {filtroInst};";
+        var sql = $"{BaseSelect} WHERE p.id = @Id AND p.anulada = FALSE {filtroInst};";
 
         using var cn = new NpgsqlConnection(_cs);
         return await cn.QueryFirstOrDefaultAsync<PrestamoDTO>(sql,
@@ -185,7 +192,7 @@ public class PrestamoRepository : IPrestamoRepository
                 funcionario_aprueba_id = @FuncionarioApruebaId,
                 fecha_aprobacion = NOW()::date,
                 updated_at = NOW()
-            WHERE id = @Id AND estado = 'SOLICITADO';";
+            WHERE id = @Id AND estado = 'SOLICITADO' AND anulada = FALSE;";
 
         using var cn = new NpgsqlConnection(_cs);
         await cn.ExecuteAsync(sql, new { Id = id, FuncionarioApruebaId = funcionarioApruebaId });
@@ -198,7 +205,7 @@ public class PrestamoRepository : IPrestamoRepository
             SET estado = 'RECHAZADO',
                 observaciones_entrega = @Motivo,
                 updated_at = NOW()
-            WHERE id = @Id AND estado = 'SOLICITADO';";
+            WHERE id = @Id AND estado = 'SOLICITADO' AND anulada = FALSE;";
 
         using var cn = new NpgsqlConnection(_cs);
         await cn.ExecuteAsync(sql, new { Id = id, Motivo = motivo });
@@ -213,7 +220,7 @@ public class PrestamoRepository : IPrestamoRepository
                 estado_bien_entrega = @EstadoBienEntrega,
                 observaciones_entrega = @Observaciones,
                 updated_at = NOW()
-            WHERE id = @Id AND estado = 'APROBADO';";
+            WHERE id = @Id AND estado = 'APROBADO' AND anulada = FALSE;";
 
         using var cn = new NpgsqlConnection(_cs);
         await cn.ExecuteAsync(sql, new
@@ -233,7 +240,7 @@ public class PrestamoRepository : IPrestamoRepository
                 estado_bien_devolucion = @EstadoBienDevolucion,
                 observaciones_devolucion = @Observaciones,
                 updated_at = NOW()
-            WHERE id = @Id AND estado IN ('PRESTADO', 'VENCIDO');";
+            WHERE id = @Id AND estado IN ('PRESTADO', 'VENCIDO') AND anulada = FALSE;";
 
         using var cn = new NpgsqlConnection(_cs);
         await cn.ExecuteAsync(sql, new
@@ -244,26 +251,84 @@ public class PrestamoRepository : IPrestamoRepository
         });
     }
 
+    /// <summary>Cambia el estado a ANULADO (flujo normal: cancelar antes de entregar).</summary>
     public async Task AnularAsync(int id)
     {
         const string sql = @"
             UPDATE prestamos
             SET estado = 'ANULADO',
                 updated_at = NOW()
-            WHERE id = @Id AND estado IN ('SOLICITADO', 'APROBADO');";
+            WHERE id = @Id AND estado IN ('SOLICITADO', 'APROBADO') AND anulada = FALSE;";
 
         using var cn = new NpgsqlConnection(_cs);
         await cn.ExecuteAsync(sql, new { Id = id });
     }
 
-    public async Task EliminarAsync(int id)
+    /// <summary>Soft-delete: marca el registro como anulado. Solo estados terminales.</summary>
+    public async Task AnularRegistroAsync(int id, string motivo)
     {
-        const string sql = @"
-            DELETE FROM prestamos
-            WHERE id = @Id AND estado IN ('RECHAZADO', 'ANULADO', 'DEVUELTO');";
+        if (string.IsNullOrWhiteSpace(motivo))
+            throw new ArgumentException("El motivo es obligatorio.", nameof(motivo));
+
+        var u = _sesion.UsuarioActual
+            ?? throw new InvalidOperationException("No hay usuario en sesión.");
 
         using var cn = new NpgsqlConnection(_cs);
-        await cn.ExecuteAsync(sql, new { Id = id });
+        await cn.OpenAsync();
+        using var tx = await cn.BeginTransactionAsync();
+
+        try
+        {
+            // Bloquear y validar
+            var p = await cn.QueryFirstOrDefaultAsync<dynamic>(
+                @"SELECT id, estado, anulada, institucion_id 
+                  FROM prestamos WHERE id = @Id FOR UPDATE;",
+                new { Id = id }, tx);
+
+            if (p is null)
+                throw new InvalidOperationException("El préstamo no existe.");
+
+            int instId = (int)p.institucion_id;
+            string estado = (string)p.estado;
+            bool anulada = (bool)p.anulada;
+
+            if (!_sesion.EsSuperAdmin && instId != _sesion.InstitucionId)
+                throw new InvalidOperationException("No tiene permiso para anular este préstamo.");
+
+            if (anulada)
+                throw new InvalidOperationException("El préstamo ya está anulado.");
+
+            if (estado is not ("DEVUELTO" or "RECHAZADO" or "ANULADO"))
+                throw new InvalidOperationException(
+                    $"Solo se anulan préstamos en estados terminales. Estado actual: {estado}.");
+
+            // Soft-delete
+            const string sql = @"
+                UPDATE prestamos
+                SET anulada = TRUE,
+                    anulada_por = @UsuarioId,
+                    anulada_por_email = @Email,
+                    anulada_por_nombre = @Nombre,
+                    anulada_fecha = NOW(),
+                    anulada_motivo = @Motivo
+                WHERE id = @Id;";
+
+            await cn.ExecuteAsync(sql, new
+            {
+                Id = id,
+                UsuarioId = u.Id,
+                Email = u.Email,
+                Nombre = u.NombreCompleto,
+                Motivo = motivo.Trim()
+            }, tx);
+
+            await tx.CommitAsync();
+        }
+        catch
+        {
+            await tx.RollbackAsync();
+            throw;
+        }
     }
 
     public async Task<int> ActualizarVencidosAsync()
@@ -276,6 +341,7 @@ public class PrestamoRepository : IPrestamoRepository
             SET estado = 'VENCIDO', updated_at = NOW()
             WHERE estado = 'PRESTADO'
               AND fecha_devolucion_prevista < NOW()::date
+              AND anulada = FALSE
               {filtroInst};";
 
         using var cn = new NpgsqlConnection(_cs);
@@ -294,7 +360,7 @@ public class PrestamoRepository : IPrestamoRepository
             COUNT(*) FILTER (WHERE p.estado = 'DEVUELTO')::int AS Devueltos,
             COUNT(*)::int AS Total
         FROM prestamos p
-        WHERE 1=1 {filtroInst};";
+        WHERE p.anulada = FALSE {filtroInst};";
 
         using var cn = new NpgsqlConnection(_cs);
         return await cn.QueryFirstAsync<(int Activos, int Vencidos, int Devueltos, int Total)>(

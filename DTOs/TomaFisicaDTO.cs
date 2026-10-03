@@ -35,6 +35,12 @@ public class TomaFisicaDTO
     public DateTime? StartedAt { get; set; }
     public DateTime? ClosedAt { get; set; }
 
+    // ═══ SOFT-DELETE ═══
+    public bool Anulada { get; set; }
+    public int? AnuladaPor { get; set; }
+    public DateTime? AnuladaFecha { get; set; }
+    public string? AnuladaMotivo { get; set; }
+
     // Navegación
     public string? InstitucionNombre { get; set; }
     public string? ResponsableNombre { get; set; }
@@ -71,7 +77,7 @@ public class TomaFisicaDetalleDTO
     public string? FuncionarioRealNombre { get; set; }
     public string? UsuarioEscaneoNombre { get; set; }
 
-    // ✨ NUEVO — estado físico actual del bien (para autocompletar en barrido)
+    // Estado físico actual del bien (para autocompletar en barrido)
     public string? EstadoFisicoBien { get; set; }
 }
 

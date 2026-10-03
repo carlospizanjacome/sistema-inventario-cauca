@@ -20,8 +20,12 @@ public interface IPrestamoRepository
     Task RechazarAsync(int id, string motivo);
     Task EntregarAsync(int id, string estadoBienEntrega, string? observaciones);
     Task DevolverAsync(int id, string estadoBienDevolucion, string? observaciones);
+
+    /// <summary>Cambia el estado del préstamo a ANULADO (antes de entregar).</summary>
     Task AnularAsync(int id);
-    Task EliminarAsync(int id);
+
+    /// <summary>Soft-delete: marca el registro como anulado (histórico). Solo en estados terminales.</summary>
+    Task AnularRegistroAsync(int id, string motivo);
 
     /// <summary>Marca como VENCIDO los préstamos PRESTADOS cuya fecha prevista ya pasó.</summary>
     Task<int> ActualizarVencidosAsync();

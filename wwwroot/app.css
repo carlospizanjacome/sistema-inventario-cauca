@@ -2485,3 +2485,233 @@ body:has(.page-crud) {
     width: 100% !important;
     margin: 0 !important;
 }
+
+/* Botón de anular con relleno rojo sólido */
+.btn-action.btn-action-anular {
+    background: #dc2626;
+    color: #ffffff;
+    border: 1px solid #dc2626;
+}
+
+    .btn-action.btn-action-anular:hover {
+        background: #b91c1c;
+        border-color: #b91c1c;
+        color: #ffffff;
+    }
+
+    .btn-action.btn-action-anular i {
+        color: #ffffff;
+    }
+
+/* ═══════════════════════════════════════════════════════════
+   MODAL DE ANULACIÓN (Soft-Delete) — Global
+   ═══════════════════════════════════════════════════════════ */
+
+.modal-backdrop-anular {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 20px;
+    animation: fadeInAnular 0.2s ease;
+}
+
+.modal-anular {
+    background: #ffffff;
+    border-radius: 14px;
+    width: 100%;
+    max-width: 560px;
+    max-height: 90vh;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    animation: slideUpAnular 0.25s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-anular-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 22px;
+    border-bottom: 1px solid #e2e8f0;
+    background: #fefce8;
+    flex-shrink: 0;
+}
+
+.modal-anular-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+    .modal-anular-header-left h3 {
+        margin: 0;
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #1e293b;
+    }
+
+.modal-anular-close {
+    background: none;
+    border: none;
+    font-size: 1rem;
+    color: #64748b;
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: 6px;
+    transition: all 0.15s ease;
+    line-height: 1;
+}
+
+    .modal-anular-close:hover {
+        background: #f1f5f9;
+        color: #1e293b;
+    }
+
+.modal-anular-body {
+    padding: 20px 22px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.modal-anular-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 16px 22px;
+    border-top: 1px solid #e2e8f0;
+    background: #f8fafc;
+    flex-shrink: 0;
+}
+
+/* ─── Alertas dentro del modal ─── */
+.modal-anular .alerta-info,
+.modal-anular .alerta-warning {
+    display: flex;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    align-items: flex-start;
+}
+
+.modal-anular .alerta-info {
+    background: #eff6ff;
+    border-left: 3px solid #3b82f6;
+    color: #1e40af;
+}
+
+.modal-anular .alerta-warning {
+    background: #fffbeb;
+    border-left: 3px solid #f59e0b;
+    color: #92400e;
+}
+
+    .modal-anular .alerta-info i,
+    .modal-anular .alerta-warning i {
+        font-size: 1.1rem;
+        flex-shrink: 0;
+        margin-top: 2px;
+    }
+
+/* ─── Botón de peligro ─── */
+.btn-peligro {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: #dc2626;
+    color: #ffffff;
+    border: none;
+    padding: 9px 18px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: inherit;
+}
+
+    .btn-peligro:hover:not(:disabled) {
+        background: #b91c1c;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+    }
+
+    .btn-peligro:active:not(:disabled) {
+        transform: translateY(0) scale(0.98);
+    }
+
+    .btn-peligro:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .btn-peligro i {
+        font-size: 1em;
+        color: inherit;
+    }
+
+/* ─── Botón secundario (Cancelar) ─── */
+.btn-secondary-custom {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: #f1f5f9;
+    color: #334155;
+    border: 1px solid #e2e8f0;
+    padding: 9px 18px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: inherit;
+}
+
+    .btn-secondary-custom:hover {
+        background: #e2e8f0;
+        color: #1e293b;
+        border-color: #cbd5e1;
+    }
+
+/* ─── Label mini ─── */
+.modal-anular .mini-label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #334155;
+    margin-bottom: 6px;
+    letter-spacing: 0.2px;
+}
+
+/* ─── Animaciones ─── */
+@keyframes fadeInAnular {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideUpAnular {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}

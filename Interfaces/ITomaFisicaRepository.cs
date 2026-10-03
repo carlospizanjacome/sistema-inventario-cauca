@@ -1,5 +1,5 @@
-﻿
-using Almacen.DTOs;
+﻿using Almacen.DTOs;
+using Almacen.Helpers;
 
 namespace Almacen.Interfaces;
 
@@ -7,6 +7,11 @@ public interface ITomaFisicaRepository
 {
     // ── Tomas físicas (cabecera) ──
     Task<IEnumerable<TomaFisicaDTO>> ObtenerTodasAsync();
+    Task<ResultadoPaginado<TomaFisicaDTO>> ObtenerPaginadoAsync(
+        int pagina = 1,
+        int tamano = 25,
+        string? filtroTexto = null,
+        string? estado = null);
     Task<TomaFisicaDTO?> ObtenerPorIdAsync(int id);
     Task<int> CrearAsync(TomaFisicaDTO dto);
     Task<bool> ActualizarAsync(TomaFisicaDTO dto);
@@ -14,15 +19,13 @@ public interface ITomaFisicaRepository
     Task<bool> ExisteCodigoAsync(string codigo, int? excluirId = null);
 
     // ── Ciclo de vida ──
-    /// <summary>
-    /// ABRIR toma: congela el inventario actual (snapshot) y cambia estado a EN_CURSO.
-    /// </summary>
     Task<int> AbrirAsync(int tomaId);
+    Task<bool> CerrarAsync(int tomaId);
 
     /// <summary>
-    /// CERRAR toma: marca faltantes los pendientes, calcula totales y cambia estado a CERRADA.
+    /// ANULAR toma: soft-delete. Solo si está CERRADA.
     /// </summary>
-    Task<bool> CerrarAsync(int tomaId);
+    Task<bool> AnularAsync(int id, string motivo);
 
     // ── Detalle ──
     Task<IEnumerable<TomaFisicaDetalleDTO>> ObtenerDetalleAsync(int tomaId);
@@ -31,11 +34,6 @@ public interface ITomaFisicaRepository
 
     // ── Escaneo ──
     Task<(bool Ok, string Mensaje, string Tipo)> EscanearAsync(int tomaId, EscaneoDTO dto, int usuarioId);
-
-    /// <summary>
-    /// Determina si el código NO está en el snapshot (o sea, va a ser SOBRANTE).
-    /// En ese caso, el sistema debe pedir confirmación al auditor.
-    /// </summary>
     Task<bool> RequiereConfirmacionSobranteAsync(int tomaId, string codigo);
 
     // ── Reporte ──

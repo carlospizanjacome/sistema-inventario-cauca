@@ -75,29 +75,19 @@
         </section>
 
         <div class="pills-filter">
-            <button type="button"
-                    class="pill-btn @(_pillActivo is null ? "active-indigo" : "inactive")"
-                    @onclick="FiltrarTodos">
+            <button type="button" class="pill-btn @(_pillActivo is null ? "active-indigo" : "inactive")" @onclick="FiltrarTodos">
                 <i class="bi bi-list-ul"></i> Todos
             </button>
-            <button type="button"
-                    class="pill-btn @(_pillActivo == "activos" ? "active-indigo" : "inactive")"
-                    @onclick="FiltrarActivos">
+            <button type="button" class="pill-btn @(_pillActivo == "activos" ? "active-indigo" : "inactive")" @onclick="FiltrarActivos">
                 <i class="bi bi-hourglass-split"></i> Activos
             </button>
-            <button type="button"
-                    class="pill-btn @(_pillActivo == "vencidos" ? "active-red" : "inactive")"
-                    @onclick="FiltrarVencidos">
+            <button type="button" class="pill-btn @(_pillActivo == "vencidos" ? "active-red" : "inactive")" @onclick="FiltrarVencidos">
                 <i class="bi bi-exclamation-triangle-fill"></i> Vencidos
             </button>
-            <button type="button"
-                    class="pill-btn @(_pillActivo == "devueltos" ? "active-green" : "inactive")"
-                    @onclick="FiltrarDevueltos">
+            <button type="button" class="pill-btn @(_pillActivo == "devueltos" ? "active-green" : "inactive")" @onclick="FiltrarDevueltos">
                 <i class="bi bi-check-circle-fill"></i> Devueltos
             </button>
-            <button type="button"
-                    class="pill-btn @(_pillActivo == "historico" ? "active-gray" : "inactive")"
-                    @onclick="FiltrarHistorico">
+            <button type="button" class="pill-btn @(_pillActivo == "historico" ? "active-gray" : "inactive")" @onclick="FiltrarHistorico">
                 <i class="bi bi-archive-fill"></i> Histórico
             </button>
         </div>
@@ -384,11 +374,12 @@
                                             </button>
                                         }
 
-                                        @if ((p.Estado == "RECHAZADO" || p.Estado == "ANULADO" || p.Estado == "DEVUELTO") && puedeEliminar)
+                                        @if (p.EsTerminal && puedeEliminar)
                                         {
                                             <button class="btn-action btn-action-delete"
-                                                    @onclick="() => Eliminar(p)" title="Eliminar del histórico">
-                                                <i class="bi bi-trash-fill"></i>
+                                                    @onclick="() => IntentarAnularRegistro(p)"
+                                                    title="Anular registro (soft-delete)">
+                                                <i class="bi bi-slash-circle-fill"></i>
                                             </button>
                                         }
                                     </div>
@@ -410,6 +401,89 @@
     </div>
 </div>
 
+@* ═══════════════════════════════════════════════════════════
+   MODAL DE ANULACIÓN DE REGISTRO (SOFT-DELETE)
+   FUERA del page-container
+   ═══════════════════════════════════════════════════════════ *@
+@if (_modalAnularRegistroAbierto && _prestamoAAnular is not null)
+{
+    var p = _prestamoAAnular;
+
+    <div class="modal-backdrop-anular" @onclick="CerrarModalAnularRegistro">
+        <div class="modal-anular" @onclick:stopPropagation="true">
+            <div class="modal-anular-header">
+                <div class="modal-anular-header-left">
+                    <span class="badge badge-warn">
+                        <i class="bi bi-exclamation-triangle-fill"></i> Anular
+                    </span>
+                    <h3>Anular Registro de Préstamo</h3>
+                </div>
+                <button type="button" class="modal-anular-close" @onclick="CerrarModalAnularRegistro">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <div class="modal-anular-body">
+                <div class="alerta-info">
+                    <i class="bi bi-info-circle-fill"></i>
+                    <div>
+                        <strong>@p.BienNombre</strong>
+                        <p style="margin: 4px 0 0; font-size: 0.85rem;">
+                            Código: <code>@p.BienCodigo</code><br>
+                            Estado: <strong>@p.Estado</strong><br>
+                            Solicitante: @p.FuncionarioSolicitaNombre
+                        </p>
+                    </div>
+                </div>
+
+                <div class="alerta-warning" style="margin-top: 12px;">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    <div>
+                        <strong>Esta acción no elimina el registro.</strong>
+                        <p style="margin: 4px 0 0; font-size: 0.85rem;">
+                            El préstamo queda <strong>ANULADO</strong> con auditoría completa
+                            (quién, cuándo, por qué). No aparecerá en los listados operativos,
+                            pero permanece en el expediente para trazabilidad.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top: 16px;">
+                    <label class="mini-label">Motivo de la anulación *</label>
+                    <InputTextArea class="form-control"
+                                   rows="3"
+                                   @bind-Value="_motivoAnulacionRegistro"
+                                   placeholder="Ej: Préstamo creado por error, duplicado, datos incorrectos…" />
+                    <small style="color: #64748b;">Este motivo queda registrado en auditoría (mín. 10 caracteres).</small>
+                </div>
+            </div>
+
+            <div class="modal-anular-footer">
+                <button type="button" class="btn-secondary-custom" @onclick="CerrarModalAnularRegistro">
+                    Cancelar
+                </button>
+                <button type="button"
+                        class="btn-peligro"
+                        @onclick="ConfirmarAnulacionRegistro"
+                        disabled="@_procesandoAnulacionRegistro">
+                    @if (_procesandoAnulacionRegistro)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-slash-circle-fill me-1"></i>
+                    }
+                    Anular Registro
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@* ═══════════════════════════════════════════════════════════
+   MODAL DE DETALLE / ACTA DE PRÉSTAMO
+   ═══════════════════════════════════════════════════════════ *@
 @if (_detalleAbierto && _prestamoDetalle is not null)
 {
     var p = _prestamoDetalle;
@@ -640,6 +714,12 @@
 
     private bool _detalleAbierto = false;
     private PrestamoDTO? _prestamoDetalle;
+
+    // ── Modal de anulación de registro (soft-delete) ──
+    private bool _modalAnularRegistroAbierto = false;
+    private PrestamoDTO? _prestamoAAnular;
+    private string _motivoAnulacionRegistro = string.Empty;
+    private bool _procesandoAnulacionRegistro = false;
 
     private string _institucionNit = "—";
     private string _institucionDane = string.Empty;
@@ -1073,6 +1153,7 @@
         }
     }
 
+    /// <summary>Cambia el estado a ANULADO (flujo normal: cancelar antes de entregar).</summary>
     private async Task Anular(PrestamoDTO p)
     {
         var ok = await Confirm.Peligroso($"¿Anular el préstamo del bien '{p.BienNombre}'?");
@@ -1100,30 +1181,91 @@
         }
     }
 
-    private async Task Eliminar(PrestamoDTO p)
+    // ═══════════════════════════════════════════════════════
+    // SOFT-DELETE (anular registro del histórico)
+    // ═══════════════════════════════════════════════════════
+
+    private void IntentarAnularRegistro(PrestamoDTO p)
     {
-        var ok = await Confirm.Peligroso($"¿Eliminar del histórico el préstamo del bien '{p.BienNombre}'?");
-        if (!ok) return;
+        if (!puedeEliminar)
+        {
+            Toast.Warning("No tiene permiso para anular registros.");
+            return;
+        }
+
+        if (!p.EsTerminal)
+        {
+            Toast.Warning($"Solo se anulan préstamos en estados terminales. Estado actual: {p.Estado}.");
+            return;
+        }
+
+        if (p.Anulada)
+        {
+            Toast.Warning("Este préstamo ya está anulado.");
+            return;
+        }
+
+        _prestamoAAnular = p;
+        _motivoAnulacionRegistro = string.Empty;
+        _modalAnularRegistroAbierto = true;
+    }
+
+    private void CerrarModalAnularRegistro()
+    {
+        _modalAnularRegistroAbierto = false;
+        _prestamoAAnular = null;
+        _motivoAnulacionRegistro = string.Empty;
+        _procesandoAnulacionRegistro = false;
+    }
+
+    private async Task ConfirmarAnulacionRegistro()
+    {
+        if (_prestamoAAnular is null) return;
+
+        if (string.IsNullOrWhiteSpace(_motivoAnulacionRegistro))
+        {
+            Toast.Warning("El motivo es obligatorio.");
+            return;
+        }
+
+        if (_motivoAnulacionRegistro.Trim().Length < 10)
+        {
+            Toast.Warning("El motivo debe tener al menos 10 caracteres.");
+            return;
+        }
+
+        _procesandoAnulacionRegistro = true;
+        StateHasChanged();
 
         try
         {
-            await PrestamoRepo.EliminarAsync(p.Id);
+            var p = _prestamoAAnular;
+            await PrestamoRepo.AnularRegistroAsync(p.Id, _motivoAnulacionRegistro.Trim());
 
-            await Auditoria.RegistrarEliminacionAsync(
-                modulo: "prestamos",
-                objetoTipo: "Préstamo",
-                objetoId: p.Id,
-                objetoCodigo: null,
-                objetoDescripcion: $"Préstamo de {p.BienNombre}",
-                motivo: "Eliminación de préstamo"
-            );
+            try
+            {
+                await Auditoria.RegistrarAnulacionAsync(
+                    modulo: "prestamos",
+                    objetoTipo: "Préstamo",
+                    objetoId: p.Id,
+                    objetoCodigo: null,
+                    objetoDescripcion: $"Préstamo de {p.BienNombre}",
+                    motivo: _motivoAnulacionRegistro.Trim());
+            }
+            catch { }
 
-            Toast.Exito("Préstamo eliminado.");
+            Toast.Exito($"Préstamo #{p.Id} anulado correctamente.");
+            CerrarModalAnularRegistro();
             await Cargar();
         }
         catch (Exception ex)
         {
-            ErrorHelper.Mostrar(Toast, ex, "el préstamo", "eliminar");
+            Toast.Error($"Error al anular: {ex.Message}");
+        }
+        finally
+        {
+            _procesandoAnulacionRegistro = false;
+            StateHasChanged();
         }
     }
 

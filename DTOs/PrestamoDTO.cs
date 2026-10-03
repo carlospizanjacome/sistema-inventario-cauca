@@ -42,10 +42,21 @@ public class PrestamoDTO
     public string? ObservacionesEntrega { get; set; }
     public string? ObservacionesDevolucion { get; set; }
 
+    // ═══ SOFT-DELETE ═══
+    public bool Anulada { get; set; }
+    public int? AnuladaPor { get; set; }
+    public DateTime? AnuladaFecha { get; set; }
+    public string? AnuladaMotivo { get; set; }
+    public string? AnuladaPorEmail { get; set; }
+    public string? AnuladaPorNombre { get; set; }
+
     // ── Métricas calculadas ──
     public int DiasPrestamo => Math.Max(0, (FechaDevolucionPrevista.Date - FechaSolicitud.Date).Days);
     public int? DiasRestantes => FechaDevolucionReal.HasValue
         ? null
         : (int?)(FechaDevolucionPrevista.Date - DateTime.Today).Days;
     public bool EstaVencido => Estado == "PRESTADO" && FechaDevolucionPrevista.Date < DateTime.Today;
+
+    // ═══ Helper: estados terminales (se pueden anular) ═══
+    public bool EsTerminal => Estado is "DEVUELTO" or "RECHAZADO" or "ANULADO";
 }

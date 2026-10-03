@@ -1,7 +1,9 @@
 ﻿@page "/toma-fisica"
 @rendermode InteractiveServer
 
+@using Almacen.Components.Shared
 @using Almacen.DTOs
+@using Almacen.Helpers
 @using Almacen.Interfaces
 @using Almacen.Models
 @using Almacen.Services
@@ -15,83 +17,211 @@
 @inject NavigationManager Navigation
 @inject ToastService Toast
 @inject ConfirmService Confirm
+@inject AuditoriaService Auditoria
 
 <PageTitle>Toma Física · Almacén</PageTitle>
 
-<div class="page-container">
+<div class="page-container page-crud @(_mostrarFormulario ? "form-abierto" : "")">
 
-    <div class="page-header">
-        <div>
-            <h1><i class="bi bi-clipboard-check"></i> Tomas Físicas</h1>
-            <p class="subtitle">Auditorías de inventario con congelación y barrido QR</p>
+    @if (!_mostrarFormulario)
+    {
+        <div class="page-header">
+            <div>
+                <h1><i class="bi bi-clipboard-check"></i> Tomas Físicas</h1>
+                <p class="subtitle">Auditorías de inventario con congelación y barrido QR</p>
+            </div>
+            @if (puedeCrear)
+            {
+                <div class="header-actions">
+                    <button class="btn-nuevo" @onclick="AbrirFormulario">
+                        <i class="bi bi-plus-lg"></i> Nueva Toma
+                    </button>
+                </div>
+            }
         </div>
-        @if (puedeCrear)
-        {
-            <button class="btn-nueva" @onclick="() => _mostrarFormulario = !_mostrarFormulario">
-                <i class="bi bi-@(_mostrarFormulario ? "x-lg" : "plus-lg")"></i>
-                @(_mostrarFormulario ? "Cancelar" : "Nueva Toma")
-            </button>
-        }
-    </div>
+    }
 
     @if (_mostrarFormulario)
     {
-        <div class="modern-card form-card">
-            <div class="card-top">
-                <h5>
+        <div class="card-form">
+            <div class="form-header">
+                <div class="form-header-left">
                     <i class="bi bi-@(editando ? "pencil-square" : "plus-circle")"></i>
-                    @(editando ? "Editar Toma" : "Nueva Toma Física")
-                </h5>
+                    <span>@(editando ? "Editar Toma" : "Nueva Toma Física")</span>
+                </div>
+
+                <div class="form-header-center">
+                    <i class="bi bi-clipboard-check"></i>
+                    <div>
+                        <div class="form-header-title">Toma Física</div>
+                        <div class="form-header-subtitle">Auditoría de inventario con barrido QR</div>
+                    </div>
+                </div>
+
+                <button class="btn-cerrar-form" @onclick="Cancelar" title="Cerrar">
+                    <i class="bi bi-x-lg"></i>
+                </button>
             </div>
 
             <EditForm @key="editandoId" Model="_model" OnValidSubmit="Guardar">
                 <DataAnnotationsValidator />
-                <div class="row g-2">
-                    <div class="col-md-3">
-                        <label class="mini-label">Código *</label>
-                        <InputText class="form-control" @bind-Value="_model.Codigo" placeholder="TF-2026-001" disabled="@editando" />
-                        <ValidationMessage For="() => _model.Codigo" />
+
+                <div class="form-grid-3">
+                    <div class="form-group">
+                        <label>Código *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-upc"></i>
+                            <InputText class="form-control" @bind-Value="_model.Codigo"
+                                       placeholder="TF-2026-001" disabled="@editando" />
+                        </div>
+                        <ValidationMessage For="() => _model.Codigo" class="form-error" />
                     </div>
-                    <div class="col-md-5">
-                        <label class="mini-label">Nombre *</label>
-                        <InputText class="form-control" @bind-Value="_model.Nombre" placeholder="Toma física anual 2026" />
-                        <ValidationMessage For="() => _model.Nombre" />
+
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label>Nombre *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-tag"></i>
+                            <InputText class="form-control" @bind-Value="_model.Nombre"
+                                       placeholder="Toma física anual 2026" />
+                        </div>
+                        <ValidationMessage For="() => _model.Nombre" class="form-error" />
                     </div>
-                    <div class="col-md-2">
-                        <label class="mini-label">Fecha Inicio *</label>
-                        <InputDate class="form-control" @bind-Value="_model.FechaInicio" />
+
+                    <div class="form-group">
+                        <label>Fecha Inicio *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-calendar-event"></i>
+                            <InputDate class="form-control" @bind-Value="_model.FechaInicio" />
+                        </div>
                     </div>
-                    <div class="col-md-2">
-                        <label class="mini-label">Responsable</label>
-                        <InputSelect class="form-select" @bind-Value="_model.ResponsableId">
-                            <option value="">— Sin asignar —</option>
-                            @foreach (var f in _funcionarios)
-                            {
-                                <option value="@f.Id">@f.NombreCompleto</option>
-                            }
-                        </InputSelect>
+
+                    <div class="form-group">
+                        <label>Responsable</label>
+                        <div class="input-icon">
+                            <i class="bi bi-person-badge"></i>
+                            <InputSelect class="form-select" @bind-Value="_model.ResponsableId">
+                                <option value="">— Sin asignar —</option>
+                                @foreach (var f in _funcionarios)
+                                {
+                                    <option value="@f.Id">@f.NombreCompleto</option>
+                                }
+                            </InputSelect>
+                        </div>
                     </div>
-                    <div class="col-12">
-                        <label class="mini-label">Observaciones</label>
-                        <InputTextArea class="form-control" rows="2" @bind-Value="_model.Observaciones" />
+
+                    <div class="form-group">
+                        <label>Observaciones</label>
+                        <div class="input-icon">
+                            <i class="bi bi-card-text"></i>
+                            <InputText class="form-control" @bind-Value="_model.Observaciones"
+                                       placeholder="Notas adicionales" />
+                        </div>
                     </div>
                 </div>
-                <div class="d-flex gap-2 justify-content-end mt-3">
-                    @if (editando)
-                    {
-                        <button type="button" class="btn-secondary-custom" @onclick="Cancelar">Cancelar</button>
-                    }
-                    <button type="submit" class="btn-primary-custom">
-                        <i class="bi bi-check-circle me-1"></i> @(editando ? "Actualizar" : "Crear Toma")
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-cancel" @onclick="Cancelar">
+                        <i class="bi bi-x-lg"></i> Cerrar
+                    </button>
+                    <button type="submit" class="btn btn-save">
+                        <i class="bi @(editando ? "bi-check-circle-fill" : "bi-save-fill")"></i>
+                        @(editando ? "Actualizar" : "Guardar")
                     </button>
                 </div>
             </EditForm>
         </div>
     }
 
-    <div class="modern-card">
+    <div class="card-table">
+
+        <div class="filtros-tabla">
+            <div class="filtro-busqueda">
+                <i class="bi bi-search"></i>
+                <input type="text"
+                       placeholder="Buscar por código o nombre…"
+                       @bind="_filtroTexto"
+                       @bind:event="oninput"
+                       @bind:after="BuscarConDebounce" />
+                @if (!string.IsNullOrEmpty(_filtroTexto))
+                {
+                    <button class="filtro-clear" @onclick="LimpiarFiltro" title="Limpiar búsqueda">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                }
+            </div>
+
+            <div class="filtros-tabla-derecha">
+
+                <details class="dropdown-filtro" id="dropdown-estado-toma">
+                    <summary class="dropdown-filtro-trigger">
+                        <i class="bi bi-toggle-on"></i>
+                        <span>@(_filtroEstado switch {
+                            "BORRADOR" => "Borrador",
+                            "EN_CURSO" => "En Curso",
+                            "CERRADA" => "Cerrada",
+                            _ => "Todos los estados"
+                        })</span>
+                        <i class="bi bi-chevron-down dropdown-filtro-chevron"></i>
+                    </summary>
+
+                    <div class="dropdown-filtro-panel">
+                        <div class="dropdown-filtro-item @(_filtroEstado is null ? "active" : "")"
+                             @onclick="SeleccionarTodos">
+                            <i class="bi bi-list-ul"></i>
+                            <span>Todos los estados</span>
+                            @if (_filtroEstado is null)
+                            {
+                                <i class="bi bi-check2 dropdown-filtro-check"></i>
+                            }
+                        </div>
+
+                        <div class="dropdown-filtro-divider"></div>
+
+                        <div class="dropdown-filtro-item @(_filtroEstado == "BORRADOR" ? "active" : "")"
+                             @onclick="SeleccionarBorrador">
+                            <i class="bi bi-pencil-square"></i>
+                            <span>Borrador</span>
+                            @if (_filtroEstado == "BORRADOR")
+                            {
+                                <i class="bi bi-check2 dropdown-filtro-check"></i>
+                            }
+                        </div>
+
+                        <div class="dropdown-filtro-item @(_filtroEstado == "EN_CURSO" ? "active" : "")"
+                             @onclick="SeleccionarEnCurso">
+                            <i class="bi bi-hourglass-split"></i>
+                            <span>En Curso</span>
+                            @if (_filtroEstado == "EN_CURSO")
+                            {
+                                <i class="bi bi-check2 dropdown-filtro-check"></i>
+                            }
+                        </div>
+
+                        <div class="dropdown-filtro-item @(_filtroEstado == "CERRADA" ? "active" : "")"
+                             @onclick="SeleccionarCerrada">
+                            <i class="bi bi-check-circle-fill"></i>
+                            <span>Cerrada</span>
+                            @if (_filtroEstado == "CERRADA")
+                            {
+                                <i class="bi bi-check2 dropdown-filtro-check"></i>
+                            }
+                        </div>
+                    </div>
+                </details>
+
+                <span class="badge-total">
+                    <i class="bi bi-clipboard-check"></i>
+                    <strong>@(_pagina?.TotalRegistros ?? 0)</strong> tomas
+                    @if (!string.IsNullOrEmpty(_filtroTexto) || !string.IsNullOrEmpty(_filtroEstado))
+                    {
+                        <span class="filtro-activo-tag">· Filtrado</span>
+                    }
+                </span>
+            </div>
+        </div>
+
         <div class="table-responsive">
-            <table class="table modern-table m-0">
+            <table class="table modern-table">
                 <thead>
                     <tr>
                         <th>Código</th>
@@ -103,64 +233,100 @@
                         <th class="text-end">Conciliados</th>
                         <th class="text-end">Faltantes</th>
                         <th class="text-end">Sobrantes</th>
-                        <th class="text-center">Acciones</th>
+                        <th class="text-center" style="width: 220px;">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @if (_tomas is null)
+                    @if (_pagina is null)
                     {
-                        <tr><td colspan="10" class="text-center py-3 text-muted">Cargando...</td></tr>
+                        <tr><td colspan="10" class="text-center py-3 text-muted">Cargando…</td></tr>
                     }
-                    else if (!_tomas.Any())
+                    else if (!_pagina.Items.Any())
                     {
-                        <tr><td colspan="10" class="text-center py-3 text-muted">No hay tomas físicas registradas.</td></tr>
+                        <tr>
+                            <td colspan="10" class="text-center py-3 text-muted">
+                                @(string.IsNullOrEmpty(_filtroTexto) && string.IsNullOrEmpty(_filtroEstado)
+                                    ? "No hay tomas físicas registradas."
+                                    : "Sin resultados para los filtros aplicados.")
+                            </td>
+                        </tr>
                     }
                     else
                     {
-                        @foreach (var t in _tomas)
+                        @foreach (var t in _pagina.Items)
                         {
-                            <tr>
+                            <tr class="table-row-hover">
                                 <td><code>@t.Codigo</code></td>
-                                <td><strong>@t.Nombre</strong></td>
+                                <td>
+                                    <div class="table-cell-primary">
+                                        <strong>@t.Nombre</strong>
+                                        @if (!string.IsNullOrWhiteSpace(t.ResponsableNombre))
+                                        {
+                                            <small>@t.ResponsableNombre</small>
+                                        }
+                                    </div>
+                                </td>
                                 <td>@t.InstitucionNombre</td>
-                                <td>@t.FechaInicio?.ToString("dd/MM/yyyy")</td>
+                                <td>@(t.FechaInicio?.ToString("dd/MM/yyyy") ?? "—")</td>
                                 <td>
                                     <span class="estado-badge estado-@t.Estado.ToLower()">
                                         @GetEstadoTexto(t.Estado)
                                     </span>
                                 </td>
-                                <td class="text-end">@t.TotalBienesSnapshot</td>
-                                <td class="text-end text-success">@t.TotalEncontrados</td>
-                                <td class="text-end text-danger">@t.TotalFaltantes</td>
-                                <td class="text-end text-warning">@t.TotalSobrantes</td>
+                                <td class="text-end num">@t.TotalBienesSnapshot</td>
+                                <td class="text-end num text-success">@t.TotalEncontrados</td>
+                                <td class="text-end num text-danger">@t.TotalFaltantes</td>
+                                <td class="text-end num text-warning">@t.TotalSobrantes</td>
                                 <td class="text-center">
-                                    @if (t.Estado == "BORRADOR" && puedeAbrir)
-                                    {
-                                        <button class="btn-icon-act" title="Abrir (congelar)" @onclick="() => Abrir(t)">
-                                            <i class="bi bi-lock-fill"></i>
-                                        </button>
-                                        <button class="btn-icon" title="Editar" @onclick="() => Editar(t)">
-                                            <i class="bi bi-pencil-fill"></i>
-                                        </button>
-                                        <button class="btn-icon danger" title="Eliminar" @onclick="() => Eliminar(t)">
-                                            <i class="bi bi-trash-fill"></i>
-                                        </button>
-                                    }
-                                    @if (t.Estado == "EN_CURSO")
-                                    {
-                                        <button class="btn-icon-act" title="Escanear" @onclick="() => IrAlBarrido(t.Id)">
-                                            <i class="bi bi-qr-code-scan"></i>
-                                        </button>
-                                        <button class="btn-icon-cerrar" title="Cerrar toma" @onclick="() => Cerrar(t)">
-                                            <i class="bi bi-lock-fill"></i> Cerrar
-                                        </button>
-                                    }
-                                    @if (t.Estado == "CERRADA")
-                                    {
-                                        <button class="btn-icon-ver" title="Ver reporte" @onclick="() => IrAlReporte(t.Id)">
-                                            <i class="bi bi-file-earmark-bar-graph"></i> Reporte
-                                        </button>
-                                    }
+                                    <div class="action-buttons">
+                                        @if (t.Estado == "BORRADOR" && puedeAbrir)
+                                        {
+                                            <button class="btn-action btn-action-ok"
+                                                    title="Abrir (congelar)"
+                                                    @onclick="() => Abrir(t)">
+                                                <i class="bi bi-lock-fill"></i>
+                                            </button>
+                                            <button class="btn-action btn-action-edit"
+                                                    title="Editar"
+                                                    @onclick="() => Editar(t)">
+                                                <i class="bi bi-pencil-fill"></i>
+                                            </button>
+                                            <button class="btn-action btn-action-delete"
+                                                    title="Eliminar"
+                                                    @onclick="() => Eliminar(t)">
+                                                <i class="bi bi-trash-fill"></i>
+                                            </button>
+                                        }
+                                        @if (t.Estado == "EN_CURSO")
+                                        {
+                                            <button class="btn-action btn-action-edit"
+                                                    title="Escanear QR"
+                                                    @onclick="() => IrAlBarrido(t.Id)">
+                                                <i class="bi bi-qr-code-scan"></i>
+                                            </button>
+                                            <button class="btn-action btn-action-ok"
+                                                    title="Cerrar toma"
+                                                    @onclick="() => Cerrar(t)">
+                                                <i class="bi bi-check2-circle"></i>
+                                            </button>
+                                        }
+                                        @if (t.Estado == "CERRADA")
+                                        {
+                                            <button class="btn-action btn-action-view"
+                                                    title="Ver reporte"
+                                                    @onclick="() => IrAlReporte(t.Id)">
+                                                <i class="bi bi-file-earmark-bar-graph-fill"></i>
+                                            </button>
+                                            @if (puedeAnular && !t.Anulada)
+                                            {
+                                                <button class="btn-action btn-action-delete"
+                                                        title="Anular toma"
+                                                        @onclick="() => IntentarAnular(t)">
+                                                    <i class="bi bi-slash-circle-fill"></i>
+                                                </button>
+                                            }
+                                        }
+                                    </div>
                                 </td>
                             </tr>
                         }
@@ -168,20 +334,119 @@
                 </tbody>
             </table>
         </div>
+
+        @if (_pagina is not null && _pagina.TotalRegistros > 0)
+        {
+            <Paginador T="TomaFisicaDTO"
+                       Resultado="_pagina"
+                       OnCambioPagina="CambioPagina"
+                       OnCambioTamano="CambioTamano" />
+        }
     </div>
 </div>
 
+@* ═══════════════════════════════════════════════════════════
+   MODAL DE ANULACIÓN — FUERA del page-container
+   ═══════════════════════════════════════════════════════════ *@
+@if (_modalAnularAbierto && _tomaAAnular is not null)
+{
+    var t = _tomaAAnular;
+
+    <div class="modal-backdrop-anular" @onclick="CerrarModalAnular">
+        <div class="modal-anular" @onclick:stopPropagation="true">
+            <div class="modal-anular-header">
+                <div class="modal-anular-header-left">
+                    <span class="badge badge-warn">
+                        <i class="bi bi-exclamation-triangle-fill"></i> Anular
+                    </span>
+                    <h3>Anular Toma Física</h3>
+                </div>
+                <button type="button" class="modal-anular-close" @onclick="CerrarModalAnular">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <div class="modal-anular-body">
+                <div class="alerta-info">
+                    <i class="bi bi-info-circle-fill"></i>
+                    <div>
+                        <strong>@t.Nombre</strong>
+                        <p style="margin: 4px 0 0; font-size: 0.85rem;">
+                            Código: <code>@t.Codigo</code><br>
+                            Estado: <strong>@GetEstadoTexto(t.Estado)</strong>
+                        </p>
+                    </div>
+                </div>
+
+                <div class="alerta-warning" style="margin-top: 12px;">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    <div>
+                        <strong>Esta acción no elimina el registro.</strong>
+                        <p style="margin: 4px 0 0; font-size: 0.85rem;">
+                            La toma queda <strong>ANULADA</strong> con auditoría completa
+                            (quién, cuándo, por qué). No aparecerá en los listados operativos,
+                            pero permanece en el expediente para trazabilidad.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top: 16px;">
+                    <label class="mini-label">Motivo de la anulación *</label>
+                    <InputTextArea class="form-control"
+                                   rows="3"
+                                   @bind-Value="_motivoAnulacion"
+                                   placeholder="Ej: Toma creada por error, duplicada, datos incorrectos…" />
+                    <small style="color: #64748b;">Este motivo queda registrado en auditoría (mín. 10 caracteres).</small>
+                </div>
+            </div>
+
+            <div class="modal-anular-footer">
+                <button type="button" class="btn-secondary-custom" @onclick="CerrarModalAnular">
+                    Cancelar
+                </button>
+                <button type="button"
+                        class="btn-peligro"
+                        @onclick="ConfirmarAnulacion"
+                        disabled="@_procesandoAnulacion">
+                    @if (_procesandoAnulacion)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-slash-circle-fill me-1"></i>
+                    }
+                    Anular Toma
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
-    private IEnumerable<TomaFisicaDTO>? _tomas;
+    private ResultadoPaginado<TomaFisicaDTO>? _pagina;
     private IEnumerable<FuncionarioDTO> _funcionarios = [];
     private TomaFisicaDTO _model = new();
     private bool _mostrarFormulario = false;
     private bool editando = false;
     private int editandoId = 0;
 
+    private int _paginaActual = 1;
+    private int _tamanoPagina = 25;
+    private string _filtroTexto = string.Empty;
+    private string? _filtroEstado;
+    private CancellationTokenSource? _debounceCts;
+
     private bool puedeCrear;
     private bool puedeAbrir;
     private bool puedeCerrar;
+    private bool puedeAnular;
+
+    // ── Estado del modal de anulación ──
+    private bool _modalAnularAbierto = false;
+    private TomaFisicaDTO? _tomaAAnular;
+    private string _motivoAnulacion = string.Empty;
+    private bool _procesandoAnulacion = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -194,13 +459,94 @@
         puedeCrear = await Seguridad.TienePermisoAsync("toma_fisica.crear");
         puedeAbrir = await Seguridad.TienePermisoAsync("toma_fisica.abrir");
         puedeCerrar = await Seguridad.TienePermisoAsync("toma_fisica.cerrar");
+        puedeAnular = await Seguridad.TienePermisoAsync("toma_fisica.anular");
 
         _funcionarios = await FuncRepo.ObtenerTodosAsync();
         await Cargar();
     }
 
     private async Task Cargar()
-        => _tomas = await TomaRepo.ObtenerTodasAsync();
+    {
+        _pagina = await TomaRepo.ObtenerPaginadoAsync(
+            _paginaActual,
+            _tamanoPagina,
+            string.IsNullOrWhiteSpace(_filtroTexto) ? null : _filtroTexto,
+            _filtroEstado);
+    }
+
+    private async Task BuscarConDebounce()
+    {
+        _debounceCts?.Cancel();
+        _debounceCts = new CancellationTokenSource();
+        var token = _debounceCts.Token;
+
+        try
+        {
+            await Task.Delay(350, token);
+            if (token.IsCancellationRequested) return;
+
+            _paginaActual = 1;
+            await Cargar();
+            StateHasChanged();
+        }
+        catch (TaskCanceledException) { }
+    }
+
+    private async Task LimpiarFiltro()
+    {
+        _filtroTexto = string.Empty;
+        _paginaActual = 1;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    // Métodos sin parámetros (evita bug de Blazor con lambdas + null)
+    private Task SeleccionarTodos() => SeleccionarEstado(null);
+    private Task SeleccionarBorrador() => SeleccionarEstado("BORRADOR");
+    private Task SeleccionarEnCurso() => SeleccionarEstado("EN_CURSO");
+    private Task SeleccionarCerrada() => SeleccionarEstado("CERRADA");
+
+    private async Task SeleccionarEstado(string? estado)
+    {
+        _filtroEstado = estado;
+        _paginaActual = 1;
+
+        try
+        {
+            await JS.InvokeVoidAsync("eval",
+                "document.getElementById('dropdown-estado-toma')?.removeAttribute('open')");
+        }
+        catch { }
+
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task CambioPagina(int nuevaPagina)
+    {
+        _paginaActual = nuevaPagina;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private async Task CambioTamano(int nuevoTamano)
+    {
+        _tamanoPagina = nuevoTamano;
+        _paginaActual = 1;
+        await Cargar();
+        StateHasChanged();
+    }
+
+    private void AbrirFormulario()
+    {
+        _model = new TomaFisicaDTO
+        {
+            FechaInicio = DateTime.Today
+        };
+        editando = false;
+        editandoId = 0;
+        _mostrarFormulario = true;
+    }
 
     private async Task Guardar()
     {
@@ -238,7 +584,7 @@
         var ok = await Confirm.Preguntar(new ConfirmOpciones
         {
             Titulo = "Abrir Toma Física",
-            Mensaje = $"Se congelará el inventario actual de la institución. Se crearán {t.TotalBienesSnapshot} registros pendientes. ¿Continuar?",
+            Mensaje = "Se congelará el inventario actual de la institución. Se crearán los registros pendientes para el barrido QR. ¿Continuar?",
             Icono = "bi-lock-fill",
             ColorBoton = "#0891b2",
             TextoConfirmar = "Sí, abrir toma"
@@ -303,18 +649,111 @@
 
     private async Task Eliminar(TomaFisicaDTO t)
     {
-        var ok = await Confirm.Peligroso($"¿Eliminar la toma '{t.Nombre}'?");
+        var ok = await Confirm.Peligroso($"¿Eliminar la toma '{t.Nombre}'? Solo se permite en estado Borrador sin conteos.");
         if (!ok) return;
 
         try
         {
-            await TomaRepo.EliminarAsync(t.Id);
+            var eliminado = await TomaRepo.EliminarAsync(t.Id);
+            if (!eliminado)
+            {
+                Toast.Warning("No se pudo eliminar. Solo se pueden eliminar tomas en Borrador sin conteos registrados.");
+                return;
+            }
             Toast.Exito("Toma eliminada");
             await Cargar();
         }
         catch (Exception ex)
         {
             Toast.Error($"Error: {ex.Message}");
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // ANULACIÓN (soft-delete)
+    // ═══════════════════════════════════════════════════════
+
+    private void IntentarAnular(TomaFisicaDTO t)
+    {
+        if (!puedeAnular)
+        {
+            Toast.Warning("No tiene permiso para anular tomas físicas.");
+            return;
+        }
+
+        if (t.Estado != "CERRADA")
+        {
+            Toast.Warning($"Solo se pueden anular tomas en estado CERRADA. Estado actual: {GetEstadoTexto(t.Estado)}.");
+            return;
+        }
+
+        if (t.Anulada)
+        {
+            Toast.Warning("Esta toma ya está anulada.");
+            return;
+        }
+
+        _tomaAAnular = t;
+        _motivoAnulacion = string.Empty;
+        _modalAnularAbierto = true;
+    }
+
+    private void CerrarModalAnular()
+    {
+        _modalAnularAbierto = false;
+        _tomaAAnular = null;
+        _motivoAnulacion = string.Empty;
+        _procesandoAnulacion = false;
+    }
+
+    private async Task ConfirmarAnulacion()
+    {
+        if (_tomaAAnular is null) return;
+
+        if (string.IsNullOrWhiteSpace(_motivoAnulacion))
+        {
+            Toast.Warning("El motivo de anulación es obligatorio.");
+            return;
+        }
+
+        if (_motivoAnulacion.Trim().Length < 10)
+        {
+            Toast.Warning("El motivo debe tener al menos 10 caracteres para ser auditables.");
+            return;
+        }
+
+        _procesandoAnulacion = true;
+        StateHasChanged();
+
+        try
+        {
+            var toma = _tomaAAnular;
+            await TomaRepo.AnularAsync(toma.Id, _motivoAnulacion.Trim());
+
+            try
+            {
+              await Auditoria.RegistrarAnulacionAsync(
+                modulo: "toma_fisica",
+                objetoTipo: "TomaFisica",
+                objetoId: toma.Id,
+                objetoCodigo: toma.Codigo,
+                objetoDescripcion: $"Anulación — {toma.Nombre}",
+                motivo: _motivoAnulacion.Trim());
+            }
+            catch { }
+
+            Toast.Exito($"Toma '{toma.Codigo}' anulada correctamente.");
+            CerrarModalAnular();
+            await Cargar();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error al anular: {ex.Message}");
+        }
+        finally
+        {
+            _procesandoAnulacion = false;
+            StateHasChanged();
         }
     }
 

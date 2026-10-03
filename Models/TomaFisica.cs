@@ -20,6 +20,12 @@ public class TomaFisica
     public DateTime CreatedAt { get; set; }
     public DateTime? StartedAt { get; set; }
     public DateTime? ClosedAt { get; set; }
+
+    // ═══ SOFT-DELETE ═══
+    public bool Anulada { get; set; }
+    public int? AnuladaPor { get; set; }
+    public DateTime? AnuladaFecha { get; set; }
+    public string? AnuladaMotivo { get; set; }
 }
 
 public class TomaFisicaDetalle

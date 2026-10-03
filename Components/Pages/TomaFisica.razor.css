@@ -202,3 +202,129 @@
         background: var(--success-hover);
         transform: translateY(-1px);
     }
+
+/* ═══ Modal de Anulación Toma Física ═══ */
+.modal-backdrop-anular {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 20px;
+}
+
+.modal-anular {
+    background: #fff;
+    border-radius: 14px;
+    width: 100%;
+    max-width: 560px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+    animation: slideInAnular 0.2s ease-out;
+    overflow: hidden;
+}
+
+@keyframes slideInAnular {
+    from {
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.modal-anular-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 22px;
+    border-bottom: 1px solid #e2e8f0;
+    background: #fefce8;
+}
+
+.modal-anular-header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.modal-anular-header h3 {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.modal-anular-close {
+    background: none;
+    border: none;
+    font-size: 1rem;
+    color: #64748b;
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: 6px;
+}
+
+    .modal-anular-close:hover {
+        background: #f1f5f9;
+        color: #1e293b;
+    }
+
+.modal-anular-body {
+    padding: 20px 22px;
+}
+
+.modal-anular-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 16px 22px;
+    border-top: 1px solid #e2e8f0;
+    background: #f8fafc;
+}
+
+.alerta-info,
+.alerta-warning {
+    display: flex;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+}
+
+.alerta-info {
+    background: #eff6ff;
+    border-left: 3px solid #3b82f6;
+    color: #1e40af;
+}
+
+.alerta-warning {
+    background: #fffbeb;
+    border-left: 3px solid #f59e0b;
+    color: #92400e;
+}
+
+.btn-peligro {
+    background: #dc2626;
+    color: #fff;
+    border: none;
+    padding: 9px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+}
+
+    .btn-peligro:hover:not(:disabled) {
+        background: #b91c1c;
+    }
+
+    .btn-peligro:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
