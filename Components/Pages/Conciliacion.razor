@@ -16,15 +16,27 @@
 <PageTitle>Conciliación · Almacén</PageTitle>
 
 <style>
+    /* ═══ Habilitar scroll del body SOLO en Conciliación ═══ */
+    body:has(.page-conciliacion) {
+        overflow: auto !important;
+    }
+
+    html:has(.page-conciliacion) {
+        overflow-y: auto !important;
+    }
+
     .app-content:has(.page-conciliacion) {
         padding-left: 16px !important;
         padding-right: 16px !important;
+        overflow: visible !important;
     }
 
     .page-container.page-conciliacion {
         max-width: 100% !important;
         width: 100% !important;
         margin: 0 !important;
+        height: auto !important;
+        overflow: visible !important;
     }
 </style>
 
@@ -488,8 +500,8 @@
                     d.CodigoCgn ?? "",
                     $"\"{d.CategoriaNombre ?? ""}\"",
                     d.Tipo,
-                    d.Encontrado ? "SÍ" : "NO",
-                    (d.ValorAdquisicion ?? 0).ToString("F2", CulturaCOP),
+                    d.Encontrado ? "SI" : "NO",
+                   (d.ValorAdquisicion ?? 0).ToString("F2", CultureInfo.InvariantCulture),
                     $"\"{d.UbicacionSnapshot ?? ""}\"",
                     $"\"{d.UbicacionReal ?? ""}\"",
                     $"\"{d.FuncionarioSnapshot ?? ""}\"",
