@@ -148,6 +148,13 @@
                                 <span>Garantías</span>
                             </NavLink>
                         }
+                        @if (_puedeVer("bienes.crear"))
+                        {
+                            <NavLink class="nav-btn-neutral" href="importar-excel">
+                                <i class="bi bi-file-earmark-arrow-up"></i>
+                                <span>Importar Excel</span>
+                            </NavLink>
+                        }
                     </div>
                 }
             </div>
@@ -391,7 +398,7 @@
         var codigos = new[]
         {
             "instituciones.ver", "sedes.ver", "bloques.ver", "aulas.ver",
-            "categorias.ver", "bienes.ver", "proveedores.ver", "funcionarios.ver",
+            "categorias.ver", "bienes.ver", "bienes.crear", "proveedores.ver", "funcionarios.ver",
             "consumo.ver", "kardex.ver",
             "entradas.ver", "salidas.ver", "traslados.ver", "prestamos.ver",
             "depreciacion.ver", "reportes.ver", "toma_fisica.ver",

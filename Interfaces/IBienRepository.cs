@@ -24,6 +24,10 @@ public interface IBienRepository
 
     Task<IEnumerable<Bien>> ObtenerPorFuncionarioAsync(int funcionarioId);
 
-    // ✨ NUEVO — Verificar si el bien tiene historia antes de eliminar
+    // Verificar si el bien tiene historia antes de eliminar
     Task<CompromisoDTO> VerificarCompromisoAsync(int bienId);
+
+    // ✨ NUEVOS — Verificación de duplicados por código contable
+    Task<Bien?> ObtenerPorCodigoAsync(string codigo);
+    Task<bool> ExisteCodigoAsync(string codigo);
 }

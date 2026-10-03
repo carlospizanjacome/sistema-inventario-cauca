@@ -81,6 +81,40 @@ namespace Almacen.Repositories
                 new { Id = id, InstitucionId = _sesion.InstitucionId });
         }
 
+        // ✨ NUEVO — Buscar bien por código contable (dentro de la institución)
+        public async Task<Bien?> ObtenerPorCodigoAsync(string codigo)
+        {
+            if (string.IsNullOrWhiteSpace(codigo))
+                return null;
+
+            var (filtro, param) = FiltroInstitucion.Construir(
+                _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "b");
+
+            var sql = $"{BaseSelect} WHERE b.codigo = @Codigo {filtro};";
+
+            using var connection = Connection;
+            return await connection.QueryFirstOrDefaultAsync<Bien>(sql,
+                new { Codigo = codigo.Trim(), InstitucionId = _sesion.InstitucionId });
+        }
+
+        // ✨ NUEVO — Verificar existencia rápida de un código
+        public async Task<bool> ExisteCodigoAsync(string codigo)
+        {
+            if (string.IsNullOrWhiteSpace(codigo))
+                return false;
+
+            const string sql = @"
+                SELECT EXISTS(
+                    SELECT 1 FROM bienes
+                    WHERE institucion_id = @InstitucionId
+                      AND codigo = @Codigo
+                );";
+
+            using var connection = Connection;
+            return await connection.ExecuteScalarAsync<bool>(sql,
+                new { Codigo = codigo.Trim(), InstitucionId = _sesion.InstitucionId });
+        }
+
         public async Task<int> CrearAsync(Bien bien)
         {
             bien.InstitucionId = _sesion.InstitucionId;
@@ -88,56 +122,79 @@ namespace Almacen.Repositories
             // ═══════════════════════════════════════════════════════════
             // CÁLCULO AUTOMÁTICO DE VALOR NETO
             // Al crear un bien, valor_neto = valor_adquisicion - valor_residual
-            // (no hay depreciación acumulada todavía)
             // ═══════════════════════════════════════════════════════════
             bien.DepreciacionAcumulada = 0;
             bien.ValorNeto = bien.ValorAdquisicion - bien.ValorResidual;
+
             // ═══════════════════════════════════════════════════════════
+            // FIX CRÍTICO: Distinguir entre código del usuario y generado
+            // Si el usuario (o el Excel) trae código → NO se auto-genera
+            // Si viene vacío → se genera automáticamente
+            // ═══════════════════════════════════════════════════════════
+            bool codigoVinoDelUsuario = !string.IsNullOrWhiteSpace(bien.Codigo);
 
             const string sql = @"
-        INSERT INTO bienes
-        (codigo, nombre, descripcion, categoria_id, tipo_bien,
-         marca, modelo, serie, valor_adquisicion, fecha_adquisicion,
-         estado_fisico, ubicacion, responsable, activo,
-         institucion_id, aula_id, funcionario_id, vida_util_id,
-         codigo_qr, valor_residual, cantidad,
-         depreciacion_acumulada, valor_neto, fecha_ultimo_calculo,
-         created_at, updated_at)
-        VALUES
-        (@Codigo, @Nombre, @Descripcion, @CategoriaId, @TipoBien,
-         @Marca, @Modelo, @Serie, @ValorAdquisicion, @FechaAdquisicion,
-         @EstadoFisico, @Ubicacion, @Responsable, @Activo,
-         @InstitucionId, @AulaId, @FuncionarioId, @VidaUtilId,
-         @CodigoQr, @ValorResidual, @Cantidad,
-         @DepreciacionAcumulada, @ValorNeto, NOW(),
-         NOW(), NOW())
-        RETURNING id;";
+                INSERT INTO bienes
+                (codigo, nombre, descripcion, categoria_id, tipo_bien,
+                 marca, modelo, serie, valor_adquisicion, fecha_adquisicion,
+                 estado_fisico, ubicacion, responsable, activo,
+                 institucion_id, aula_id, funcionario_id, vida_util_id,
+                 codigo_qr, valor_residual, cantidad,
+                 depreciacion_acumulada, valor_neto, fecha_ultimo_calculo,
+                 created_at, updated_at)
+                VALUES
+                (@Codigo, @Nombre, @Descripcion, @CategoriaId, @TipoBien,
+                 @Marca, @Modelo, @Serie, @ValorAdquisicion, @FechaAdquisicion,
+                 @EstadoFisico, @Ubicacion, @Responsable, @Activo,
+                 @InstitucionId, @AulaId, @FuncionarioId, @VidaUtilId,
+                 @CodigoQr, @ValorResidual, @Cantidad,
+                 @DepreciacionAcumulada, @ValorNeto, NOW(),
+                 NOW(), NOW())
+                RETURNING id;";
 
-            const int maxIntentos = 3;
-            for (int intento = 1; intento <= maxIntentos; intento++)
+            // ── Caso A: El usuario NO trajo código → generar y reintentar si hay colisión ──
+            if (!codigoVinoDelUsuario)
             {
-                try
+                const int maxIntentos = 3;
+                for (int intento = 1; intento <= maxIntentos; intento++)
                 {
-                    if (string.IsNullOrWhiteSpace(bien.Codigo))
+                    try
                     {
                         bien.Codigo = await GenerarSiguienteCodigoAsync(bien.TipoBien ?? "devolutivo");
-                    }
 
-                    using var connection = Connection;
-                    var id = await connection.ExecuteScalarAsync<int>(sql, bien);
-                    return id;
+                        using var connection = Connection;
+                        var id = await connection.ExecuteScalarAsync<int>(sql, bien);
+                        return id;
+                    }
+                    catch (PostgresException ex)
+                        when (ex.SqlState == "23505" && intento < maxIntentos)
+                    {
+                        // Colisión de código autogenerado → reintentar
+                        bien.Codigo = string.Empty;
+                        await Task.Delay(50);
+                    }
                 }
-                catch (PostgresException ex)
-                    when (ex.SqlState == "23505" && intento < maxIntentos)
-                {
-                    bien.Codigo = string.Empty;
-                    await Task.Delay(50);
-                }
+
+                throw new InvalidOperationException(
+                    "No se pudo generar un código único después de 3 intentos.");
             }
 
-            throw new InvalidOperationException(
-                "No se pudo generar un código único. Intente nuevamente.");
+            // ── Caso B: El usuario SÍ trajo código → NO reintentar, rechazar si existe ──
+            try
+            {
+                using var connection = Connection;
+                var id = await connection.ExecuteScalarAsync<int>(sql, bien);
+                return id;
+            }
+            catch (PostgresException ex) when (ex.SqlState == "23505")
+            {
+                // El código contable ya existe → rechazar sin auto-generar
+                throw new InvalidOperationException(
+                    $"El código '{bien.Codigo}' ya existe en el sistema. " +
+                    $"No se puede crear un bien duplicado con el mismo código contable.");
+            }
         }
+
         private async Task<string> GenerarSiguienteCodigoAsync(string tipoBien)
         {
             var prefijo = tipoBien == "consumo" ? "CONS" : "DEVO";
@@ -173,7 +230,6 @@ namespace Almacen.Repositories
             // el valor_neto manteniendo la depreciación acumulada.
             // ═══════════════════════════════════════════════════════════
 
-            // Obtener la depreciación acumulada actual
             decimal depreciacionActual;
             using (var cnLeer = Connection)
             {
@@ -184,22 +240,21 @@ namespace Almacen.Repositories
 
             bien.DepreciacionAcumulada = depreciacionActual;
             bien.ValorNeto = bien.ValorAdquisicion - depreciacionActual - bien.ValorResidual;
-            // ═══════════════════════════════════════════════════════════
 
             const string sql = @"
-        UPDATE bienes
-        SET codigo = @Codigo, nombre = @Nombre, descripcion = @Descripcion,
-            categoria_id = @CategoriaId, tipo_bien = @TipoBien,
-            marca = @Marca, modelo = @Modelo, serie = @Serie,
-            valor_adquisicion = @ValorAdquisicion, fecha_adquisicion = @FechaAdquisicion,
-            estado_fisico = @EstadoFisico, ubicacion = @Ubicacion,
-            responsable = @Responsable, activo = @Activo,
-            aula_id = @AulaId, funcionario_id = @FuncionarioId,
-            vida_util_id = @VidaUtilId, codigo_qr = @CodigoQr,
-            valor_residual = @ValorResidual, cantidad = @Cantidad,
-            valor_neto = @ValorNeto,
-            updated_at = NOW()
-        WHERE id = @Id;";
+                UPDATE bienes
+                SET codigo = @Codigo, nombre = @Nombre, descripcion = @Descripcion,
+                    categoria_id = @CategoriaId, tipo_bien = @TipoBien,
+                    marca = @Marca, modelo = @Modelo, serie = @Serie,
+                    valor_adquisicion = @ValorAdquisicion, fecha_adquisicion = @FechaAdquisicion,
+                    estado_fisico = @EstadoFisico, ubicacion = @Ubicacion,
+                    responsable = @Responsable, activo = @Activo,
+                    aula_id = @AulaId, funcionario_id = @FuncionarioId,
+                    vida_util_id = @VidaUtilId, codigo_qr = @CodigoQr,
+                    valor_residual = @ValorResidual, cantidad = @Cantidad,
+                    valor_neto = @ValorNeto,
+                    updated_at = NOW()
+                WHERE id = @Id;";
 
             using var connection = Connection;
             await connection.ExecuteAsync(sql, bien);

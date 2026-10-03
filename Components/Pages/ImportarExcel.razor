@@ -1,0 +1,691 @@
+﻿@page "/importar-excel"
+@rendermode InteractiveServer
+
+@using Almacen.DTOs
+@using Almacen.Interfaces
+@using Almacen.Services
+@using Microsoft.AspNetCore.Components.Forms
+@using System.Globalization
+
+@inject IImportacionRepository ImpRepo
+@inject IBienRepository BienRepo
+@inject ICategoriaRepository CategoriaRepo
+@inject IAulaRepository AulaRepo
+@inject IFuncionarioRepository FuncRepo
+@inject ExcelImportService ExcelService
+@inject SeguridadService Seguridad
+@inject NavigationManager Navigation
+@inject ToastService Toast
+@inject ConfirmService Confirm
+@inject AuditoriaService Auditoria
+@inject UsuarioSesionService Sesion
+
+<PageTitle>Importar Excel · Almacén</PageTitle>
+
+<div class="page-container page-import">
+
+    <header class="import-header">
+        <div class="import-header-left">
+            <i class="bi bi-file-earmark-arrow-up-fill"></i>
+            <div>
+                <h1>Importar Inventario desde Excel</h1>
+                <p>Migración masiva de bienes (V2.0 §12)</p>
+            </div>
+        </div>
+        <button class="btn-import-cancel" @onclick="Cancelar">
+            <i class="bi bi-x-lg"></i> Cancelar
+        </button>
+    </header>
+
+    <!-- ═══ STEPPER ═══ -->
+    <div class="wizard-stepper">
+        @for (int i = 1; i <= 6; i++)
+        {
+            var num = i;
+            // ✨ FIX: Si ya se muestra el resultado (paso 5 con _resultado != null),
+            // todos los pasos 1-5 se consideran completados (verde con check).
+            var resultadoMostrado = _pasoActual == 5 && _resultado is not null;
+            var clase = (_pasoActual == num && !resultadoMostrado) ? "active" :
+                       (_pasoActual > num || resultadoMostrado) ? "completed" : "pending";
+
+            <div class="step-item @clase">
+                <div class="step-circle">
+                    @if (_pasoActual > num || resultadoMostrado)
+                    {
+                        <i class="bi bi-check-lg"></i>
+                    }
+                    else
+                    {
+                        <span>@num</span>
+                    }
+                </div>
+                <span class="step-label">@GetNombrePaso(num)</span>
+            </div>
+            @if (i < 6)
+            {
+                <div class="step-line @(_pasoActual > num || resultadoMostrado ? "completed" : "")"></div>
+            }
+        }
+    </div>
+
+    @* ═══ PASO 1: CARGAR ARCHIVO ═══ *@
+    @if (_pasoActual == 1)
+    {
+        <div class="wizard-card">
+            <div class="wizard-card-header">
+                <h2><i class="bi bi-upload"></i> Cargar archivo Excel</h2>
+                <p>Selecciona un archivo .xlsx, .xls o .csv para comenzar</p>
+            </div>
+
+            @if (_preview is null)
+            {
+                <label class="upload-dropzone">
+                    <InputFile OnChange="OnArchivoSeleccionado" accept=".xlsx,.xls,.csv" class="input-file-hidden" />
+                    <div class="upload-content">
+                        <div class="upload-icon">
+                            <i class="bi bi-cloud-arrow-up-fill"></i>
+                        </div>
+                        <strong>Arrastra tu archivo aquí o haz clic para seleccionar</strong>
+                        <span>Formatos soportados: .xlsx, .xls, .csv (máx. 10 MB)</span>
+                    </div>
+                </label>
+            }
+            else
+            {
+                <div class="file-info-card">
+                    <i class="bi bi-file-earmark-excel-fill"></i>
+                    <div>
+                        <strong>@_nombreArchivo</strong>
+                        <span>
+                            @_preview.Hojas.Count hoja(s) ·
+                            @_preview.Columnas.Count columnas ·
+                            ~@_preview.TotalFilasEstimadas filas
+                        </span>
+                    </div>
+                    <button class="btn-icon-danger" @onclick="LimpiarArchivo" title="Quitar archivo">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+
+                @if (_preview.Hojas.Count > 1)
+                {
+                    <div class="form-group">
+                        <label>Seleccionar hoja:</label>
+                        <select @bind="_hojaSeleccionada" @bind:after="RecargarPreview" class="form-select">
+                            @foreach (var h in _preview.Hojas)
+                            {
+                                <option value="@h">@h</option>
+                            }
+                        </select>
+                    </div>
+                }
+
+                <div class="preview-table-wrapper">
+                    <h4>Vista previa (primeras 5 filas):</h4>
+                    <div class="table-responsive">
+                        <table class="table modern-table">
+                            <thead>
+                                <tr>
+                                    @foreach (var col in _preview.Columnas)
+                                    {
+                                        <th>@col</th>
+                                    }
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var fila in _preview.PrimerasFilas.Take(5))
+                                {
+                                    <tr>
+                                        @foreach (var col in _preview.Columnas)
+                                        {
+                                            <td>@fila.GetValueOrDefault(col, "")</td>
+                                        }
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="wizard-actions">
+                    <button class="btn-import-next" @onclick="IrAPaso2" disabled="@(!_preview.Columnas.Any())">
+                        Continuar <i class="bi bi-arrow-right"></i>
+                    </button>
+                </div>
+            }
+        </div>
+    }
+
+    @* ═══ PASO 2: MAPEAR COLUMNAS ═══ *@
+    @if (_pasoActual == 2)
+    {
+        <div class="wizard-card">
+            <div class="wizard-card-header">
+                <h2><i class="bi bi-shuffle"></i> Mapear columnas</h2>
+                <p>Asocia las columnas del Excel con los campos del sistema</p>
+            </div>
+
+            <div class="mapeo-info">
+                <i class="bi bi-info-circle-fill"></i>
+                <span>Las columnas marcadas con <strong>*</strong> son obligatorias. El sistema sugirió el mapeo automáticamente.</span>
+            </div>
+
+            <div class="mapeo-grid">
+                @foreach (var campo in GetCamposMapeo())
+                {
+                    var campoKey = campo.Key;
+                    var campoObligatorio = campo.Value.Obligatorio;
+
+                    <div class="mapeo-item">
+                        <label>
+                            @campo.Value.Etiqueta
+                            @if (campoObligatorio)
+                            {
+                                <span class="required">*</span>
+                            }
+                        </label>
+                        <select @bind="_mapeo.Mapeo[campoKey]" class="form-select">
+                            <option value="">— Sin mapear —</option>
+                            @foreach (var col in _preview!.Columnas)
+                            {
+                                <option value="@col">@col</option>
+                            }
+                        </select>
+                    </div>
+                }
+            </div>
+
+            <div class="wizard-actions">
+                <button class="btn-import-back" @onclick="() => _pasoActual = 1">
+                    <i class="bi bi-arrow-left"></i> Atrás
+                </button>
+                <button class="btn-import-next" @onclick="IrAPaso3">
+                    Validar datos <i class="bi bi-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+    }
+
+    @* ═══ PASO 3: VALIDACIÓN Y PREVIEW ═══ *@
+    @if (_pasoActual == 3)
+    {
+        var importables = _filasOk + _filasWarning;
+
+        <div class="wizard-card">
+            <div class="wizard-card-header">
+                <h2><i class="bi bi-list-check"></i> Validación y previsualización</h2>
+                <p>Revisa los resultados antes de importar</p>
+            </div>
+
+            @if (_validando)
+            {
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Validando @_filasProcesadas.Count filas…</p>
+                </div>
+            }
+            else
+            {
+                <div class="kpi-validacion-grid">
+                    <div class="kpi-val kpi-val-ok">
+                        <i class="bi bi-check-circle-fill"></i>
+                        <div><strong>@_filasOk</strong><span>OK</span></div>
+                    </div>
+                    <div class="kpi-val kpi-val-warn">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <div><strong>@_filasWarning</strong><span>Con advertencias</span></div>
+                    </div>
+                    <div class="kpi-val kpi-val-error">
+                        <i class="bi bi-x-circle-fill"></i>
+                        <div><strong>@_filasError</strong><span>Con errores</span></div>
+                    </div>
+                    <div class="kpi-val kpi-val-info">
+                        <i class="bi bi-list-ol"></i>
+                        <div><strong>@_filasProcesadas.Count</strong><span>Total filas</span></div>
+                    </div>
+                </div>
+
+                @if (_filasError > 0)
+                {
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-octagon-fill"></i>
+                        <div>
+                            <strong>Hay @_filasError fila(s) con errores que bloquean la importación.</strong>
+                            <p>Corrige el archivo Excel o ajusta el mapeo, y vuelve a intentarlo.</p>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="alert alert-success">
+                        <i class="bi bi-check-circle-fill"></i>
+                        <div>
+                            <strong>Validación exitosa.</strong>
+                            <p>Se importarán @importables fila(s). @(_filasWarning > 0 ? $"Hay {_filasWarning} fila(s) con advertencias que se importarán igualmente." : "")</p>
+                        </div>
+                    </div>
+                }
+
+                @if (_filasProcesadas.Any())
+                {
+                    <div class="preview-table-wrapper">
+                        <h4>Detalle de las primeras 20 filas:</h4>
+                        <div class="table-responsive">
+                            <table class="table modern-table">
+                                <thead>
+                                    <tr>
+                                        <th>Fila</th>
+                                        <th>Estado</th>
+                                        <th>Nombre</th>
+                                        <th>Categoría</th>
+                                        <th>Valor</th>
+                                        <th>Observaciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var f in _filasProcesadas.Take(20))
+                                    {
+                                        <tr class="@GetRowClass(f.Estado)">
+                                            <td><strong>@f.NumeroFila</strong></td>
+                                            <td><span class="badge @GetBadgeClase(f.Estado)">@f.Estado</span></td>
+                                            <td>@(f.Nombre ?? "—")</td>
+                                            <td>@(f.CategoriaNombre ?? "—")</td>
+                                            <td class="text-end">@(f.ValorAdquisicion?.ToString("C0", CulturaCOP) ?? "—")</td>
+                                            <td class="text-muted small">
+                                                @if (f.Errores.Any())
+                                                {
+                                                    <span class="text-danger">@string.Join("; ", f.Errores)</span>
+                                                }
+                                                else if (f.Advertencias.Any())
+                                                {
+                                                    <span class="text-warning">@string.Join("; ", f.Advertencias)</span>
+                                                }
+                                                else
+                                                {
+                                                    <span>—</span>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                }
+
+                <div class="wizard-actions">
+                    <button class="btn-import-back" @onclick="() => _pasoActual = 2">
+                        <i class="bi bi-arrow-left"></i> Atrás
+                    </button>
+                    <button class="btn-import-next"
+                            @onclick="IrAPaso4"
+                            disabled="@(importables == 0 || _filasError > 0)">
+                        <i class="bi bi-play-fill"></i> Importar @importables bien(es)
+                    </button>
+                </div>
+            }
+        </div>
+    }
+
+    @* ═══ PASO 4: IMPORTANDO ═══ *@
+    @if (_pasoActual == 4)
+    {
+        <div class="wizard-card wizard-card-importing">
+            <div class="importing-content">
+                <div class="importing-spinner">
+                    <div class="spinner-large"></div>
+                </div>
+                <h2>Importando @(_filasOk + _filasWarning) bien(es)…</h2>
+                <p>Por favor no cierres esta ventana</p>
+
+                <div class="progress-bar-large">
+                    <div class="progress-fill" style="width: @_progresoImportacion%"></div>
+                </div>
+                <span class="progress-text">@_progresoImportacion%</span>
+            </div>
+        </div>
+    }
+
+    @* ═══ PASO 5: RESULTADO FINAL ═══ *@
+    @if (_pasoActual == 5 && _resultado is not null)
+    {
+        <div class="wizard-card">
+            <div class="wizard-card-header">
+                @if (_resultado.FilasConError > 0)
+                {
+                    <h2 style="color:#ea580c; display:flex; align-items:center; gap:10px; margin:0 0 4px;">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <span>Importación completada con advertencias</span>
+                    </h2>
+                }
+                else
+                {
+                    <h2 style="color:#16a34a; display:flex; align-items:center; gap:10px; margin:0 0 4px;">
+                        <i class="bi bi-check-circle-fill"></i>
+                        <span>Importación completada</span>
+                    </h2>
+                }
+                <p>@_resultado.Mensaje</p>
+            </div>
+
+            <div class="resultado-grid">
+                <div class="resultado-item resultado-ok">
+                    <i class="bi bi-check-circle-fill"></i>
+                    <div>
+                        <strong>@_resultado.FilasImportadas</strong>
+                        <span>Bienes importados</span>
+                    </div>
+                </div>
+                @if (_resultado.FilasConWarning > 0)
+                {
+                    <div class="resultado-item resultado-warn">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <div>
+                            <strong>@_resultado.FilasConWarning</strong>
+                            <span>Con advertencias</span>
+                        </div>
+                    </div>
+                }
+                @if (_resultado.FilasConError > 0)
+                {
+                    <div class="resultado-item resultado-error">
+                        <i class="bi bi-x-circle-fill"></i>
+                        <div>
+                            <strong>@_resultado.FilasConError</strong>
+                            <span>Con errores</span>
+                        </div>
+                    </div>
+                }
+                <div class="resultado-item resultado-info">
+                    <i class="bi bi-list-ol"></i>
+                    <div>
+                        <strong>@_resultado.TotalFilas</strong>
+                        <span>Filas procesadas</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="wizard-actions-final">
+                <button class="btn-import-primary" @onclick="VerBienes">
+                    <i class="bi bi-box-seam"></i> Ver bienes importados
+                </button>
+                <button class="btn-import-secondary" @onclick="NuevaImportacion">
+                    <i class="bi bi-plus-lg"></i> Nueva importación
+                </button>
+            </div>
+        </div>
+    }
+
+</div>
+
+@code {
+    private static readonly CultureInfo CulturaCOP = CultureInfo.GetCultureInfo("es-CO");
+
+    private int _pasoActual = 1;
+
+    private byte[]? _archivoBytes;
+    private string _nombreArchivo = "";
+    private string _hojaSeleccionada = "";
+    private PreviewExcelDTO? _preview;
+
+    private MapeoColumnasDTO _mapeo = new();
+
+    private bool _validando = false;
+    private List<FilaImportacionDTO> _filasProcesadas = new();
+    private int _filasOk => _filasProcesadas.Count(f => f.Estado == "OK");
+    private int _filasWarning => _filasProcesadas.Count(f => f.Estado == "WARNING");
+    private int _filasError => _filasProcesadas.Count(f => f.Estado == "ERROR");
+
+    private int _progresoImportacion = 0;
+    private ResultadoImportacionDTO? _resultado;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await Seguridad.TienePermisoAsync("bienes.crear"))
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+    }
+
+    // ═══ PASO 1 ═══
+    private async Task OnArchivoSeleccionado(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            var file = e.File;
+            if (file is null) return;
+
+            if (file.Size > 10 * 1024 * 1024)
+            {
+                Toast.Error("El archivo excede los 10 MB permitidos.");
+                return;
+            }
+
+            _nombreArchivo = file.Name;
+
+            using var ms = new MemoryStream();
+            await file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024).CopyToAsync(ms);
+            _archivoBytes = ms.ToArray();
+
+            _preview = await ExcelService.LeerExcelAsync(new MemoryStream(_archivoBytes), _nombreArchivo);
+            _hojaSeleccionada = _preview.HojaSeleccionada;
+
+            _mapeo = ExcelService.SugerirMapeo(_preview.Columnas);
+
+            Toast.Exito($"Archivo cargado: {_preview.Columnas.Count} columnas detectadas.");
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error al leer archivo: {ex.Message}");
+            LimpiarArchivo();
+        }
+    }
+
+    private void LimpiarArchivo()
+    {
+        _archivoBytes = null;
+        _nombreArchivo = "";
+        _preview = null;
+        _mapeo = new();
+    }
+
+    private async Task RecargarPreview()
+    {
+        if (_archivoBytes is null) return;
+        try
+        {
+            _preview = await ExcelService.LeerExcelAsync(new MemoryStream(_archivoBytes), _nombreArchivo);
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+    }
+
+    // ═══ PASO 2 → 3 ═══
+    private void IrAPaso2() => _pasoActual = 2;
+
+    private async Task IrAPaso3()
+    {
+        if (_archivoBytes is null) return;
+
+        _pasoActual = 3;
+        _validando = true;
+        StateHasChanged();
+
+        try
+        {
+            var filas = await ExcelService.LeerTodasLasFilasAsync(
+                new MemoryStream(_archivoBytes), _hojaSeleccionada, _mapeo);
+
+            ExcelService.ValidarFilas(filas);
+
+            _filasProcesadas = filas;
+
+            Toast.Info($"Procesadas {filas.Count} filas.");
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error al procesar: {ex.Message}");
+        }
+        finally
+        {
+            _validando = false;
+            StateHasChanged();
+        }
+    }
+
+    // ═══ PASO 3 → 4: IMPORTAR (REAL) ═══
+    private async Task IrAPaso4()
+    {
+        _pasoActual = 4;
+        _progresoImportacion = 0;
+        StateHasChanged();
+
+        try
+        {
+            // ── 1. Crear cabecera de importación ──
+            var importacionDto = new ImportacionDTO
+            {
+                NombreArchivo = _nombreArchivo,
+                TipoArchivo = Path.GetExtension(_nombreArchivo).TrimStart('.').ToLower(),
+                TotalFilas = _filasProcesadas.Count,
+                MapeoColumnas = System.Text.Json.JsonSerializer.Serialize(_mapeo.Mapeo)
+            };
+
+            var importacionId = await ImpRepo.CrearAsync(importacionDto);
+
+            _progresoImportacion = 5;
+            StateHasChanged();
+
+            // ── 2. Insertar detalle (registro de cada fila) ──
+            await ImpRepo.InsertarDetalleAsync(importacionId, _filasProcesadas);
+
+            _progresoImportacion = 10;
+            StateHasChanged();
+
+            // ── 3. PERSISTIR BIENES REALES ──
+            var totalImportables = _filasProcesadas.Count(f =>
+                f.Estado == "OK" || f.Estado == "WARNING");
+
+            var resultado = await ExcelService.PersistirBienesAsync(
+                _filasProcesadas,
+                importacionId,
+                onProgreso: (completadas) =>
+                {
+                    var pct = totalImportables > 0
+                        ? 10 + (int)((double)completadas / totalImportables * 85)
+                        : 95;
+                    _progresoImportacion = Math.Min(pct, 95);
+                    InvokeAsync(StateHasChanged);
+                });
+
+            _progresoImportacion = 100;
+            StateHasChanged();
+
+            // ── 4. Actualizar estado de la cabecera ──
+            var estadoFinal = resultado.FilasConError > 0
+                ? "COMPLETADA_CON_ERRORES"
+                : "COMPLETADA";
+
+            await ImpRepo.ActualizarEstadoAsync(importacionId, estadoFinal);
+
+            // ── 5. Auditoría ──
+            await Auditoria.RegistrarCreacionAsync(
+                modulo: "importacion",
+                objetoTipo: "Importacion",
+                objetoId: importacionId,
+                objetoCodigo: null,
+                objetoDescripcion: $"Importación masiva: {_nombreArchivo}",
+                despues: new
+                {
+                    FilasImportadas = resultado.FilasImportadas,
+                    FilasConWarning = resultado.FilasConWarning,
+                    FilasConError = resultado.FilasConError,
+                    Total = _filasProcesadas.Count
+                }
+            );
+
+            _resultado = resultado;
+            _pasoActual = 5;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error en importación: {ex.Message}");
+            _pasoActual = 3;
+            StateHasChanged();
+        }
+    }
+
+    // ═══ ACCIONES FINALES ═══
+    private void VerBienes() => Navigation.NavigateTo("/bienes");
+
+    private void NuevaImportacion()
+    {
+        _pasoActual = 1;
+        _archivoBytes = null;
+        _nombreArchivo = "";
+        _preview = null;
+        _mapeo = new();
+        _filasProcesadas.Clear();
+        _resultado = null;
+        _progresoImportacion = 0;
+        StateHasChanged();
+    }
+
+    private void Cancelar()
+    {
+        Navigation.NavigateTo("/bienes");
+    }
+
+    // ═══ HELPERS ═══
+    private static string GetNombrePaso(int paso) => paso switch
+    {
+        1 => "Cargar",
+        2 => "Mapear",
+        3 => "Validar",
+        4 => "Importar",
+        5 => "Resultado",
+        6 => "Fin",
+        _ => ""
+    };
+
+    private static string GetRowClass(string estado) => estado switch
+    {
+        "OK" => "row-ok",
+        "WARNING" => "row-warning",
+        "ERROR" => "row-danger",
+        _ => ""
+    };
+
+    private static string GetBadgeClase(string estado) => estado switch
+    {
+        "OK" => "badge-ok",
+        "WARNING" => "badge-warn",
+        "ERROR" => "badge-danger",
+        _ => "badge-neutral"
+    };
+
+    private static Dictionary<string, (string Etiqueta, bool Obligatorio)> GetCamposMapeo() => new()
+    {
+        ["nombre"] = ("Nombre del bien", true),
+        ["codigo"] = ("Código", false),
+        ["categoria"] = ("Categoría", true),
+        ["tipo_bien"] = ("Tipo de bien (devolutivo/consumo)", false),
+        ["valor_adquisicion"] = ("Valor de adquisición", true),
+        ["fecha_adquisicion"] = ("Fecha de adquisición", false),
+        ["marca"] = ("Marca", false),
+        ["modelo"] = ("Modelo", false),
+        ["serie"] = ("Serie", false),
+        ["estado_fisico"] = ("Estado físico", false),
+        ["aula"] = ("Aula / Ubicación", false),
+        ["funcionario"] = ("Funcionario responsable", false),
+        ["observaciones"] = ("Observaciones", false),
+        ["unidad_medida"] = ("Unidad de medida (consumo)", false),
+        ["stock_inicial"] = ("Stock inicial (consumo)", false),
+        ["stock_minimo"] = ("Stock mínimo (consumo)", false),
+        ["fuente_financiacion"] = ("Fuente de financiación", false)
+    };
+}

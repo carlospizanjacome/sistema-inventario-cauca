@@ -57,7 +57,11 @@ builder.Services.AddScoped<IPrestamoRepository, PrestamoRepository>();
 builder.Services.AddScoped<IMantenimientoRepository, MantenimientoRepository>();
 builder.Services.AddScoped<IGarantiaRepository, GarantiaRepository>();
 builder.Services.AddScoped<IReporteNormativoRepository, ReporteNormativoRepository>();
+
+builder.Services.AddScoped<IImportacionRepository, ImportacionRepository>();
+builder.Services.AddScoped<ExcelImportService>();
 builder.Services.AddScoped<IConciliacionRepository, ConciliacionRepository>();
+
 
 
 builder.Services.AddHttpContextAccessor();
@@ -70,6 +74,7 @@ builder.Services.AddScoped<ArchivoService>();
 builder.Services.AddScoped<NpgsqlConnectionFactory>();
 builder.Services.AddScoped<ActaPdfService>();
 builder.Services.AddScoped<ExcelExportService>();
+
 builder.Services.AddScoped<ConfirmService>();
 builder.Services.AddScoped<ToastService>();
 
