@@ -1,21 +1,36 @@
 ﻿@page "/"
+@rendermode InteractiveServer
+
 @using Almacen.DTOs
 @using Almacen.Helpers
 @using Almacen.Interfaces
 @using Almacen.Services
+@using System.Globalization
+
 @inject IDashboardRepository DashboardRepo
 @inject UsuarioSesionService Sesion
 @inject IJSRuntime JS
 
-<PageTitle>Inicio · Almacén</PageTitle>
+<PageTitle>Dashboard · Almacén</PageTitle>
 
 <div class="dashboard">
 
+    <!-- ═══ HEADER ═══ -->
     <header class="dashboard-header">
-        <div>
-            <h1><i class="bi bi-speedometer2"></i> Panel de control</h1>
-            <p class="subtitle">Resumen general del inventario municipal</p>
+        <div class="header-left">
+            <h1><i class="bi bi-grid-1x2-fill"></i> Dashboard Institucional</h1>
+            <p class="header-sub">
+                <span>@Sesion.InstitucionNombre</span>
+                <span class="sep">·</span>
+                <span>@DateTime.Now.ToString("dddd, dd 'de' MMMM 'de' yyyy", CulturaCOP)</span>
+                <span class="sep">·</span>
+                <span>@DateTime.Now.ToString("HH:mm")</span>
+            </p>
         </div>
+        <button class="btn-refresh" @onclick="Recargar" disabled="@_cargando">
+            <i class="bi @(_cargando ? "bi-hourglass-split" : "bi-arrow-clockwise")"></i>
+            <span>Actualizar</span>
+        </button>
     </header>
 
     @if (_cargando)
@@ -27,20 +42,38 @@
     }
     else if (_kpis is not null)
     {
-        <section class="kpi-grid">
+        <!-- ═══ 4 KPIs PRINCIPALES ═══ -->
+        <section class="kpi-row">
             <div class="kpi-card kpi-indigo">
                 <div class="kpi-icon"><i class="bi bi-box-seam"></i></div>
                 <div class="kpi-body">
                     <span class="kpi-label">Bienes registrados</span>
                     <span class="kpi-value">@Moneda.Numero(_kpis.TotalBienes)</span>
+                    <span class="kpi-sub">
+                        @_kpis.TotalDevolutivos devolutivos · @_kpis.TotalConsumibles consumibles
+                    </span>
                 </div>
             </div>
 
             <div class="kpi-card kpi-blue">
-                <div class="kpi-icon"><i class="bi bi-tags"></i></div>
+                <div class="kpi-icon"><i class="bi bi-cash-stack"></i></div>
                 <div class="kpi-body">
-                    <span class="kpi-label">Categorías</span>
-                    <span class="kpi-value">@Moneda.Numero(_kpis.TotalCategorias)</span>
+                    <span class="kpi-label">Valor inventario</span>
+                    <span class="kpi-value">@Moneda.Kpi(_kpis.ValorInventario)</span>
+                    <span class="kpi-sub">
+                        PPE: @Moneda.Kpi(_kpis.ValorPPE) · Stock: @Moneda.Kpi(_kpis.ValorStockConsumo)
+                    </span>
+                </div>
+            </div>
+
+            <div class="kpi-card kpi-orange">
+                <div class="kpi-icon"><i class="bi bi-graph-down-arrow"></i></div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Depreciación acumulada</span>
+                    <span class="kpi-value">@Moneda.Kpi(_kpis.DepreciacionAcumulada)</span>
+                    <span class="kpi-sub">
+                        Valor neto: @Moneda.Kpi(_kpis.ValorNeto)
+                    </span>
                 </div>
             </div>
 
@@ -49,44 +82,160 @@
                 <div class="kpi-body">
                     <span class="kpi-label">Usuarios activos</span>
                     <span class="kpi-value">@Moneda.Numero(_kpis.UsuariosActivos)</span>
-                </div>
-            </div>
-
-            <div class="kpi-card kpi-red">
-                <div class="kpi-icon"><i class="bi bi-cash-stack"></i></div>
-                <div class="kpi-body">
-                    <span class="kpi-label">Valor inventario</span>
-                    <span class="kpi-value">@Moneda.Kpi(_kpis.ValorInventario)</span>
+                    <span class="kpi-sub">@Sesion.InstitucionNombre</span>
                 </div>
             </div>
         </section>
 
-        <section class="dashboard-grid">
+        <!-- ═══ ALERTAS ═══ -->
+        @if (HayAlertas())
+        {
+            <section class="alertas-panel">
+                <div class="alertas-titulo">
+                    <i class="bi bi-bell-fill"></i>
+                    <span>Alertas que requieren atención</span>
+                </div>
+                <div class="alertas-grid">
+                    @if (_kpis.BienesSinResponsable > 0)
+                    {
+                        <a href="/bienes" class="alerta alerta-warn">
+                            <i class="bi bi-person-x-fill"></i>
+                            <div>
+                                <strong>@_kpis.BienesSinResponsable</strong>
+                                <small>Bienes sin responsable</small>
+                            </div>
+                        </a>
+                    }
+                    @if (_kpis.BienesSinUbicacion > 0)
+                    {
+                        <a href="/bienes" class="alerta alerta-warn">
+                            <i class="bi bi-geo-alt-fill"></i>
+                            <div>
+                                <strong>@_kpis.BienesSinUbicacion</strong>
+                                <small>Bienes sin ubicación</small>
+                            </div>
+                        </a>
+                    }
+                    @if (_kpis.BienesBajoStock > 0)
+                    {
+                        <a href="/consumo" class="alerta alerta-info">
+                            <i class="bi bi-exclamation-triangle-fill"></i>
+                            <div>
+                                <strong>@_kpis.BienesBajoStock</strong>
+                                <small>Bienes bajo stock mínimo</small>
+                            </div>
+                        </a>
+                    }
+                    @if (_kpis.PrestamosVencidos > 0)
+                    {
+                        <a href="/prestamos" class="alerta alerta-danger">
+                            <i class="bi bi-clock-history"></i>
+                            <div>
+                                <strong>@_kpis.PrestamosVencidos</strong>
+                                <small>Préstamos vencidos</small>
+                            </div>
+                        </a>
+                    }
+                    @if (_kpis.GarantiasPorVencer > 0)
+                    {
+                        <a href="/garantias" class="alerta alerta-danger">
+                            <i class="bi bi-shield-exclamation"></i>
+                            <div>
+                                <strong>@_kpis.GarantiasPorVencer</strong>
+                                <small>Garantías por vencer</small>
+                            </div>
+                        </a>
+                    }
+                </div>
+            </section>
+        }
 
-            <div class="panel">
-                <header class="panel-header">
-                    <h2><i class="bi bi-bar-chart-line"></i> Bienes por categoría</h2>
+        <!-- ═══ GRÁFICOS PRINCIPALES ═══ -->
+        <section class="charts-grid">
+
+            <div class="chart-card chart-wide">
+                <header class="chart-header">
+                    <div>
+                        <h2>Bienes por categoría</h2>
+                        <p>Distribución del inventario según categoría contable</p>
+                    </div>
+                    <i class="bi bi-bar-chart-line-fill chart-icon"></i>
                 </header>
-                <div class="panel-body">
+                <div class="chart-body">
                     @if (_porCategoria.Count == 0)
                     {
-                        <p class="empty">Sin datos para mostrar.</p>
+                        <p class="empty">Sin datos.</p>
                     }
                     else
                     {
-                        var max = _porCategoria.Max(x => x.Cantidad);
-                        <ul class="categoria-list">
-                            @foreach (var c in _porCategoria)
+                        <canvas id="chartCategorias"></canvas>
+                    }
+                </div>
+            </div>
+
+            <div class="chart-card">
+                <header class="chart-header">
+                    <div>
+                        <h2>Distribución por tipo</h2>
+                        <p>Devolutivos vs Consumibles</p>
+                    </div>
+                    <i class="bi bi-pie-chart-fill chart-icon"></i>
+                </header>
+                <div class="chart-body chart-body-donut">
+                    <canvas id="chartTipo"></canvas>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- ═══ GRÁFICOS SECUNDARIOS + TOP 5 ═══ -->
+        <section class="charts-grid">
+
+            <div class="chart-card chart-wide">
+                <header class="chart-header">
+                    <div>
+                        <h2>Depreciación mensual</h2>
+                        <p>Evolución del último año</p>
+                    </div>
+                    <i class="bi bi-graph-down-arrow chart-icon"></i>
+                </header>
+                <div class="chart-body">
+                    @if (_depreciacion.Count == 0)
+                    {
+                        <p class="empty">Sin datos de depreciación.</p>
+                    }
+                    else
+                    {
+                        <canvas id="chartDepreciacion"></canvas>
+                    }
+                </div>
+            </div>
+
+            <div class="chart-card">
+                <header class="chart-header">
+                    <div>
+                        <h2>Top 5 bienes</h2>
+                        <p>Por valor de adquisición</p>
+                    </div>
+                    <i class="bi bi-trophy-fill chart-icon"></i>
+                </header>
+                <div class="chart-body">
+                    @if (_topBienes.Count == 0)
+                    {
+                        <p class="empty">Sin datos.</p>
+                    }
+                    else
+                    {
+                        <ul class="top-list">
+                            @foreach (var (b, i) in _topBienes.Select((x, idx) => (x, idx)))
                             {
-                                var pct = max == 0 ? 0 : (int)Math.Round((double)c.Cantidad / max * 100);
-                                <li>
-                                    <div class="cat-row">
-                                        <span class="cat-name">@c.CategoriaNombre</span>
-                                        <span class="cat-count">@c.Cantidad bienes</span>
+                                <li class="top-item">
+                                    <span class="top-rank">@(i + 1)</span>
+                                    <div class="top-info">
+                                        <strong>@b.Nombre</strong>
+                                        <small>@b.CategoriaNombre</small>
                                     </div>
-                                    <div class="cat-bar">
-                                        <div class="cat-bar-fill" style="width:@pct%"></div>
-                                    </div>
+                                    <span class="top-valor">@Moneda.Kpi(b.ValorAdquisicion)</span>
                                 </li>
                             }
                         </ul>
@@ -94,44 +243,47 @@
                 </div>
             </div>
 
-            <div class="panel">
-                <header class="panel-header">
-                    <h2><i class="bi bi-clock-history"></i> Últimos bienes registrados</h2>
-                </header>
-                <div class="panel-body">
-                    @if (_ultimos.Count == 0)
-                    {
-                        <p class="empty">Aún no hay bienes registrados.</p>
-                    }
-                    else
-                    {
-                        <table class="tabla-mini">
-                            <thead>
-                                <tr>
-                                    <th>Código</th>
-                                    <th>Bien</th>
-                                    <th>Categoría</th>
-                                    <th class="text-end">Valor</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var b in _ultimos)
-                                {
-                                    <tr>
-                                        <td><code>@b.Codigo</code></td>
-                                        <td>@b.Nombre</td>
-                                        <td>@b.CategoriaNombre</td>
-                                        <td class="text-end">
-                                            @Moneda.Entero(b.Valor)
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    }
-                </div>
-            </div>
+        </section>
 
+        <!-- ═══ ÚLTIMOS BIENES REGISTRADOS ═══ -->
+        <section class="chart-card">
+            <header class="chart-header">
+                <div>
+                    <h2>Últimos bienes registrados</h2>
+                    <p>Los 5 más recientes del inventario</p>
+                </div>
+                <i class="bi bi-clock-history chart-icon"></i>
+            </header>
+            <div class="chart-body">
+                @if (_ultimos.Count == 0)
+                {
+                    <p class="empty">Aún no hay bienes registrados.</p>
+                }
+                else
+                {
+                    <table class="tabla-mini">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Bien</th>
+                                <th>Categoría</th>
+                                <th class="text-end">Valor</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var b in _ultimos)
+                            {
+                                <tr>
+                                    <td><code>@b.Codigo</code></td>
+                                    <td>@b.Nombre</td>
+                                    <td>@b.CategoriaNombre</td>
+                                    <td class="text-end">@Moneda.Entero(b.Valor)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
         </section>
     }
     else
@@ -144,34 +296,52 @@
 </div>
 
 @code {
+    private static readonly CultureInfo CulturaCOP = CultureInfo.GetCultureInfo("es-CO");
+
     private bool _cargando = true;
     private bool _redirigiendo = false;
+
     private DashboardKpisDto? _kpis;
     private List<BienesPorCategoriaDto> _porCategoria = new();
     private List<UltimoBienDto> _ultimos = new();
+    private List<DepreciacionMensualDto> _depreciacion = new();
+    private List<TopBienDto> _topBienes = new();
+
+    private bool _chartsInit = false;
 
     protected override async Task OnInitializedAsync()
     {
-        // Si no hay sesión, marca redirección y no carga nada.
-        // La redirección real ocurre en OnAfterRenderAsync (donde JS sí funciona).
         if (!Sesion.EstaAutenticado)
         {
             _redirigiendo = true;
             _cargando = false;
             return;
         }
+        await Cargar();
+    }
+
+    private async Task Cargar()
+    {
+        _cargando = true;
+        StateHasChanged();
 
         try
         {
-            var kpisTask = DashboardRepo.ObtenerKpisAsync();
-            var categoriaTask = DashboardRepo.ObtenerBienesPorCategoriaAsync(5);
-            var ultimosTask = DashboardRepo.ObtenerUltimosBienesAsync(5);
+            var t1 = DashboardRepo.ObtenerKpisAsync();
+            var t2 = DashboardRepo.ObtenerBienesPorCategoriaAsync(10);
+            var t3 = DashboardRepo.ObtenerUltimosBienesAsync(5);
+            var t4 = DashboardRepo.ObtenerDepreciacionMensualAsync(12);
+            var t5 = DashboardRepo.ObtenerTopBienesAsync(5);
 
-            await Task.WhenAll(kpisTask, categoriaTask, ultimosTask);
+            await Task.WhenAll(t1, t2, t3, t4, t5);
 
-            _kpis = await kpisTask;
-            _porCategoria = (await categoriaTask).ToList();
-            _ultimos = (await ultimosTask).ToList();
+            _kpis = await t1;
+            _porCategoria = (await t2).ToList();
+            _ultimos = (await t3).ToList();
+            _depreciacion = (await t4).ToList();
+            _topBienes = (await t5).ToList();
+
+            _chartsInit = false;
         }
         catch (Exception ex)
         {
@@ -184,11 +354,57 @@
         }
     }
 
+    private async Task Recargar() => await Cargar();
+
+    private bool HayAlertas() =>
+        _kpis is not null && (
+            _kpis.BienesSinResponsable > 0 ||
+            _kpis.BienesSinUbicacion > 0 ||
+            _kpis.BienesBajoStock > 0 ||
+            _kpis.PrestamosVencidos > 0 ||
+            _kpis.GarantiasPorVencer > 0
+        );
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender && _redirigiendo)
         {
             await JS.InvokeVoidAsync("eval", "window.location.replace('/login')");
+            return;
+        }
+
+        // Inicializar gráficos cuando los datos estén listos
+        if (!_cargando && _kpis is not null && !_chartsInit)
+        {
+            _chartsInit = true;
+            await Task.Delay(100); // Esperar a que el DOM esté listo
+
+            // Bar chart
+            if (_porCategoria.Any())
+            {
+                var labels = _porCategoria.Select(c => c.CategoriaNombre).ToArray();
+                var data = _porCategoria.Select(c => c.Cantidad).ToArray();
+                var valores = _porCategoria.Select(c => c.ValorTotal).ToArray();
+                await JS.InvokeVoidAsync("dashboardCharts.crearBarCategorias",
+                    "chartCategorias", labels, data, valores);
+            }
+
+            // Donut chart
+            if (_kpis.TotalDevolutivos > 0 || _kpis.TotalConsumibles > 0)
+            {
+                await JS.InvokeVoidAsync("dashboardCharts.crearDonutTipo",
+                    "chartTipo", _kpis.TotalDevolutivos, _kpis.TotalConsumibles);
+            }
+
+            // Line chart
+            if (_depreciacion.Any())
+            {
+                var labels = _depreciacion.Select(d => d.Etiqueta).ToArray();
+                var depMes = _depreciacion.Select(d => d.DepreciacionMes).ToArray();
+                var depAcum = _depreciacion.Select(d => d.DepreciacionAcumulada).ToArray();
+                await JS.InvokeVoidAsync("dashboardCharts.crearLineDepreciacion",
+                    "chartDepreciacion", labels, depMes, depAcum);
+            }
         }
     }
 }
