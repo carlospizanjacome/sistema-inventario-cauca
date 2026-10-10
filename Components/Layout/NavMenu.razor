@@ -205,7 +205,7 @@
         }
 
         <!-- ═══ PERSONAL ═══ -->
-        @if (_puedeVer("funcionarios.ver"))
+        @if (_puedeVer("funcionarios.ver") || _puedeVer("proveedores.ver"))
         {
             <div class="nav-group">
                 <button class="nav-group-header" type="button" @onclick="@(() => ToggleSeccion("personal"))">
@@ -215,10 +215,20 @@
                 @if (EstaAbierto("personal"))
                 {
                     <div class="nav-group-body">
-                        <NavLink class="nav-btn-neutral" href="funcionarios">
-                            <i class="bi bi-person-badge"></i>
-                            <span>Funcionarios</span>
-                        </NavLink>
+                        @if (_puedeVer("funcionarios.ver"))
+                        {
+                            <NavLink class="nav-btn-neutral" href="funcionarios">
+                                <i class="bi bi-person-badge"></i>
+                                <span>Funcionarios</span>
+                            </NavLink>
+                        }
+                        @if (_puedeVer("proveedores.ver"))
+                        {
+                            <NavLink class="nav-btn prestamos" href="proveedores">
+                                <i class="bi bi-shop"></i>
+                                <span>Proveedores</span>
+                            </NavLink>
+                        }
                     </div>
                 }
             </div>

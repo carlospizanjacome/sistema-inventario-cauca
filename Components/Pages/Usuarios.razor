@@ -426,7 +426,7 @@
                 {
                     Id = usuarioEditandoId,
                     NombreCompleto = usuarioDTO.NombreCompleto,
-                    Email = usuarioDTO.Email,
+                   Email = usuarioDTO.Email!,
                     PasswordHash = usuarioDTO.Password,
                     Activo = usuarioDTO.Activo,
                     RolId = usuarioDTO.RolId,
@@ -443,7 +443,7 @@
                 var usuario = new Usuario
                 {
                     NombreCompleto = usuarioDTO.NombreCompleto,
-                    Email = usuarioDTO.Email,
+                   Email = usuarioDTO.Email!,
                     PasswordHash = usuarioDTO.Password,
                     Activo = usuarioDTO.Activo,
                     RolId = usuarioDTO.RolId,
