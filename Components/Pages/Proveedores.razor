@@ -15,6 +15,7 @@
 @inject NavigationManager Navigation
 @inject ToastService Toast
 @inject ConfirmService Confirm
+@inject AuditoriaService Auditoria
 
 <PageTitle>Proveedores · Almacén</PageTitle>
 
@@ -152,7 +153,7 @@
             </EditForm>
         </div>
     }
-    
+
     @* ═══════════════ CARD TABLE ═══════════════ *@
     <div class="card-table">
 
@@ -374,26 +375,80 @@
         {
             if (editando)
             {
-                // ── EDICIÓN: guardar y MANTENER ABIERTO con los datos ──
+                // ═══ Capturar estado anterior para auditoría ═══
+                var anterior = await ProveedorRepo.ObtenerPorIdAsync(proveedorEditandoId);
+
                 await ProveedorRepo.ActualizarAsync(proveedorDTO);
                 Toast.Exito($"Proveedor '{proveedorDTO.Nombre}' actualizado. Puede seguir editando.");
+
+                // ═══ AUDITORÍA: edición ═══
+                try
+                {
+                    await Auditoria.RegistrarEdicionAsync(
+                        modulo: "proveedores",
+                        objetoTipo: "Proveedor",
+                        objetoId: proveedorEditandoId,
+                        objetoCodigo: proveedorDTO.Nit,
+                        objetoDescripcion: $"Edición de proveedor: {proveedorDTO.Nombre}",
+                        antes: anterior is null ? null : new
+                        {
+                            Nit = anterior.Nit,
+                            Nombre = anterior.Nombre,
+                            Contacto = anterior.Contacto,
+                            Direccion = anterior.Direccion,
+                            Telefono = anterior.Telefono,
+                            Email = anterior.Email,
+                            Activo = anterior.Activo
+                        },
+                        despues: new
+                        {
+                            Nit = proveedorDTO.Nit,
+                            Nombre = proveedorDTO.Nombre,
+                            Contacto = proveedorDTO.Contacto,
+                            Direccion = proveedorDTO.Direccion,
+                            Telefono = proveedorDTO.Telefono,
+                            Email = proveedorDTO.Email,
+                            Activo = proveedorDTO.Activo
+                        });
+                }
+                catch { /* No bloquear si falla */ }
             }
             else
             {
-                // ── CREACIÓN: guardar y MANTENER ABIERTO, limpiar form ──
                 await ProveedorRepo.CrearAsync(proveedorDTO);
                 Toast.Exito($"Proveedor '{proveedorDTO.Nombre}' creado. Puede continuar registrando.");
+
+                // ═══ AUDITORÍA: creación ═══
+                try
+                {
+                    await Auditoria.RegistrarCreacionAsync(
+                        modulo: "proveedores",
+                        objetoTipo: "Proveedor",
+                        objetoId: 0,
+                        objetoCodigo: proveedorDTO.Nit,
+                        objetoDescripcion: $"Creación de proveedor: {proveedorDTO.Nombre}",
+                        despues: new
+                        {
+                            Nit = proveedorDTO.Nit,
+                            Nombre = proveedorDTO.Nombre,
+                            Contacto = proveedorDTO.Contacto,
+                            Direccion = proveedorDTO.Direccion,
+                            Telefono = proveedorDTO.Telefono,
+                            Email = proveedorDTO.Email,
+                            Activo = proveedorDTO.Activo
+                        });
+                }
+                catch { /* No bloquear si falla */ }
 
                 // Limpiar el form manteniendo Activo = true
                 proveedorDTO = new ProveedorDTO { Activo = true };
 
-                // Enfocar el primer campo
                 try
                 {
                     await JS.InvokeVoidAsync("eval",
                         "setTimeout(() => { const el = document.querySelector('.card-form input'); if (el) el.focus(); }, 100);");
                 }
-                catch { /* silencioso */ }
+                catch { }
             }
 
             await Cargar();
@@ -447,6 +502,29 @@
         {
             await ProveedorRepo.EliminarAsync(p.Id);
             Toast.Exito("Proveedor eliminado correctamente");
+
+            // ═══ AUDITORÍA: eliminación ═══
+            try
+            {
+                await Auditoria.RegistrarEliminacionAsync(
+                    modulo: "proveedores",
+                    objetoTipo: "Proveedor",
+                    objetoId: p.Id,
+                    objetoCodigo: p.Nit,
+                    objetoDescripcion: $"Eliminación de proveedor: {p.Nombre}",
+                    antes: new
+                    {
+                        Nit = p.Nit,
+                        Nombre = p.Nombre,
+                        Contacto = p.Contacto,
+                        Direccion = p.Direccion,
+                        Telefono = p.Telefono,
+                        Email = p.Email,
+                        Activo = p.Activo
+                    });
+            }
+            catch { /* No bloquear si falla */ }
+
             await Cargar();
         }
         catch (Exception ex)

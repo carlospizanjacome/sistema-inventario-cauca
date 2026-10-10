@@ -15,6 +15,7 @@
 @inject IJSRuntime JS
 @inject SeguridadService Seguridad
 @inject ToastService Toast
+@inject AuditoriaService Auditoria
 
 <PageTitle>Kárdex · Almacén</PageTitle>
 
@@ -387,7 +388,6 @@
 
     private MovimientoConsumoDTO _movDTO = new();
 
-    // ═══ Estado de paginación del histórico ═══
     private int _paginaMovimientos = 1;
     private int _tamanoMovimientos = 25;
 
@@ -484,7 +484,6 @@
         _bienSeleccionado = await KardexRepo.ObtenerBienConsumoPorIdAsync(_bienIdSeleccionado);
         _movimientos = (await KardexRepo.ObtenerKardexAsync(_bienIdSeleccionado)).ToList();
 
-        // Resetear paginación al cambiar de bien
         _paginaMovimientos = 1;
 
         if (_bienSeleccionado != null)
@@ -515,6 +514,29 @@
             _movDTO.BienId = _bienIdSeleccionado;
             await KardexRepo.RegistrarMovimientoAsync(_movDTO);
 
+            // ═══ AUDITORÍA ═══
+            try
+            {
+                await Auditoria.RegistrarCreacionAsync(
+                    modulo: "kardex",
+                    objetoTipo: "MovimientoConsumo",
+                    objetoId: _bienIdSeleccionado,
+                    objetoCodigo: _bienSeleccionado?.Codigo,
+                    objetoDescripcion: $"{_movDTO.TipoMovimiento} {_movDTO.Cantidad:N2} {_bienSeleccionado?.UnidadMedida} — {_movDTO.DocumentoReferencia ?? "sin documento"}",
+                    despues: new
+                    {
+                        TipoMovimiento = _movDTO.TipoMovimiento,
+                        Cantidad = _movDTO.Cantidad,
+                        CostoUnitario = _movDTO.CostoUnitario,
+                        ValorMovimiento = _movDTO.Cantidad * _movDTO.CostoUnitario,
+                        DocumentoReferencia = _movDTO.DocumentoReferencia,
+                        ProveedorId = _movDTO.ProveedorId,
+                        FuncionarioRecibeId = _movDTO.FuncionarioRecibeId,
+                        Observaciones = _movDTO.Observaciones
+                    });
+            }
+            catch { /* No bloquear si falla */ }
+
             Toast.Exito("Movimiento registrado correctamente");
 
             _bienes = (await KardexRepo.ObtenerBienesConsumoAsync()).ToList();
@@ -526,10 +548,6 @@
             Toast.Error($"Error: {ex.Message}");
         }
     }
-
-    // ═══════════════════════════════════════════════════════════════
-    // MÉTODOS DE PAGINACIÓN
-    // ═══════════════════════════════════════════════════════════════
 
     private void CambiarPaginaMovimientos(int nuevaPagina)
     {

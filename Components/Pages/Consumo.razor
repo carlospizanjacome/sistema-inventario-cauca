@@ -1,4 +1,4 @@
-﻿   @page "/consumo"
+﻿@page "/consumo"
 @rendermode InteractiveServer
 
 @using Almacen.Components.Shared
@@ -17,6 +17,7 @@
 @inject NavigationManager Navigation
 @inject ToastService Toast
 @inject ConfirmService Confirm
+@inject AuditoriaService Auditoria
 
 <PageTitle>Consumo · Almacén</PageTitle>
 
@@ -572,13 +573,68 @@
         {
             if (editando)
             {
+                // ═══ Capturar estado anterior para auditoría ═══
+                var anterior = await KardexRepo.ObtenerBienConsumoPorIdAsync(bienEditandoId);
+
                 await KardexRepo.ActualizarBienConsumoAsync(bienDTO);
                 Toast.Exito($"Bien '{bienDTO.Nombre}' actualizado.");
+
+                // ═══ AUDITORÍA: edición ═══
+                try
+                {
+                    await Auditoria.RegistrarEdicionAsync(
+                        modulo: "consumo",
+                        objetoTipo: "BienConsumo",
+                        objetoId: bienEditandoId,
+                        objetoCodigo: bienDTO.Codigo,
+                        objetoDescripcion: $"Edición de bien de consumo: {bienDTO.Nombre}",
+                        antes: anterior is null ? null : new
+                        {
+                            Nombre = anterior.Nombre,
+                            Descripcion = anterior.Descripcion,
+                            CategoriaId = anterior.CategoriaId,
+                            UnidadMedida = anterior.UnidadMedida,
+                            StockMinimo = anterior.StockMinimo,
+                            Activo = anterior.Activo
+                        },
+                        despues: new
+                        {
+                            Nombre = bienDTO.Nombre,
+                            Descripcion = bienDTO.Descripcion,
+                            CategoriaId = bienDTO.CategoriaId,
+                            UnidadMedida = bienDTO.UnidadMedida,
+                            StockMinimo = bienDTO.StockMinimo,
+                            Activo = bienDTO.Activo
+                        });
+                }
+                catch { /* No bloquear si falla */ }
             }
             else
             {
                 await KardexRepo.CrearBienConsumoAsync(bienDTO);
                 Toast.Exito($"Bien '{bienDTO.Nombre}' creado con código {bienDTO.Codigo}.");
+
+                // ═══ AUDITORÍA: creación ═══
+                try
+                {
+                    await Auditoria.RegistrarCreacionAsync(
+                        modulo: "consumo",
+                        objetoTipo: "BienConsumo",
+                        objetoId: 0,
+                        objetoCodigo: bienDTO.Codigo,
+                        objetoDescripcion: $"Creación de bien de consumo: {bienDTO.Nombre}",
+                        despues: new
+                        {
+                            Codigo = bienDTO.Codigo,
+                            Nombre = bienDTO.Nombre,
+                            Descripcion = bienDTO.Descripcion,
+                            CategoriaId = bienDTO.CategoriaId,
+                            UnidadMedida = bienDTO.UnidadMedida,
+                            StockMinimo = bienDTO.StockMinimo,
+                            Activo = bienDTO.Activo
+                        });
+                }
+                catch { /* No bloquear si falla */ }
 
                 var unidadActual = bienDTO.UnidadMedida;
                 var categoriaActual = bienDTO.CategoriaId;
@@ -652,6 +708,30 @@
         {
             await KardexRepo.EliminarBienConsumoAsync(b.Id);
             Toast.Exito("Bien eliminado");
+
+            // ═══ AUDITORÍA: eliminación ═══
+            try
+            {
+                await Auditoria.RegistrarEliminacionAsync(
+                    modulo: "consumo",
+                    objetoTipo: "BienConsumo",
+                    objetoId: b.Id,
+                    objetoCodigo: b.Codigo,
+                    objetoDescripcion: $"Eliminación de bien de consumo: {b.Nombre}",
+                    antes: new
+                    {
+                        Codigo = b.Codigo,
+                        Nombre = b.Nombre,
+                        Descripcion = b.Descripcion,
+                        CategoriaId = b.CategoriaId,
+                        UnidadMedida = b.UnidadMedida,
+                        StockMinimo = b.StockMinimo,
+                        StockActual = b.StockActual,
+                        Activo = b.Activo
+                    });
+            }
+            catch { /* No bloquear si falla */ }
+
             await Cargar();
             StateHasChanged();
         }
