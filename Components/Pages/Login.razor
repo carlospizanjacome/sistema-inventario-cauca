@@ -1,16 +1,18 @@
-﻿@page "/login"
+@page "/login"
 @rendermode InteractiveServer
 @using Almacen.Components.Layout
 @using System.ComponentModel.DataAnnotations
 @using Almacen.Interfaces
 @using Almacen.Models
 @using Almacen.Services
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
 @layout EmptyLayout
 @inject NavigationManager Navigation
 @inject IAuthService AuthService
 @inject IUsuarioRepository UsuarioRepository
 @inject UsuarioSesionService Sesion
 @inject SeguridadService Seguridad
+@inject ProtectedLocalStorage LocalStorage
 
 <PageTitle>Acceso · AlmacénPro</PageTitle>
 
@@ -155,6 +157,30 @@
     private LoginInput loginModel = new();
     private string mensajeError = string.Empty;
     private bool cargando = false;
+    private bool _emailCargado = false;
+
+    private const string EMAIL_KEY = "almacen_ultimo_email";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_emailCargado)
+        {
+            _emailCargado = true;
+            try
+            {
+                var resultado = await LocalStorage.GetAsync<string>(EMAIL_KEY);
+                if (resultado.Success && !string.IsNullOrEmpty(resultado.Value))
+                {
+                    loginModel.Email = resultado.Value;
+                    StateHasChanged();
+                }
+            }
+            catch
+            {
+                // Sin localStorage - continuar vacio
+            }
+        }
+    }
 
     private async Task ProcesarLogin()
     {
@@ -179,6 +205,16 @@
             {
                 mensajeError = "Usuario no encontrado.";
                 return;
+            }
+
+            // Guardar el email en localStorage para la proxima vez
+            try
+            {
+                await LocalStorage.SetAsync(EMAIL_KEY, loginModel.Email);
+            }
+            catch
+            {
+                // Si falla localStorage, no bloquea el login
             }
 
             var usuarioSesion = new UsuarioSesion
