@@ -5,6 +5,7 @@
 @using Almacen.Interfaces
 @using Almacen.Services
 @using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Web
 @using Microsoft.JSInterop
 @using System.Globalization
 
@@ -15,121 +16,132 @@
 @inject IJSRuntime JS
 @inject SeguridadService Seguridad
 @inject ToastService Toast
-@inject AuditoriaService Auditoria
 
 <PageTitle>Kárdex · Almacén</PageTitle>
 
-<div class="kardex-page">
+<div class="kx-page">
 
-    @* ═══════════════════════════════════════════════════
-       HEADER COMPACTO
-       ═══════════════════════════════════════════════════ *@
-    <header class="kardex-header">
-        <div class="kardex-title-group">
-            <h1 class="kardex-title">
-                <i class="bi bi-journal-text"></i>
-                Kárdex
-                <span class="kardex-title-hint">Libro auxiliar contable · CPP</span>
-            </h1>
+    @* ═══ TOPBAR ═══ *@
+    <div class="kx-topbar">
+        <div class="kx-topbar-title">
+            <i class="bi bi-journal-text"></i>
+            <h1>Kárdex</h1>
         </div>
 
-        <div class="kardex-search-group">
-            <div class="kardex-search">
+        @if (_bienSeleccionado != null)
+        {
+            <div class="kx-buscador kx-buscador-inline">
                 <i class="bi bi-search"></i>
                 <input type="text"
-                       list="lista-bienes-kardex"
                        placeholder="Buscar bien…"
-                       value="@_textoBusquedaBien"
-                       @oninput="FiltrarBienes"
-                       @onchange="SeleccionarBienDesdeInput"
+                       value="@_textoBusqueda"
+                       @oninput="OnBusquedaInput"
+                       @onfocus="OnBusquedaFocus"
+                       @onkeydown="OnBusquedaKeyDown"
                        autocomplete="off" />
-                <datalist id="lista-bienes-kardex">
-                    @foreach (var b in _bienesFiltrados)
-                    {
-                        <option value="@b.Codigo — @b.Nombre">
-                            Stock: @b.StockActual.ToString("N2") @b.UnidadMedida
-                        </option>
-                    }
-                </datalist>
-                @if (_bienSeleccionado != null)
+                @if (!string.IsNullOrWhiteSpace(_textoBusqueda))
                 {
-                    <button class="kardex-search-clear"
-                            type="button"
-                            @onclick="LimpiarSeleccionBien"
-                            title="Limpiar selección">
+                    <button type="button" class="kx-buscador-clear"
+                            @onclick="LimpiarBusqueda"
+                            @onclick:stopPropagation="true">
                         <i class="bi bi-x-lg"></i>
                     </button>
                 }
-            </div>
-        </div>
-    </header>
 
-    @if (_bienIdSeleccionado > 0 && _bienSeleccionado != null)
+                @if (_mostrarDropdown)
+                {
+                    <div class="kx-dropdown" @onmousedown:preventDefault="true">
+                        @if (_resultadosBusqueda.Count > 0)
+                        {
+                            @foreach (var b in _resultadosBusqueda.Take(15))
+                            {
+                                var bien = b;
+                                <button type="button" class="kx-dropdown-item"
+                                        @onclick="() => SeleccionarBien(bien)"
+                                        @onclick:stopPropagation="true">
+                                    <div class="kx-dropdown-row">
+                                        <code>@bien.Codigo</code>
+                                        <strong>@bien.Nombre</strong>
+                                    </div>
+                                    <div class="kx-dropdown-meta">
+                                        <span>@bien.StockActual.ToString("N2") @bien.UnidadMedida</span>
+                                        <span>@bien.CppActual.ToString("C0", CulturaCOP)</span>
+                                    </div>
+                                </button>
+                            }
+                        }
+                        else
+                        {
+                            <div class="kx-dropdown-empty">
+                                <i class="bi bi-search"></i>
+                                <span>Sin resultados</span>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    @* ═══ CONTENIDO ═══ *@
+    @if (_bienSeleccionado != null)
     {
-        @* ═══════════════════════════════════════════════════
-           KPIs
-           ═══════════════════════════════════════════════════ *@
-        <section class="kardex-kpis" aria-label="Indicadores del bien">
-            <article class="kardex-kpi">
-                <span class="kardex-kpi-label">Stock actual</span>
-                <span class="kardex-kpi-value @(_bienSeleccionado.BajoStockMinimo ? "kardex-kpi-warn" : "")">
-                    @_bienSeleccionado.StockActual.ToString("N2")
-                    <small>@_bienSeleccionado.UnidadMedida</small>
-                </span>
+        @* ═══ STRIP ═══ *@
+        <div class="kx-strip @(_bienSeleccionado.BajoStockMinimo ? "kx-strip-warn" : "")">
+            <div class="kx-strip-bien">
+                <code>@_bienSeleccionado.Codigo</code>
+                <strong>@_bienSeleccionado.Nombre</strong>
                 @if (_bienSeleccionado.BajoStockMinimo)
                 {
-                    <span class="kardex-kpi-flag">
+                    <span class="kx-strip-alerta">
                         <i class="bi bi-exclamation-triangle-fill"></i> Bajo stock
                     </span>
                 }
-            </article>
+            </div>
 
-            <article class="kardex-kpi">
-                <span class="kardex-kpi-label">Stock mínimo</span>
-                <span class="kardex-kpi-value">
-                    @_bienSeleccionado.StockMinimo.ToString("N2")
+            <div class="kx-strip-metrics">
+                <span class="kx-metric">
+                    <label>Stock</label>
+                    <b>@_bienSeleccionado.StockActual.ToString("N2")</b>
+                    <small>@_bienSeleccionado.UnidadMedida</small>
                 </span>
-            </article>
-
-            <article class="kardex-kpi">
-                <span class="kardex-kpi-label">CPP actual</span>
-                <span class="kardex-kpi-value">
-                    @_bienSeleccionado.CppActual.ToString("C2", CulturaCOP)
+                <span class="kx-metric-sep">·</span>
+                <span class="kx-metric">
+                    <label>Mín</label>
+                    <b>@_bienSeleccionado.StockMinimo.ToString("N2")</b>
                 </span>
-            </article>
-
-            <article class="kardex-kpi kardex-kpi-highlight">
-                <span class="kardex-kpi-label">Valor del stock</span>
-                <span class="kardex-kpi-value">
-                    @_bienSeleccionado.ValorStock.ToString("C0", CulturaCOP)
+                <span class="kx-metric-sep">·</span>
+                <span class="kx-metric">
+                    <label>CPP</label>
+                    <b>@_bienSeleccionado.CppActual.ToString("C2", CulturaCOP)</b>
                 </span>
-            </article>
-        </section>
+                <span class="kx-metric-sep">·</span>
+                <span class="kx-metric kx-metric-highlight">
+                    <label>Valor stock</label>
+                    <b>@_bienSeleccionado.ValorStock.ToString("C0", CulturaCOP)</b>
+                </span>
+            </div>
+        </div>
 
-        @* ═══════════════════════════════════════════════════
-           FORMULARIO DE MOVIMIENTO
-           ═══════════════════════════════════════════════════ *@
-        <section class="kardex-panel">
-            <header class="kardex-panel-header">
-                <div class="kardex-panel-title">
-                    <i class="bi bi-arrow-left-right" aria-hidden="true"></i>
-                    <div>
-                        <h2>Registrar movimiento</h2>
-                        <p>Los movimientos no se editan ni eliminan. Use ajustes para corregir.</p>
-                    </div>
+        @* ═══ FORMULARIO ═══ *@
+        <div class="kx-panel">
+            <div class="kx-panel-header">
+                <div class="kx-panel-title">
+                    <i class="bi bi-plus-circle-fill"></i>
+                    <span>Registrar movimiento</span>
                 </div>
-            </header>
+                <span class="kx-panel-hint">Inmutable · use ajustes para corregir</span>
+            </div>
 
             <EditForm Model="_movDTO" OnValidSubmit="RegistrarMovimiento">
                 <DataAnnotationsValidator />
 
-                <div class="kardex-form-grid">
-                    <div class="kardex-form-field">
+                <div class="kx-form">
+                    <div class="kx-field">
                         <label for="mov-tipo">Tipo *</label>
-                        <div class="kardex-input-icon">
+                        <div class="kx-input">
                             <i class="bi bi-arrow-left-right"></i>
-                            <InputSelect id="mov-tipo" class="form-select"
-                                         @bind-Value="_movDTO.TipoMovimiento">
+                            <InputSelect id="mov-tipo" @bind-Value="_movDTO.TipoMovimiento">
                                 <option value="ENTRADA">ENTRADA (+)</option>
                                 <option value="SALIDA">SALIDA (−)</option>
                                 <option value="AJUSTE_POS">AJUSTE (+)</option>
@@ -138,59 +150,77 @@
                         </div>
                     </div>
 
-                    <div class="kardex-form-field">
+                    <div class="kx-field">
                         <label for="mov-fecha">Fecha *</label>
-                        <div class="kardex-input-icon">
+                        <div class="kx-input">
                             <i class="bi bi-calendar-event"></i>
-                            <InputDate id="mov-fecha" class="form-control"
-                                       @bind-Value="_movDTO.FechaMovimiento" />
+                            <input id="mov-fecha"
+                                   type="text"
+                                   class="kx-input-date"
+                                   placeholder="dd/mm/aaaa"
+                                   value="@(_movDTO.FechaMovimiento?.ToString("yyyy-MM-dd"))"
+                                   @onchange="OnFechaChanged"
+                                   readonly />
                         </div>
                     </div>
 
-                    <div class="kardex-form-field">
+                    <div class="kx-field">
                         <label for="mov-cantidad">Cantidad *</label>
-                        <div class="kardex-input-icon">
+                        <div class="kx-input">
                             <i class="bi bi-123"></i>
-                            <InputNumber id="mov-cantidad" class="form-control"
-                                         @bind-Value="_movDTO.Cantidad" step="0.01" />
+                            <input id="mov-cantidad"
+                                   type="text"
+                                   inputmode="decimal"
+                                   class="kx-input-number"
+                                   value="@_cantidadTexto"
+                                   @oninput="OnCantidadInput"
+                                   @onblur="OnCantidadBlur"
+                                   placeholder="0,00" />
                         </div>
-                        <ValidationMessage For="() => _movDTO.Cantidad" class="form-error" />
+                        @if (!string.IsNullOrEmpty(_errorCantidad))
+                        {
+                            <span class="kx-error">@_errorCantidad</span>
+                        }
                     </div>
 
-                    <div class="kardex-form-field">
+                    <div class="kx-field">
                         <label for="mov-costo">
-                            Costo unitario
+                            Costo unit.
                             @if (EsSalida)
                             {
-                                <span class="kardex-label-hint">— usa CPP</span>
+                                <span class="kx-hint">usa CPP</span>
                             }
                         </label>
-                        <div class="kardex-input-icon">
+                        <div class="kx-input">
                             <i class="bi bi-currency-dollar"></i>
-                            <InputNumber id="mov-costo" class="form-control"
-                                         @bind-Value="_movDTO.CostoUnitario"
-                                         step="0.01"
-                                         disabled="@EsSalida" />
+                            <input id="mov-costo"
+                                   type="text"
+                                   inputmode="decimal"
+                                   class="kx-input-number"
+                                   value="@_costoTexto"
+                                   @oninput="OnCostoInput"
+                                   @onblur="OnCostoBlur"
+                                   placeholder="0,00"
+                                   disabled="@EsSalida" />
                         </div>
                     </div>
 
-                    <div class="kardex-form-field">
-                        <label for="mov-doc">N° documento</label>
-                        <div class="kardex-input-icon">
+                    <div class="kx-field">
+                        <label for="mov-doc">Documento</label>
+                        <div class="kx-input">
                             <i class="bi bi-receipt"></i>
-                            <InputText id="mov-doc" class="form-control"
+                            <InputText id="mov-doc"
                                        @bind-Value="_movDTO.DocumentoReferencia"
                                        placeholder="Factura / Acta" />
                         </div>
                     </div>
 
-                    <div class="kardex-form-field">
+                    <div class="kx-field">
                         <label for="mov-prov">Proveedor</label>
-                        <div class="kardex-input-icon">
+                        <div class="kx-input">
                             <i class="bi bi-shop"></i>
-                            <InputSelect id="mov-prov" class="form-select"
-                                         @bind-Value="_movDTO.ProveedorId"
-                                         disabled="@EsSalida">
+                            <InputSelect id="mov-prov"
+                                         @bind-Value="_movDTO.ProveedorId" disabled="@EsSalida">
                                 <option value="">— Sin proveedor —</option>
                                 @foreach (var p in _proveedores)
                                 {
@@ -200,11 +230,11 @@
                         </div>
                     </div>
 
-                    <div class="kardex-form-field">
+                    <div class="kx-field">
                         <label for="mov-recibe">Recibe</label>
-                        <div class="kardex-input-icon">
+                        <div class="kx-input">
                             <i class="bi bi-person-check"></i>
-                            <InputSelect id="mov-recibe" class="form-select"
+                            <InputSelect id="mov-recibe"
                                          @bind-Value="_movDTO.FuncionarioRecibeId">
                                 <option value="">— Sin asignar —</option>
                                 @foreach (var f in _funcionarios)
@@ -215,66 +245,208 @@
                         </div>
                     </div>
 
-                    <div class="kardex-form-field kardex-form-field-full">
+                    @* ═══ Fila 2: Observaciones (6/7) + Botón (1/7) ═══ *@
+                    <div class="kx-field kx-field-obs">
                         <label for="mov-obs">Observaciones</label>
-                        <div class="kardex-input-icon">
+                        <div class="kx-input">
                             <i class="bi bi-chat-left-text"></i>
-                            <InputText id="mov-obs" class="form-control"
+                            <InputText id="mov-obs"
                                        @bind-Value="_movDTO.Observaciones"
                                        placeholder="Notas opcionales" />
                         </div>
                     </div>
-                </div>
 
-                <div class="kardex-panel-actions">
-                    <button type="submit" class="btn btn-save">
-                        <i class="bi bi-check-circle-fill"></i>
-                        Registrar movimiento
-                    </button>
-                </div>
-            </EditForm>
-        </section>
-
-        @* ═══════════════════════════════════════════════════
-           TABLA CON PAGINACIÓN
-           ═══════════════════════════════════════════════════ *@
-        <section class="kardex-panel">
-            <header class="kardex-panel-header">
-                <div class="kardex-panel-title">
-                    <i class="bi bi-clock-history" aria-hidden="true"></i>
-                    <div>
-                        <h2>Histórico de movimientos</h2>
-                        <p>Libro cronológico · Inmutable</p>
+                    <div class="kx-field kx-field-btn">
+                        <button type="submit" class="kx-btn-primary">
+                            <i class="bi bi-check-circle-fill"></i>
+                            Registrar
+                        </button>
                     </div>
                 </div>
-                <span class="kardex-panel-badge">
-                    @((_movimientos?.Count ?? 0)) movimientos
-                </span>
-            </header>
+            </EditForm>
+        </div>
 
-            <div class="kardex-table-wrapper">
-                <table class="kardex-table">
+        @* ═══ HISTÓRICO CON FILTROS ═══ *@
+        <div class="kx-panel">
+            <div class="kx-panel-header">
+                <div class="kx-panel-title">
+                    <i class="bi bi-clock-history"></i>
+                    <span>Histórico de movimientos</span>
+                </div>
+                <span class="kx-panel-badge">@(_movimientosFiltrados.Count())</span>
+            </div>
+
+            @* ═══ BARRA DE FILTROS ═══ *@
+            <div class="filtros-tabla">
+                <div class="filtro-busqueda">
+                    <i class="bi bi-search"></i>
+                    <input type="text"
+                           placeholder="Buscar por documento…"
+                           value="@_filtroDocumento"
+                           @oninput="OnFiltroDocumentoChanged" />
+                    @if (!string.IsNullOrEmpty(_filtroDocumento))
+                    {
+                        <button class="filtro-clear" @onclick="LimpiarFiltroDocumento" title="Limpiar búsqueda">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    }
+                </div>
+
+                <div class="filtros-tabla-derecha">
+
+                    @* ═══ Dropdown Tipo ═══ *@
+                    <details class="dropdown-filtro" id="dropdown-tipo-kx">
+                        <summary class="dropdown-filtro-trigger">
+                            <i class="bi bi-diagram-3"></i>
+                            <span>@(_filtroTipo switch
+                                    {
+                                        "ENTRADA" => "Entradas",
+                                        "SALIDA" => "Salidas",
+                                        "AJUSTE_POS" => "Ajustes (+)",
+                                        "AJUSTE_NEG" => "Ajustes (−)",
+                                        _ => "Todos los tipos"
+                                    })</span>
+                            <i class="bi bi-chevron-down dropdown-filtro-chevron"></i>
+                        </summary>
+
+                        <div class="dropdown-filtro-panel">
+                            <div class="dropdown-filtro-item @(string.IsNullOrEmpty(_filtroTipo) ? "active" : "")"
+                                 @onclick="SeleccionarTipoTodos">
+                                <i class="bi bi-grid-3x3"></i>
+                                <span>Todos los tipos</span>
+                                @if (string.IsNullOrEmpty(_filtroTipo))
+                                {
+                                    <i class="bi bi-check2 dropdown-filtro-check"></i>
+                                }
+                            </div>
+
+                            <div class="dropdown-filtro-divider"></div>
+
+                            <div class="dropdown-filtro-item @(_filtroTipo == "ENTRADA" ? "active" : "")"
+                                 @onclick="SeleccionarTipoEntrada">
+                                <i class="bi bi-box-arrow-in-down"></i>
+                                <span>Entradas (+)</span>
+                                @if (_filtroTipo == "ENTRADA")
+                                {
+                                    <i class="bi bi-check2 dropdown-filtro-check"></i>
+                                }
+                            </div>
+
+                            <div class="dropdown-filtro-item @(_filtroTipo == "SALIDA" ? "active" : "")"
+                                 @onclick="SeleccionarTipoSalida">
+                                <i class="bi bi-box-arrow-up"></i>
+                                <span>Salidas (−)</span>
+                                @if (_filtroTipo == "SALIDA")
+                                {
+                                    <i class="bi bi-check2 dropdown-filtro-check"></i>
+                                }
+                            </div>
+
+                            <div class="dropdown-filtro-item @(_filtroTipo == "AJUSTE_POS" ? "active" : "")"
+                                 @onclick="SeleccionarTipoAjustePos">
+                                <i class="bi bi-plus-circle"></i>
+                                <span>Ajustes (+)</span>
+                                @if (_filtroTipo == "AJUSTE_POS")
+                                {
+                                    <i class="bi bi-check2 dropdown-filtro-check"></i>
+                                }
+                            </div>
+
+                            <div class="dropdown-filtro-item @(_filtroTipo == "AJUSTE_NEG" ? "active" : "")"
+                                 @onclick="SeleccionarTipoAjusteNeg">
+                                <i class="bi bi-dash-circle"></i>
+                                <span>Ajustes (−)</span>
+                                @if (_filtroTipo == "AJUSTE_NEG")
+                                {
+                                    <i class="bi bi-check2 dropdown-filtro-check"></i>
+                                }
+                            </div>
+                        </div>
+                    </details>
+
+                    @* ═══ Dropdown Fecha ═══ *@
+                    <details class="dropdown-filtro" id="dropdown-fecha-kx">
+                        <summary class="dropdown-filtro-trigger">
+                            <i class="bi bi-calendar-range"></i>
+                            <span>@GetTextoFiltroFecha()</span>
+                            <i class="bi bi-chevron-down dropdown-filtro-chevron"></i>
+                        </summary>
+
+                        <div class="dropdown-filtro-panel dropdown-filtro-panel-fechas">
+                            <div class="dropdown-filtro-fecha-grupo">
+                                <label>Desde</label>
+                                <input type="date"
+                                       class="dropdown-filtro-fecha-input"
+                                       value="@(_filtroFechaDesde?.ToString("yyyy-MM-dd"))"
+                                       @onchange="OnFiltroFechaDesdeChanged" />
+                            </div>
+
+                            <div class="dropdown-filtro-fecha-grupo">
+                                <label>Hasta</label>
+                                <input type="date"
+                                       class="dropdown-filtro-fecha-input"
+                                       value="@(_filtroFechaHasta?.ToString("yyyy-MM-dd"))"
+                                       @onchange="OnFiltroFechaHastaChanged" />
+                            </div>
+
+                            <div class="dropdown-filtro-divider"></div>
+
+                            <div class="dropdown-filtro-item"
+                                 @onclick="LimpiarFiltroFecha">
+                                <i class="bi bi-x-circle"></i>
+                                <span>Limpiar fechas</span>
+                            </div>
+                        </div>
+                    </details>
+
+                    @if (HayFiltrosActivos)
+                    {
+                        <button class="btn-limpiar-todos" @onclick="LimpiarFiltros" title="Limpiar todos los filtros">
+                            <i class="bi bi-x-circle"></i>
+                            Limpiar
+                        </button>
+                    }
+
+                    <span class="badge-total">
+                        <i class="bi bi-clock-history"></i>
+                        <strong>@_movimientosFiltrados.Count()</strong> movimientos
+                        @if (HayFiltrosActivos)
+                        {
+                            <span class="filtro-activo-tag">· Filtrado</span>
+                        }
+                    </span>
+                </div>
+            </div>
+
+            <div class="kx-table-wrapper">
+                <table class="kx-table">
                     <thead>
                         <tr>
                             <th>Fecha</th>
                             <th>Tipo</th>
-                            <th class="kardex-num">Cant.</th>
-                            <th class="kardex-num">Costo unit.</th>
-                            <th class="kardex-num">Valor mov.</th>
-                            <th class="kardex-num">Saldo cant.</th>
-                            <th class="kardex-num">Saldo valor</th>
-                            <th class="kardex-num">CPP</th>
-                            <th>Documento</th>
+                            <th class="kx-num">Cant.</th>
+                            <th class="kx-num">Costo u.</th>
+                            <th class="kx-num">Valor</th>
+                            <th class="kx-num">Saldo</th>
+                            <th class="kx-num">Valor saldo</th>
+                            <th class="kx-num">CPP</th>
+                            <th>Doc.</th>
                             <th>Observaciones</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @if (_movimientos is null || !_movimientos.Any())
+                        @if (!_movimientosFiltrados.Any())
                         {
                             <tr>
-                                <td colspan="10" class="kardex-table-empty">
-                                    <i class="bi bi-inbox"></i>
-                                    <span>Sin movimientos registrados.</span>
+                                <td colspan="10" class="kx-table-empty">
+                                    @if (HayFiltrosActivos)
+                                    {
+                                        <text>Sin resultados para los filtros aplicados.</text>
+                                    }
+                                    else
+                                    {
+                                        <text>Sin movimientos registrados.</text>
+                                    }
                                 </td>
                             </tr>
                         }
@@ -283,20 +455,20 @@
                             @foreach (var m in _movimientosPaginados)
                             {
                                 <tr>
-                                    <td class="kardex-text-mono">@m.FechaMovimiento?.ToString("dd/MM/yyyy")</td>
+                                    <td class="kx-mono">@m.FechaMovimiento?.ToString("dd/MM/yyyy")</td>
                                     <td>
-                                        <span class="kardex-tipo kardex-tipo-@m.TipoMovimiento.ToLower()">
+                                        <span class="kx-tipo kx-tipo-@m.TipoMovimiento.ToLower()">
                                             @m.TipoMovimiento
                                         </span>
                                     </td>
-                                    <td class="kardex-num">@m.Cantidad.ToString("N2")</td>
-                                    <td class="kardex-num">@m.CostoUnitario.ToString("C2", CulturaCOP)</td>
-                                    <td class="kardex-num">@m.ValorMovimiento.ToString("C0", CulturaCOP)</td>
-                                    <td class="kardex-num"><strong>@m.SaldoCantidad.ToString("N2")</strong></td>
-                                    <td class="kardex-num">@m.SaldoValor.ToString("C0", CulturaCOP)</td>
-                                    <td class="kardex-num">@m.Cpp.ToString("C2", CulturaCOP)</td>
-                                    <td class="kardex-text-mono">@m.DocumentoReferencia</td>
-                                    <td class="kardex-text-muted">@m.Observaciones</td>
+                                    <td class="kx-num">@m.Cantidad.ToString("N2")</td>
+                                    <td class="kx-num">@m.CostoUnitario.ToString("C2", CulturaCOP)</td>
+                                    <td class="kx-num">@m.ValorMovimiento.ToString("C0", CulturaCOP)</td>
+                                    <td class="kx-num"><strong>@m.SaldoCantidad.ToString("N2")</strong></td>
+                                    <td class="kx-num">@m.SaldoValor.ToString("C0", CulturaCOP)</td>
+                                    <td class="kx-num">@m.Cpp.ToString("C2", CulturaCOP)</td>
+                                    <td class="kx-mono">@m.DocumentoReferencia</td>
+                                    <td class="kx-muted">@m.Observaciones</td>
                                 </tr>
                             }
                         }
@@ -304,69 +476,44 @@
                 </table>
             </div>
 
-            @* ─── PAGINACIÓN ─── *@
-            @if (_movimientos is not null && _movimientos.Count > 0)
+            @if (_movimientosFiltrados.Any())
             {
-                <footer class="kardex-pagination">
-                    <div class="kardex-pagination-info">
-                        Mostrando <strong>@((_paginaMovimientos - 1) * _tamanoMovimientos + 1)</strong>
-                        a <strong>@Math.Min(_paginaMovimientos * _tamanoMovimientos, _movimientos.Count)</strong>
-                        de <strong>@_movimientos.Count</strong> movimientos
-                    </div>
+                <div class="kx-pagination">
+                    <span class="kx-pagination-info">
+                        @((_paginaMovimientos - 1) * _tamanoMovimientos + 1)–@Math.Min(_paginaMovimientos * _tamanoMovimientos, _movimientosFiltrados.Count())
+                        de @_movimientosFiltrados.Count()
+                    </span>
 
-                    <div class="kardex-pagination-controls">
-                        <button type="button"
-                                class="kardex-pg-btn"
+                    <div class="kx-pagination-controls">
+                        <button type="button" class="kx-pg-btn"
                                 @onclick="() => CambiarPaginaMovimientos(_paginaMovimientos - 1)"
-                                disabled="@(_paginaMovimientos <= 1)"
-                                title="Anterior">
+                                disabled="@(_paginaMovimientos <= 1)">
                             <i class="bi bi-chevron-left"></i>
                         </button>
-
-                        <span class="kardex-pg-page">
-                            Página <strong>@_paginaMovimientos</strong> de <strong>@_totalPaginasMovimientos</strong>
-                        </span>
-
-                        <button type="button"
-                                class="kardex-pg-btn"
+                        <span class="kx-pg-page">@_paginaMovimientos / @_totalPaginasMovimientos</span>
+                        <button type="button" class="kx-pg-btn"
                                 @onclick="() => CambiarPaginaMovimientos(_paginaMovimientos + 1)"
-                                disabled="@(_paginaMovimientos >= _totalPaginasMovimientos)"
-                                title="Siguiente">
+                                disabled="@(_paginaMovimientos >= _totalPaginasMovimientos)">
                             <i class="bi bi-chevron-right"></i>
                         </button>
                     </div>
 
-                    <div class="kardex-pagination-size">
-                        <label for="kardex-tamano">Mostrar:</label>
-                        <select id="kardex-tamano"
-                                @bind="_tamanoMovimientos"
-                                @bind:after="CambiarTamanoMovimientos">
-                            <option value="10">10</option>
-                            <option value="25">25</option>
-                            <option value="50">50</option>
-                            <option value="100">100</option>
-                        </select>
-                    </div>
-                </footer>
+                    <select class="kx-pg-size" @bind="_tamanoMovimientos" @bind:after="CambiarTamanoMovimientos">
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                </div>
             }
-        </section>
+        </div>
     }
-    else
+    else if (_inicializado)
     {
-        @* ═══════════════════════════════════════════════════
-           EMPTY STATE
-           ═══════════════════════════════════════════════════ *@
-        <section class="kardex-empty">
-            <div class="kardex-empty-icon">
-                <i class="bi bi-journal-text"></i>
-            </div>
-            <h2>Seleccione un bien para ver su kárdex</h2>
-            <p>
-                Busque un bien de consumo en la barra superior para visualizar
-                su historial de movimientos, calcular su CPP y registrar nuevas
-                entradas o salidas.
-            </p>
-        </section>
+        <div class="kx-empty">
+            <i class="bi bi-journal-text"></i>
+            <p>No hay bienes de consumo registrados.</p>
+        </div>
     }
 </div>
 
@@ -377,34 +524,103 @@
     public int? BienIdQuery { get; set; }
 
     private List<BienConsumoDTO> _bienes = new();
-    private List<BienConsumoDTO> _bienesFiltrados = new();
+    private List<BienConsumoDTO> _resultadosBusqueda = new();
     private List<MovimientoConsumoDTO>? _movimientos;
     private List<ProveedorDTO> _proveedores = new();
     private List<FuncionarioDTO> _funcionarios = new();
 
     private int _bienIdSeleccionado = 0;
     private BienConsumoDTO? _bienSeleccionado;
-    private string _textoBusquedaBien = string.Empty;
+    private string _textoBusqueda = string.Empty;
+    private bool _mostrarDropdown = false;
+    private bool _inicializado = false;
 
     private MovimientoConsumoDTO _movDTO = new();
 
     private int _paginaMovimientos = 1;
     private int _tamanoMovimientos = 25;
 
+    private string _cantidadTexto = "0,00";
+    private string _costoTexto = "0,00";
+    private string _errorCantidad = "";
+
+    // ═══ Filtros ═══
+    private DateTime? _filtroFechaDesde;
+    private DateTime? _filtroFechaHasta;
+    private string _filtroTipo = "";
+    private string _filtroDocumento = "";
+
+    private bool HayFiltrosActivos =>
+        _filtroFechaDesde.HasValue ||
+        _filtroFechaHasta.HasValue ||
+        !string.IsNullOrWhiteSpace(_filtroTipo) ||
+        !string.IsNullOrWhiteSpace(_filtroDocumento);
+
+    private string GetTextoFiltroFecha()
+    {
+        if (!_filtroFechaDesde.HasValue && !_filtroFechaHasta.HasValue)
+            return "Cualquier fecha";
+
+        if (_filtroFechaDesde.HasValue && _filtroFechaHasta.HasValue)
+            return $"{_filtroFechaDesde.Value:dd/MM} – {_filtroFechaHasta.Value:dd/MM}";
+
+        if (_filtroFechaDesde.HasValue)
+            return $"Desde {_filtroFechaDesde.Value:dd/MM/yyyy}";
+
+        return $"Hasta {_filtroFechaHasta!.Value:dd/MM/yyyy}";
+    }
+
+    private IEnumerable<MovimientoConsumoDTO> _movimientosFiltrados
+    {
+        get
+        {
+            if (_movimientos is null) return Enumerable.Empty<MovimientoConsumoDTO>();
+
+            var query = _movimientos.AsEnumerable();
+
+            if (_filtroFechaDesde.HasValue)
+            {
+                var desde = _filtroFechaDesde.Value.Date;
+                query = query.Where(m => m.FechaMovimiento.HasValue && m.FechaMovimiento.Value.Date >= desde);
+            }
+
+            if (_filtroFechaHasta.HasValue)
+            {
+                var hasta = _filtroFechaHasta.Value.Date;
+                query = query.Where(m => m.FechaMovimiento.HasValue && m.FechaMovimiento.Value.Date <= hasta);
+            }
+
+            if (!string.IsNullOrWhiteSpace(_filtroTipo))
+            {
+                query = query.Where(m => m.TipoMovimiento == _filtroTipo);
+            }
+
+            if (!string.IsNullOrWhiteSpace(_filtroDocumento))
+            {
+                var doc = _filtroDocumento.Trim().ToLowerInvariant();
+                query = query.Where(m =>
+                    (m.DocumentoReferencia?.ToLowerInvariant().Contains(doc) ?? false));
+            }
+
+            return query.ToList();
+        }
+    }
+
     private IEnumerable<MovimientoConsumoDTO> _movimientosPaginados =>
-        _movimientos is null
-            ? Enumerable.Empty<MovimientoConsumoDTO>()
-            : _movimientos
-                .Skip((_paginaMovimientos - 1) * _tamanoMovimientos)
-                .Take(_tamanoMovimientos);
+        _movimientosFiltrados
+            .Skip((_paginaMovimientos - 1) * _tamanoMovimientos)
+            .Take(_tamanoMovimientos);
 
-    private int _totalPaginasMovimientos =>
-        _movimientos is null || _movimientos.Count == 0
-            ? 1
-            : (int)Math.Ceiling((double)_movimientos.Count / _tamanoMovimientos);
+    private int _totalPaginasMovimientos
+    {
+        get
+        {
+            var total = _movimientosFiltrados.Count();
+            return total == 0 ? 1 : (int)Math.Ceiling((double)total / _tamanoMovimientos);
+        }
+    }
 
-    private bool EsSalida => _movDTO.TipoMovimiento == "SALIDA"
-                          || _movDTO.TipoMovimiento == "AJUSTE_NEG";
+    private bool EsSalida => _movDTO.TipoMovimiento == "SALIDA" || _movDTO.TipoMovimiento == "AJUSTE_NEG";
 
     protected override async Task OnInitializedAsync()
     {
@@ -413,93 +629,389 @@
             Navigation.NavigateTo("/");
             return;
         }
-
-        _bienes = (await KardexRepo.ObtenerBienesConsumoAsync()).ToList();
-        _proveedores = (await ProveedorRepo.ObtenerTodosAsync()).ToList();
-        _funcionarios = (await FuncRepo.ObtenerTodosAsync()).ToList();
-        _bienesFiltrados = _bienes.ToList();
-
-        if (BienIdQuery.HasValue && BienIdQuery.Value > 0)
-        {
-            _bienIdSeleccionado = BienIdQuery.Value;
-            await CargarBienSeleccionado();
-        }
     }
 
-    private void FiltrarBienes(ChangeEventArgs e)
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        _textoBusquedaBien = e.Value?.ToString() ?? string.Empty;
+        if (!firstRender) return;
+        if (!await Seguridad.TienePermisoAsync("kardex.ver")) return;
 
-        if (string.IsNullOrWhiteSpace(_textoBusquedaBien))
+        try
         {
-            _bienesFiltrados = _bienes.ToList();
+            _bienes = (await KardexRepo.ObtenerBienesConsumoAsync()).ToList();
+            _proveedores = (await ProveedorRepo.ObtenerTodosAsync()).ToList();
+            _funcionarios = (await FuncRepo.ObtenerTodosAsync()).ToList();
+
+            BienConsumoDTO? bienInicial = null;
+
+            if (BienIdQuery.HasValue && BienIdQuery.Value > 0)
+            {
+                bienInicial = _bienes.FirstOrDefault(b => b.Id == BienIdQuery.Value);
+            }
+
+            if (bienInicial == null && _bienes.Any())
+            {
+                bienInicial = _bienes.First();
+            }
+
+            if (bienInicial != null)
+            {
+                await SeleccionarBien(bienInicial);
+            }
+
+            _inicializado = true;
+            StateHasChanged();
+
+            // ═══ Inicializar Flatpickr ═══
+            await InicializarFlatpickr();
         }
-        else
+        catch (Exception ex)
         {
-            var filtro = _textoBusquedaBien.ToLower().Trim();
-            _bienesFiltrados = _bienes
-                .Where(b => b.Codigo.ToLower().Contains(filtro)
-                         || b.Nombre.ToLower().Contains(filtro))
-                .ToList();
-        }
-    }
-
-    private async Task SeleccionarBienDesdeInput(ChangeEventArgs e)
-    {
-        var valor = e.Value?.ToString() ?? string.Empty;
-
-        if (string.IsNullOrWhiteSpace(valor))
-        {
-            await LimpiarSeleccionBien();
-            return;
-        }
-
-        var codigoBuscado = valor.Split('—')[0].Trim();
-        var bienEncontrado = _bienes.FirstOrDefault(b =>
-            b.Codigo.Equals(codigoBuscado, StringComparison.OrdinalIgnoreCase));
-
-        if (bienEncontrado != null)
-        {
-            _bienIdSeleccionado = bienEncontrado.Id;
-            _textoBusquedaBien = $"{bienEncontrado.Codigo} — {bienEncontrado.Nombre}";
-            await CargarBienSeleccionado();
+            Console.WriteLine($"[Kardex] Error en OnAfterRenderAsync: {ex.Message}");
+            _inicializado = true;
             StateHasChanged();
         }
     }
 
-    private async Task LimpiarSeleccionBien()
+    private async Task InicializarFlatpickr()
     {
-        _textoBusquedaBien = string.Empty;
-        _bienIdSeleccionado = 0;
-        _bienSeleccionado = null;
-        _movimientos = null;
-        _bienesFiltrados = _bienes.ToList();
-        _paginaMovimientos = 1;
-        await Task.CompletedTask;
-        StateHasChanged();
+        try
+        {
+            await Task.Delay(150);
+            var fechaInicial = _movDTO.FechaMovimiento?.ToString("yyyy-MM-dd") ?? DateTime.Today.ToString("yyyy-MM-dd");
+            await JS.InvokeVoidAsync("initFlatpickr", "#mov-fecha", fechaInicial);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Kardex] Error al inicializar Flatpickr: {ex.Message}");
+        }
     }
 
-    private async Task CargarBienSeleccionado()
-    {
-        _bienSeleccionado = await KardexRepo.ObtenerBienConsumoPorIdAsync(_bienIdSeleccionado);
-        _movimientos = (await KardexRepo.ObtenerKardexAsync(_bienIdSeleccionado)).ToList();
+    // ═══ BÚSQUEDA ═══
 
+    private void OnBusquedaFocus()
+    {
+        _mostrarDropdown = true;
+        if (string.IsNullOrWhiteSpace(_textoBusqueda))
+        {
+            _resultadosBusqueda = _bienes.Take(15).ToList();
+        }
+        else
+        {
+            FiltrarBienes();
+        }
+    }
+
+    private void OnBusquedaInput(ChangeEventArgs e)
+    {
+        _textoBusqueda = e.Value?.ToString() ?? string.Empty;
+        _mostrarDropdown = true;
+
+        if (string.IsNullOrWhiteSpace(_textoBusqueda))
+        {
+            _resultadosBusqueda = _bienes.Take(15).ToList();
+        }
+        else
+        {
+            FiltrarBienes();
+        }
+    }
+
+    private void FiltrarBienes()
+    {
+        var filtro = _textoBusqueda.Trim().ToLowerInvariant();
+        _resultadosBusqueda = _bienes
+            .Where(b =>
+                (b.Codigo?.ToLowerInvariant().Contains(filtro) ?? false) ||
+                (b.Nombre?.ToLowerInvariant().Contains(filtro) ?? false))
+            .OrderBy(b => b.Codigo)
+            .ToList();
+    }
+
+    private void OnBusquedaKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+        {
+            _mostrarDropdown = false;
+            return;
+        }
+
+        if (e.Key == "Enter" && _mostrarDropdown && _resultadosBusqueda.Count > 0)
+        {
+            _ = SeleccionarBien(_resultadosBusqueda[0]);
+        }
+    }
+
+    private void LimpiarBusqueda()
+    {
+        _textoBusqueda = string.Empty;
+        _resultadosBusqueda = _bienes.Take(15).ToList();
+        _mostrarDropdown = true;
+    }
+
+    // ═══ SELECCIÓN ═══
+
+    private async Task SeleccionarBien(BienConsumoDTO bien)
+    {
+        _bienIdSeleccionado = bien.Id;
+        _bienSeleccionado = bien;
+        _textoBusqueda = string.Empty;
+        _resultadosBusqueda = new List<BienConsumoDTO>();
+        _mostrarDropdown = false;
         _paginaMovimientos = 1;
 
-        if (_bienSeleccionado != null)
+        _filtroFechaDesde = null;
+        _filtroFechaHasta = null;
+        _filtroTipo = "";
+        _filtroDocumento = "";
+
+        await CargarMovimientos();
+
+        var bienActualizado = await KardexRepo.ObtenerBienConsumoPorIdAsync(bien.Id);
+        if (bienActualizado != null)
         {
-            _textoBusquedaBien = $"{_bienSeleccionado.Codigo} — {_bienSeleccionado.Nombre}";
+            _bienSeleccionado = bienActualizado;
         }
 
         _movDTO = new MovimientoConsumoDTO
         {
             BienId = _bienIdSeleccionado,
             FechaMovimiento = DateTime.Today,
-            TipoMovimiento = "ENTRADA"
+            TipoMovimiento = "ENTRADA",
+            Cantidad = 0,
+            CostoUnitario = 0
         };
+
+        _cantidadTexto = "0,00";
+        _costoTexto = "0,00";
+        _errorCantidad = "";
+
+        StateHasChanged();
+
+        // Re-inicializar Flatpickr cada vez que se cambia de bien
+        await InicializarFlatpickr();
+    }
+
+    private async Task CargarMovimientos()
+    {
+        var lista = await KardexRepo.ObtenerKardexAsync(_bienIdSeleccionado);
+        _movimientos = lista?.ToList() ?? new List<MovimientoConsumoDTO>();
+    }
+
+    // ═══ FILTROS — Tipo ═══
+
+    private Task SeleccionarTipoTodos() => SeleccionarTipo(null);
+    private Task SeleccionarTipoEntrada() => SeleccionarTipo("ENTRADA");
+    private Task SeleccionarTipoSalida() => SeleccionarTipo("SALIDA");
+    private Task SeleccionarTipoAjustePos() => SeleccionarTipo("AJUSTE_POS");
+    private Task SeleccionarTipoAjusteNeg() => SeleccionarTipo("AJUSTE_NEG");
+
+    private async Task SeleccionarTipo(string? tipo)
+    {
+        _filtroTipo = tipo ?? "";
+        _paginaMovimientos = 1;
+
+        try
+        {
+            await JS.InvokeVoidAsync("eval",
+                "document.getElementById('dropdown-tipo-kx')?.removeAttribute('open')");
+        }
+        catch { }
 
         StateHasChanged();
     }
+
+    // ═══ FILTROS — Fecha ═══
+
+    private void OnFiltroFechaDesdeChanged(ChangeEventArgs e)
+    {
+        if (DateTime.TryParse(e.Value?.ToString(), out var fecha))
+        {
+            _filtroFechaDesde = fecha;
+        }
+        else
+        {
+            _filtroFechaDesde = null;
+        }
+        _paginaMovimientos = 1;
+        StateHasChanged();
+    }
+
+    private void OnFiltroFechaHastaChanged(ChangeEventArgs e)
+    {
+        if (DateTime.TryParse(e.Value?.ToString(), out var fecha))
+        {
+            _filtroFechaHasta = fecha;
+        }
+        else
+        {
+            _filtroFechaHasta = null;
+        }
+        _paginaMovimientos = 1;
+        StateHasChanged();
+    }
+
+    private async Task LimpiarFiltroFecha()
+    {
+        _filtroFechaDesde = null;
+        _filtroFechaHasta = null;
+        _paginaMovimientos = 1;
+
+        try
+        {
+            await JS.InvokeVoidAsync("eval",
+                "document.getElementById('dropdown-fecha-kx')?.removeAttribute('open')");
+        }
+        catch { }
+
+        StateHasChanged();
+    }
+
+    // ═══ FILTROS — Documento ═══
+
+    private void OnFiltroDocumentoChanged(ChangeEventArgs e)
+    {
+        _filtroDocumento = e.Value?.ToString() ?? "";
+        _paginaMovimientos = 1;
+    }
+
+    private void LimpiarFiltroDocumento()
+    {
+        _filtroDocumento = "";
+        _paginaMovimientos = 1;
+    }
+
+    // ═══ FILTROS — Limpiar todos ═══
+
+    private void LimpiarFiltros()
+    {
+        _filtroFechaDesde = null;
+        _filtroFechaHasta = null;
+        _filtroTipo = "";
+        _filtroDocumento = "";
+        _paginaMovimientos = 1;
+    }
+
+    // ═══ FECHA ═══
+
+    private void OnFechaChanged(ChangeEventArgs e)
+    {
+        if (DateTime.TryParse(e.Value?.ToString(), out var fecha))
+        {
+            _movDTO.FechaMovimiento = fecha;
+        }
+    }
+
+    // ═══ CANTIDAD ═══
+
+    private void OnCantidadInput(ChangeEventArgs e)
+    {
+        _cantidadTexto = e.Value?.ToString() ?? "";
+        _errorCantidad = "";
+
+        if (TryParseDecimal(_cantidadTexto, out var cantidad))
+        {
+            _movDTO.Cantidad = cantidad;
+        }
+    }
+
+    private void OnCantidadBlur()
+    {
+        if (string.IsNullOrWhiteSpace(_cantidadTexto))
+        {
+            _cantidadTexto = "0,00";
+            _movDTO.Cantidad = 0;
+            _errorCantidad = "";
+            return;
+        }
+
+        if (TryParseDecimal(_cantidadTexto, out var cantidad) && cantidad > 0)
+        {
+            _movDTO.Cantidad = cantidad;
+            _cantidadTexto = cantidad.ToString("N2", CulturaCOP);
+            _errorCantidad = "";
+        }
+        else
+        {
+            _errorCantidad = "Ingrese una cantidad válida mayor a 0";
+        }
+    }
+
+    // ═══ COSTO ═══
+
+    private void OnCostoInput(ChangeEventArgs e)
+    {
+        _costoTexto = e.Value?.ToString() ?? "";
+
+        if (TryParseDecimal(_costoTexto, out var costo))
+        {
+            _movDTO.CostoUnitario = costo;
+        }
+    }
+
+    private void OnCostoBlur()
+    {
+        if (string.IsNullOrWhiteSpace(_costoTexto))
+        {
+            _costoTexto = "0,00";
+            _movDTO.CostoUnitario = 0;
+            return;
+        }
+
+        if (TryParseDecimal(_costoTexto, out var costo))
+        {
+            _movDTO.CostoUnitario = costo;
+            _costoTexto = costo.ToString("N2", CulturaCOP);
+        }
+        else
+        {
+            _costoTexto = "0,00";
+            _movDTO.CostoUnitario = 0;
+        }
+    }
+
+    // ═══ PARSER MEJORADO ═══
+
+    private static bool TryParseDecimal(string? texto, out decimal valor)
+    {
+        valor = 0;
+        if (string.IsNullOrWhiteSpace(texto)) return false;
+
+        var limpio = texto.Replace("$", "").Replace(" ", "").Trim();
+
+        // Reglas:
+        // - Si tiene coma → es decimal colombiano. Ej: "18.000,50" → "18000.50"
+        // - Si NO tiene coma y tiene punto → puede ser miles o decimal.
+        //   Ej: "18.000" → normalmente son miles → "18000"
+        //   Ej: "18000" → es 18000
+        //   Ej: "18.5" → decimal (raro en COP)
+
+        if (limpio.Contains(','))
+        {
+            // Formato colombiano con coma decimal
+            limpio = limpio.Replace(".", "").Replace(",", ".");
+        }
+        else if (limpio.Contains('.'))
+        {
+            // Formato con punto. Puede ser miles (18.000) o decimal (18.5)
+            var partes = limpio.Split('.');
+
+            // Si el último grupo tiene exactamente 3 dígitos → es separador de miles
+            if (partes.Length > 1 && partes.Last().Length == 3)
+            {
+                limpio = limpio.Replace(".", "");
+            }
+            // Si el último grupo tiene 1 o 2 dígitos → es decimal
+            // Ej: "18.5" → 18.5
+        }
+
+        return decimal.TryParse(limpio,
+            NumberStyles.Any,
+            CultureInfo.InvariantCulture,
+            out valor);
+    }
+
+    // ═══ REGISTRAR ═══
 
     private async Task RegistrarMovimiento()
     {
@@ -509,45 +1021,61 @@
             return;
         }
 
+        if (_bienSeleccionado is null || _bienIdSeleccionado == 0)
+        {
+            Toast.Error("Debe seleccionar un bien antes de registrar el movimiento.");
+            return;
+        }
+
+        if (_movDTO.Cantidad <= 0)
+        {
+            _errorCantidad = "Ingrese una cantidad válida mayor a 0";
+            Toast.Error("La cantidad debe ser mayor a 0");
+            return;
+        }
+
         try
         {
             _movDTO.BienId = _bienIdSeleccionado;
             await KardexRepo.RegistrarMovimientoAsync(_movDTO);
 
-            // ═══ AUDITORÍA ═══
-            try
-            {
-                await Auditoria.RegistrarCreacionAsync(
-                    modulo: "kardex",
-                    objetoTipo: "MovimientoConsumo",
-                    objetoId: _bienIdSeleccionado,
-                    objetoCodigo: _bienSeleccionado?.Codigo,
-                    objetoDescripcion: $"{_movDTO.TipoMovimiento} {_movDTO.Cantidad:N2} {_bienSeleccionado?.UnidadMedida} — {_movDTO.DocumentoReferencia ?? "sin documento"}",
-                    despues: new
-                    {
-                        TipoMovimiento = _movDTO.TipoMovimiento,
-                        Cantidad = _movDTO.Cantidad,
-                        CostoUnitario = _movDTO.CostoUnitario,
-                        ValorMovimiento = _movDTO.Cantidad * _movDTO.CostoUnitario,
-                        DocumentoReferencia = _movDTO.DocumentoReferencia,
-                        ProveedorId = _movDTO.ProveedorId,
-                        FuncionarioRecibeId = _movDTO.FuncionarioRecibeId,
-                        Observaciones = _movDTO.Observaciones
-                    });
-            }
-            catch { /* No bloquear si falla */ }
-
             Toast.Exito("Movimiento registrado correctamente");
 
             _bienes = (await KardexRepo.ObtenerBienesConsumoAsync()).ToList();
-            _bienesFiltrados = _bienes.ToList();
-            await CargarBienSeleccionado();
+
+            var bienActualizado = await KardexRepo.ObtenerBienConsumoPorIdAsync(_bienIdSeleccionado);
+            if (bienActualizado != null)
+            {
+                _bienSeleccionado = bienActualizado;
+            }
+
+            await CargarMovimientos();
+
+            _movDTO = new MovimientoConsumoDTO
+            {
+                BienId = _bienIdSeleccionado,
+                FechaMovimiento = DateTime.Today,
+                TipoMovimiento = "ENTRADA",
+                Cantidad = 0,
+                CostoUnitario = 0
+            };
+
+            _cantidadTexto = "0,00";
+            _costoTexto = "0,00";
+            _errorCantidad = "";
+
+            StateHasChanged();
+
+            // Re-inicializar Flatpickr con la nueva fecha
+            await InicializarFlatpickr();
         }
         catch (Exception ex)
         {
             Toast.Error($"Error: {ex.Message}");
         }
     }
+
+    // ═══ PAGINACIÓN ═══
 
     private void CambiarPaginaMovimientos(int nuevaPagina)
     {

@@ -67,34 +67,31 @@
             <EditForm @key="bienEditandoId" Model="bienDTO" OnValidSubmit="Guardar">
                 <DataAnnotationsValidator />
 
-                <div class="form-grid-3">
+                @* ═══ FILA 1: Código | Nombre | Categoría | Unidad | Stock ═══ *@
+                <div class="form-fila-1">
 
                     @if (editando)
                     {
-                        <div class="form-group">
+                        <div class="ff-code">
                             <label>Código</label>
                             <div class="input-icon">
                                 <i class="bi bi-upc"></i>
                                 <input type="text" class="form-control" value="@bienDTO.Codigo" disabled />
                             </div>
-                            <small class="form-hint">El código no es editable</small>
                         </div>
                     }
                     else
                     {
-                        <div class="form-group">
+                        <div class="ff-code">
                             <label>Código</label>
-                            <div class="input-icon" style="display: flex; align-items: center; gap: 8px; padding: 0.55rem 0.85rem; background: var(--brand-soft); border: 1.5px dashed var(--brand-border); border-radius: var(--radius);">
-                                <i class="bi bi-magic" style="color: var(--brand); font-size: 1.1rem;"></i>
-                                <div>
-                                    <strong style="color: var(--brand); font-size: 0.85rem;">Automático</strong>
-                                    <div style="font-size: 0.72rem; color: var(--text-muted);">Ej: CONS-@DateTime.Now.Year-XXX</div>
-                                </div>
+                            <div class="auto-codigo-chip">
+                                <i class="bi bi-magic"></i>
+                                <span>Auto</span>
                             </div>
                         </div>
                     }
 
-                    <div class="form-group" style="grid-column: span 2;">
+                    <div class="ff-nombre">
                         <label>Nombre *</label>
                         <div class="input-icon">
                             <i class="bi bi-tag"></i>
@@ -103,7 +100,7 @@
                         <ValidationMessage For="() => bienDTO.Nombre" class="form-error" />
                     </div>
 
-                    <div class="form-group">
+                    <div class="ff-categoria">
                         <label>Categoría</label>
                         <div class="input-icon">
                             <i class="bi bi-tags"></i>
@@ -117,8 +114,8 @@
                         </div>
                     </div>
 
-                    <div class="form-group">
-                        <label>Unidad de medida *</label>
+                    <div class="ff-unidad">
+                        <label>Unidad</label>
                         <div class="input-icon">
                             <i class="bi bi-rulers"></i>
                             <InputSelect class="form-select" @bind-Value="bienDTO.UnidadMedida">
@@ -133,16 +130,19 @@
                         </div>
                     </div>
 
-                    <div class="form-group">
-                        <label>Stock mínimo</label>
+                    <div class="ff-stock">
+                        <label>Stock mín</label>
                         <div class="input-icon">
                             <i class="bi bi-exclamation-triangle"></i>
                             <InputNumber class="form-control" @bind-Value="bienDTO.StockMinimo" min="0" />
                         </div>
-                        <small class="form-hint">Alerta cuando baje de este valor</small>
                     </div>
+                </div>
 
-                    <div class="form-group form-group-full">
+                @* ═══ FILA 2: Descripción + Activo + Botones ═══ *@
+                <div class="form-fila-2">
+
+                    <div class="ff-descripcion">
                         <label>Descripción</label>
                         <div class="input-icon">
                             <i class="bi bi-card-text"></i>
@@ -151,43 +151,33 @@
                         </div>
                     </div>
 
-                    <div class="form-group checkbox-group">
-                        <label>
+                    <div class="ff-activo">
+                        <label>&nbsp;</label>
+                        <label class="checkbox-inline">
                             <InputCheckbox @bind-Value="bienDTO.Activo" />
-                            Bien Activo
+                            <span>Activo</span>
                         </label>
                     </div>
 
-                </div>
-
-                <div class="form-actions">
-                    <button type="button" class="btn btn-cancel" @onclick="Cancelar">
-                        <i class="bi bi-x-lg"></i> Cerrar
-                    </button>
-                    <button type="submit" class="btn btn-save">
-                        <i class="bi @(editando ? "bi-check-circle-fill" : "bi-save-fill")"></i>
-                        @(editando ? "Actualizar" : "Guardar")
-                    </button>
+                    <div class="ff-botones">
+                        <button type="button" class="btn btn-cancel" @onclick="Cancelar">
+                            <i class="bi bi-x-lg"></i> Cerrar
+                        </button>
+                        <button type="submit" class="btn btn-save">
+                            <i class="bi @(editando ? "bi-check-circle-fill" : "bi-save-fill")"></i>
+                            @(editando ? "Actualizar" : "Guardar")
+                        </button>
+                    </div>
                 </div>
             </EditForm>
         </div>
     }
 
-    @if (_bajoStock.Any() && !_mostrarFormulario)
-    {
-        <div class="alert-stock">
-            <i class="bi bi-exclamation-triangle-fill"></i>
-            <div>
-                <strong>@_bajoStock.Count bienes bajo stock mínimo</strong>
-                <span>Requieren reposición inmediata</span>
-            </div>
-        </div>
-    }
-
     <div class="card-table">
 
-        <div class="filtros-tabla">
-            <div class="filtro-busqueda">
+        @* ═══ BARRA DE FILTROS — Estilo /bienes ═══ *@
+        <div class="consumo-filtros-header">
+            <div class="consumo-busqueda">
                 <i class="bi bi-search"></i>
                 <input type="text"
                        placeholder="Buscar por código o nombre…"
@@ -196,101 +186,149 @@
                        @bind:after="BuscarConDebounce" />
                 @if (!string.IsNullOrEmpty(_filtroTexto))
                 {
-                    <button class="filtro-clear" @onclick="LimpiarFiltro" title="Limpiar búsqueda">
+                    <button class="consumo-busqueda-clear" @onclick="LimpiarFiltro" title="Limpiar búsqueda">
                         <i class="bi bi-x-lg"></i>
                     </button>
                 }
             </div>
 
-            <div class="filtros-tabla-derecha">
+            <div class="consumo-filtros-actions">
 
-                <details class="dropdown-filtro" id="dropdown-cat-cons">
-                    <summary class="dropdown-filtro-trigger">
-                        <i class="bi bi-tags"></i>
-                        <span>@(string.IsNullOrEmpty(_categoriaSeleccionadaNombre) ? "Todas las categorías" : _categoriaSeleccionadaNombre)</span>
-                        <i class="bi bi-chevron-down dropdown-filtro-chevron"></i>
-                    </summary>
+                @if (_bajoStock.Any())
+                {
+                    <button class="consumo-chip-bajo-stock @(_filtroBajoStock == true ? "activo" : "")"
+                            @onclick="() => SeleccionarBajoStock(_filtroBajoStock == true ? null : true)"
+                            title="Ver solo bienes bajo stock">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <strong>@_bajoStock.Count</strong> bajo stock
+                    </button>
+                }
 
-                    <div class="dropdown-filtro-panel">
-                        <div class="dropdown-filtro-item @(_categoriaSeleccionadaId is null ? "active" : "")"
-                             @onclick="() => SeleccionarCategoria(null)">
-                            <i class="bi bi-grid-3x3"></i>
-                            <span>Todas las categorías</span>
-                            @if (_categoriaSeleccionadaId is null)
-                            {
-                                <i class="bi bi-check2 dropdown-filtro-check"></i>
-                            }
-                        </div>
-
-                        <div class="dropdown-filtro-divider"></div>
-
-                        @foreach (var c in categorias)
-                        {
-                            <div class="dropdown-filtro-item @(_categoriaSeleccionadaId == c.Id ? "active" : "")"
-                                 @onclick="() => SeleccionarCategoria(c)">
-                                <i class="bi bi-tag"></i>
-                                <span>@c.Nombre</span>
-                                @if (_categoriaSeleccionadaId == c.Id)
-                                {
-                                    <i class="bi bi-check2 dropdown-filtro-check"></i>
-                                }
-                            </div>
-                        }
-                    </div>
-                </details>
-
-                <details class="dropdown-filtro" id="dropdown-stock-cons">
-                    <summary class="dropdown-filtro-trigger">
-                        <i class="bi bi-exclamation-triangle"></i>
-                        <span>@(_filtroBajoStock switch { true => "Solo bajo stock", false => "Solo stock normal", null => "Todo el stock" })</span>
-                        <i class="bi bi-chevron-down dropdown-filtro-chevron"></i>
-                    </summary>
-
-                    <div class="dropdown-filtro-panel">
-                        <div class="dropdown-filtro-item @(_filtroBajoStock is null ? "active" : "")"
-                             @onclick="() => SeleccionarBajoStock(null)">
-                            <i class="bi bi-list-ul"></i>
-                            <span>Todo el stock</span>
-                            @if (_filtroBajoStock is null)
-                            {
-                                <i class="bi bi-check2 dropdown-filtro-check"></i>
-                            }
-                        </div>
-
-                        <div class="dropdown-filtro-divider"></div>
-
-                        <div class="dropdown-filtro-item @(_filtroBajoStock == true ? "active" : "")"
-                             @onclick="() => SeleccionarBajoStock(true)">
-                            <i class="bi bi-exclamation-triangle-fill"></i>
-                            <span>Solo bajo stock</span>
-                            @if (_filtroBajoStock == true)
-                            {
-                                <i class="bi bi-check2 dropdown-filtro-check"></i>
-                            }
-                        </div>
-
-                        <div class="dropdown-filtro-item @(_filtroBajoStock == false ? "active" : "")"
-                             @onclick="() => SeleccionarBajoStock(false)">
-                            <i class="bi bi-check-circle"></i>
-                            <span>Solo stock normal</span>
-                            @if (_filtroBajoStock == false)
-                            {
-                                <i class="bi bi-check2 dropdown-filtro-check"></i>
-                            }
-                        </div>
-                    </div>
-                </details>
-
-                <span class="badge-total">
-                    <i class="bi bi-boxes"></i>
-                    <strong>@(_pagina?.TotalRegistros ?? 0)</strong> bienes
-                    @if (!string.IsNullOrEmpty(_filtroTexto) || _categoriaSeleccionadaId.HasValue || _filtroBajoStock.HasValue)
+                <button class="consumo-btn-filtros @(_mostrarFiltros ? "activo" : "")"
+                        @onclick="ToggleFiltros">
+                    <i class="bi bi-funnel"></i>
+                    <span>Filtros</span>
+                    @if (HayFiltrosActivos)
                     {
-                        <span class="filtro-activo-tag">· Filtrado</span>
+                        <span class="consumo-badge-filtros">@ContarFiltrosActivos()</span>
                     }
-                </span>
+                    <i class="bi bi-chevron-@(_mostrarFiltros ? "up" : "down")"></i>
+                </button>
+
+                <button class="consumo-btn-exportar" @onclick="ExportarExcel" title="Exportar a Excel">
+                    <i class="bi bi-download"></i>
+                    <span>Exportar</span>
+                </button>
             </div>
         </div>
+
+        @if (_mostrarFiltros)
+        {
+            <div class="consumo-filtros-panel">
+                <div class="consumo-filtros-grid">
+
+                    <div class="consumo-filtro-item">
+                        <label>Categoría</label>
+                        <details class="dropdown-filtro" id="dropdown-cat-cons">
+                            <summary class="dropdown-filtro-trigger">
+                                <i class="bi bi-tags"></i>
+                                <span>@(string.IsNullOrEmpty(_categoriaSeleccionadaNombre) ? "Todas las categorías" : _categoriaSeleccionadaNombre)</span>
+                                <i class="bi bi-chevron-down dropdown-filtro-chevron"></i>
+                            </summary>
+
+                            <div class="dropdown-filtro-panel">
+                                <div class="dropdown-filtro-item @(_categoriaSeleccionadaId is null ? "active" : "")"
+                                     @onclick="() => SeleccionarCategoria(null)">
+                                    <i class="bi bi-grid-3x3"></i>
+                                    <span>Todas las categorías</span>
+                                    @if (_categoriaSeleccionadaId is null)
+                                    {
+                                        <i class="bi bi-check2 dropdown-filtro-check"></i>
+                                    }
+                                </div>
+
+                                <div class="dropdown-filtro-divider"></div>
+
+                                @foreach (var c in categorias)
+                                {
+                                    <div class="dropdown-filtro-item @(_categoriaSeleccionadaId == c.Id ? "active" : "")"
+                                         @onclick="() => SeleccionarCategoria(c)">
+                                        <i class="bi bi-tag"></i>
+                                        <span>@c.Nombre</span>
+                                        @if (_categoriaSeleccionadaId == c.Id)
+                                        {
+                                            <i class="bi bi-check2 dropdown-filtro-check"></i>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </details>
+                    </div>
+
+                    <div class="consumo-filtro-item">
+                        <label>Estado del stock</label>
+                        <details class="dropdown-filtro" id="dropdown-stock-cons">
+                            <summary class="dropdown-filtro-trigger">
+                                <i class="bi bi-exclamation-triangle"></i>
+                                <span>@(_filtroBajoStock switch { true => "Solo bajo stock", false => "Solo stock normal", null => "Todo el stock" })</span>
+                                <i class="bi bi-chevron-down dropdown-filtro-chevron"></i>
+                            </summary>
+
+                            <div class="dropdown-filtro-panel">
+                                <div class="dropdown-filtro-item @(_filtroBajoStock is null ? "active" : "")"
+                                     @onclick="() => SeleccionarBajoStock(null)">
+                                    <i class="bi bi-list-ul"></i>
+                                    <span>Todo el stock</span>
+                                    @if (_filtroBajoStock is null)
+                                    {
+                                        <i class="bi bi-check2 dropdown-filtro-check"></i>
+                                    }
+                                </div>
+
+                                <div class="dropdown-filtro-divider"></div>
+
+                                <div class="dropdown-filtro-item @(_filtroBajoStock == true ? "active" : "")"
+                                     @onclick="() => SeleccionarBajoStock(true)">
+                                    <i class="bi bi-exclamation-triangle-fill"></i>
+                                    <span>Solo bajo stock</span>
+                                    @if (_filtroBajoStock == true)
+                                    {
+                                        <i class="bi bi-check2 dropdown-filtro-check"></i>
+                                    }
+                                </div>
+
+                                <div class="dropdown-filtro-item @(_filtroBajoStock == false ? "active" : "")"
+                                     @onclick="() => SeleccionarBajoStock(false)">
+                                    <i class="bi bi-check-circle"></i>
+                                    <span>Solo stock normal</span>
+                                    @if (_filtroBajoStock == false)
+                                    {
+                                        <i class="bi bi-check2 dropdown-filtro-check"></i>
+                                    }
+                                </div>
+                            </div>
+                        </details>
+                    </div>
+
+                    <div class="consumo-filtro-item">
+                        <label>Resultados</label>
+                        <div class="consumo-filtros-resultados">
+                            <span class="badge-total">
+                                <i class="bi bi-boxes"></i>
+                                <strong>@(_pagina?.TotalRegistros ?? 0)</strong> bienes
+                            </span>
+                            @if (HayFiltrosActivos)
+                            {
+                                <button class="consumo-btn-limpiar" @onclick="LimpiarTodosLosFiltros" title="Limpiar todos los filtros">
+                                    <i class="bi bi-x-circle"></i>
+                                    Limpiar
+                                </button>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
 
         <div class="table-responsive">
             <table class="table modern-table">
@@ -316,9 +354,9 @@
                     {
                         <tr>
                             <td colspan="9" class="text-center py-3 text-muted">
-                                @(string.IsNullOrEmpty(_filtroTexto) && !_categoriaSeleccionadaId.HasValue && !_filtroBajoStock.HasValue
-                                    ? "Sin bienes de consumo registrados."
-                                    : "Sin resultados para los filtros aplicados.")
+                                @(HayFiltrosActivos
+                                    ? "Sin resultados para los filtros aplicados."
+                                    : "Sin bienes de consumo registrados.")
                             </td>
                         </tr>
                     }
@@ -342,8 +380,8 @@
                                 </td>
                                 <td class="text-end num"><strong>@b.StockActual.ToString("N2")</strong></td>
                                 <td class="text-end num text-muted">@b.StockMinimo.ToString("N2")</td>
-                                <td class="text-end num">@b.CppActual.ToString("N4")</td>
-                                <td class="text-end num">@b.ValorStock.ToString("C2")</td>
+                                <td class="text-end num">@b.CppActual.ToString("C2", System.Globalization.CultureInfo.GetCultureInfo("es-CO"))</td>
+                                <td class="text-end num">@b.ValorStock.ToString("C2", System.Globalization.CultureInfo.GetCultureInfo("es-CO"))</td>
                                 <td class="text-center">
                                     @if (b.BajoStockMinimo)
                                     {
@@ -425,9 +463,24 @@
     private string _categoriaSeleccionadaNombre = string.Empty;
     private bool? _filtroBajoStock;
 
+    private bool _mostrarFiltros = false;
+
     private bool puedeCrear;
     private bool puedeEditar;
     private bool puedeEliminar;
+
+    private bool HayFiltrosActivos =>
+        !string.IsNullOrWhiteSpace(_filtroTexto) ||
+        _categoriaSeleccionadaId.HasValue ||
+        _filtroBajoStock.HasValue;
+
+    private int ContarFiltrosActivos()
+    {
+        int count = 0;
+        if (_categoriaSeleccionadaId.HasValue) count++;
+        if (_filtroBajoStock.HasValue) count++;
+        return count;
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -479,6 +532,18 @@
         catch (TaskCanceledException) { }
     }
 
+    // ═══ FIX: Al abrir filtros, cerrar el formulario ═══
+    private void ToggleFiltros()
+    {
+        _mostrarFiltros = !_mostrarFiltros;
+
+        // Si se abren los filtros, cerrar el formulario para dar espacio
+        if (_mostrarFiltros && _mostrarFormulario)
+        {
+            _mostrarFormulario = false;
+        }
+    }
+
     private async Task LimpiarFiltro()
     {
         _filtroTexto = string.Empty;
@@ -520,6 +585,17 @@
         StateHasChanged();
     }
 
+    private async Task LimpiarTodosLosFiltros()
+    {
+        _filtroTexto = string.Empty;
+        _categoriaSeleccionadaId = null;
+        _categoriaSeleccionadaNombre = string.Empty;
+        _filtroBajoStock = null;
+        _paginaActual = 1;
+        await Cargar();
+        StateHasChanged();
+    }
+
     private async Task CambioPagina(int nuevaPagina)
     {
         _paginaActual = nuevaPagina;
@@ -535,6 +611,12 @@
         StateHasChanged();
     }
 
+    private async Task ExportarExcel()
+    {
+        Toast.Info("Exportación a Excel en desarrollo");
+        await Task.CompletedTask;
+    }
+
     private void AbrirFormulario()
     {
         bienDTO = new BienConsumoDTO
@@ -547,6 +629,7 @@
         bienEditandoId = 0;
         _mostrarFormulario = true;
         _filtroTexto = string.Empty;
+        _mostrarFiltros = false;   // ← Cerrar filtros al abrir formulario
     }
 
     private async Task Guardar()
@@ -573,13 +656,11 @@
         {
             if (editando)
             {
-                // ═══ Capturar estado anterior para auditoría ═══
                 var anterior = await KardexRepo.ObtenerBienConsumoPorIdAsync(bienEditandoId);
 
                 await KardexRepo.ActualizarBienConsumoAsync(bienDTO);
                 Toast.Exito($"Bien '{bienDTO.Nombre}' actualizado.");
 
-                // ═══ AUDITORÍA: edición ═══
                 try
                 {
                     await Auditoria.RegistrarEdicionAsync(
@@ -607,14 +688,13 @@
                             Activo = bienDTO.Activo
                         });
                 }
-                catch { /* No bloquear si falla */ }
+                catch { }
             }
             else
             {
                 await KardexRepo.CrearBienConsumoAsync(bienDTO);
                 Toast.Exito($"Bien '{bienDTO.Nombre}' creado con código {bienDTO.Codigo}.");
 
-                // ═══ AUDITORÍA: creación ═══
                 try
                 {
                     await Auditoria.RegistrarCreacionAsync(
@@ -634,7 +714,7 @@
                             Activo = bienDTO.Activo
                         });
                 }
-                catch { /* No bloquear si falla */ }
+                catch { }
 
                 var unidadActual = bienDTO.UnidadMedida;
                 var categoriaActual = bienDTO.CategoriaId;
@@ -673,6 +753,7 @@
         editando = true;
         bienEditandoId = b.Id;
         _mostrarFormulario = true;
+        _mostrarFiltros = false;   // ← Cerrar filtros al abrir formulario
 
         bienDTO.Id = b.Id;
         bienDTO.Codigo = b.Codigo;
@@ -709,7 +790,6 @@
             await KardexRepo.EliminarBienConsumoAsync(b.Id);
             Toast.Exito("Bien eliminado");
 
-            // ═══ AUDITORÍA: eliminación ═══
             try
             {
                 await Auditoria.RegistrarEliminacionAsync(
@@ -730,9 +810,10 @@
                         Activo = b.Activo
                     });
             }
-            catch { /* No bloquear si falla */ }
+            catch { }
 
             await Cargar();
+            await CargarBajoStock();
             StateHasChanged();
         }
         catch (Exception ex)

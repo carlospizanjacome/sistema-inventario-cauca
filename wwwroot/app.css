@@ -88,6 +88,56 @@ code, kbd, samp, pre {
 }
 
 /* ═══════════════════════════════════════════════════════════
+   FIX SCROLL GLOBAL v2.0
+   - CON .page-crud: sin scroll (página con tabla)
+   - SIN .page-crud: SOLO el body scrollea (una barra)
+   ═══════════════════════════════════════════════════════════ */
+
+/* ═══ CON .page-crud → sin scroll ═══ */
+html:has(.page-crud),
+body:has(.page-crud) {
+    overflow: hidden !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+}
+
+/* ═══ SIN .page-crud → solo BODY scrollea ═══ */
+html:not(:has(.page-crud)) {
+    overflow: hidden !important;
+    height: 100% !important;
+    max-height: 100vh !important;
+}
+
+body:not(:has(.page-crud)) {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    display: block !important;
+}
+
+    /* Contenedores intermedios NO deben scrollear (evita doble barra) */
+    body:not(:has(.page-crud)) .page,
+    body:not(:has(.page-crud)) .page-layout,
+    body:not(:has(.page-crud)) .app-layout,
+    body:not(:has(.page-crud)) .content-wrapper,
+    body:not(:has(.page-crud)) .app-content,
+    body:not(:has(.page-crud)) main,
+    body:not(:has(.page-crud)) article {
+        overflow: visible !important;
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+    }
+
+    body:not(:has(.page-crud)) .page-container:not(.page-crud) {
+        overflow: visible !important;
+        height: auto !important;
+        max-height: none !important;
+        min-height: 0 !important;
+    }
+
+/* ═══════════════════════════════════════════════════════════
    LAYOUT DE PÁGINA
    ═══════════════════════════════════════════════════════════ */
 .page-container {
@@ -287,7 +337,7 @@ code, kbd, samp, pre {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   INPUT CON ICONO — patrón oficial
+   INPUT CON ICONO
    ═══════════════════════════════════════════════════════════ */
 .input-icon {
     position: relative;
@@ -336,7 +386,6 @@ code, kbd, samp, pre {
         transition: background-color 5000s ease-in-out 0s !important;
     }
 
-/* Input group (icono con botón dentro, ej: buscador) */
 .input-group {
     position: relative;
     display: flex;
@@ -440,7 +489,6 @@ code, kbd, samp, pre {
         color: inherit;
     }
 
-/* Primario — indigo institucional */
 .btn-primary,
 .btn-save {
     background: var(--brand);
@@ -463,7 +511,6 @@ code, kbd, samp, pre {
         box-shadow: 0 1px 2px rgba(79, 70, 229, 0.2);
     }
 
-/* Secundario — neutro */
 .btn-secondary,
 .btn-cancel {
     background: var(--bg-subtle);
@@ -484,7 +531,6 @@ code, kbd, samp, pre {
         transform: scale(0.98);
     }
 
-/* Success — exportaciones */
 .btn-success {
     background: var(--success);
     color: #fff;
@@ -501,7 +547,6 @@ code, kbd, samp, pre {
         transform: translateY(0) scale(0.98);
     }
 
-/* Danger — eliminar / bajas */
 .btn-danger {
     background: var(--danger);
     color: #fff;
@@ -518,7 +563,6 @@ code, kbd, samp, pre {
         transform: translateY(0) scale(0.98);
     }
 
-/* Ghost — acciones terciarias */
 .btn-ghost {
     background: transparent;
     color: var(--text-secondary);
@@ -529,7 +573,6 @@ code, kbd, samp, pre {
         color: var(--brand);
     }
 
-/* Tamaños */
 .btn-sm {
     padding: 0.4rem 0.85rem;
     font-size: var(--fs-sm);
@@ -540,7 +583,6 @@ code, kbd, samp, pre {
     font-size: var(--fs-md);
 }
 
-/* Botón solo icono */
 .btn-icon {
     display: inline-flex;
     align-items: center;
@@ -1705,7 +1747,7 @@ code, kbd, samp, pre {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   FORMULARIO CON SECCIONES — patrón premium
+   FORMULARIO CON SECCIONES
    ═══════════════════════════════════════════════════════════ */
 .form-section {
     padding: var(--space-4) 0;
@@ -1803,7 +1845,6 @@ code, kbd, samp, pre {
     color: var(--text-secondary);
 }
 
-/* Botón exportar CGN */
 .btn-export-cgn {
     display: inline-flex;
     align-items: center;
@@ -1891,7 +1932,7 @@ code, kbd, samp, pre {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   FORM-HEADER BLINDADO — fallback global
+   FORM-HEADER BLINDADO
    ═══════════════════════════════════════════════════════════ */
 .card-form .form-header {
     display: flex !important;
@@ -1978,8 +2019,16 @@ code, kbd, samp, pre {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   PAGINADOR — Componente compartido (global, no scoped)
+   PAGINADOR
    ═══════════════════════════════════════════════════════════ */
+.paginador {
+    display: block;
+    width: 100%;
+    background: var(--bg-muted);
+    border-top: 1px solid var(--border-soft);
+    flex-shrink: 0;
+}
+
 .paginador-container {
     display: flex;
     align-items: center;
@@ -2110,7 +2159,7 @@ code, kbd, samp, pre {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   INPUTS DE FECHA — estilo uniforme
+   INPUTS DE FECHA
    ═══════════════════════════════════════════════════════════ */
 input[type="date"] {
     padding: 0.5rem 0.75rem;
@@ -2179,17 +2228,8 @@ input[type="date"] {
     }
 
 /* ═══════════════════════════════════════════════════════════
-   Sin barra externa en páginas .page-crud
-   (login y dashboard no se afectan)
+   ADJUNTOS UPLOADER
    ═══════════════════════════════════════════════════════════ */
-body:has(.page-crud) {
-    overflow: hidden !important;
-}
-
-/* ═══════════════════════════════════════════════════════════
-   ADJUNTOS UPLOADER — estilos globales (no scoped)
-   ═══════════════════════════════════════════════════════════ */
-
 .adjuntos-wrapper {
     display: flex;
     flex-direction: column;
@@ -2233,7 +2273,6 @@ body:has(.page-crud) {
     font-weight: var(--fw-bold);
 }
 
-/* ═══ Dropzone ═══ */
 .upload-dropzone {
     position: relative;
     display: block;
@@ -2305,7 +2344,6 @@ body:has(.page-crud) {
         font-size: 0.72rem;
     }
 
-/* ═══ Estado pendiente ═══ */
 .upload-pending {
     display: flex;
     align-items: center;
@@ -2325,7 +2363,6 @@ body:has(.page-crud) {
         flex-shrink: 0;
     }
 
-/* ═══ Lista de adjuntos ═══ */
 .adjuntos-lista {
     display: flex;
     flex-direction: column;
@@ -2474,7 +2511,7 @@ body:has(.page-crud) {
     }
 }
 
-/* ═══ Expediente: ancho completo (solo esa página) ═══ */
+/* ═══ Expediente ═══ */
 .app-content:has(.page-expediente) {
     padding-left: 16px !important;
     padding-right: 16px !important;
@@ -2486,7 +2523,6 @@ body:has(.page-crud) {
     margin: 0 !important;
 }
 
-/* Botón de anular con relleno rojo sólido */
 .btn-action.btn-action-anular {
     background: #dc2626;
     color: #ffffff;
@@ -2504,9 +2540,8 @@ body:has(.page-crud) {
     }
 
 /* ═══════════════════════════════════════════════════════════
-   MODAL DE ANULACIÓN (Soft-Delete) — Global
+   MODAL DE ANULACIÓN
    ═══════════════════════════════════════════════════════════ */
-
 .modal-backdrop-anular {
     position: fixed;
     inset: 0;
@@ -2590,7 +2625,6 @@ body:has(.page-crud) {
     flex-shrink: 0;
 }
 
-/* ─── Alertas dentro del modal ─── */
 .modal-anular .alerta-info,
 .modal-anular .alerta-warning {
     display: flex;
@@ -2620,7 +2654,6 @@ body:has(.page-crud) {
         margin-top: 2px;
     }
 
-/* ─── Botón de peligro ─── */
 .btn-peligro {
     display: inline-flex;
     align-items: center;
@@ -2659,7 +2692,6 @@ body:has(.page-crud) {
         color: inherit;
     }
 
-/* ─── Botón secundario (Cancelar) ─── */
 .btn-secondary-custom {
     display: inline-flex;
     align-items: center;
@@ -2683,7 +2715,6 @@ body:has(.page-crud) {
         border-color: #cbd5e1;
     }
 
-/* ─── Label mini ─── */
 .modal-anular .mini-label {
     display: block;
     font-size: 0.8rem;
@@ -2693,7 +2724,6 @@ body:has(.page-crud) {
     letter-spacing: 0.2px;
 }
 
-/* ─── Animaciones ─── */
 @keyframes fadeInAnular {
     from {
         opacity: 0;
@@ -2714,4 +2744,206 @@ body:has(.page-crud) {
         transform: translateY(0);
         opacity: 1;
     }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   KARDEX — INPUTS CON ICONO
+   ═══════════════════════════════════════════════════════════ */
+.kardex-input-wrapper {
+    position: relative !important;
+    display: block !important;
+    width: 100% !important;
+}
+
+.kardex-input-icon {
+    position: absolute !important;
+    left: 12px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: #94a3b8 !important;
+    font-size: 0.9rem !important;
+    pointer-events: none !important;
+    z-index: 1 !important;
+    line-height: 1 !important;
+    width: 16px !important;
+    height: 16px !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+    .kardex-input-icon i,
+    .kardex-input-icon i::before {
+        font-size: 0.9rem !important;
+        line-height: 1 !important;
+        color: inherit !important;
+        background: transparent !important;
+    }
+
+.kardex-input-field,
+input.kardex-input-field,
+select.kardex-input-field {
+    display: block !important;
+    width: 100% !important;
+    padding: 0.65rem 0.9rem 0.65rem 2.5rem !important;
+    border: 1.5px solid #e2e8f0 !important;
+    border-radius: 10px !important;
+    font-size: 0.88rem !important;
+    font-family: inherit !important;
+    color: #0f172a !important;
+    background-color: #fff !important;
+    line-height: 1.4 !important;
+    height: auto !important;
+    min-height: 40px !important;
+    box-sizing: border-box !important;
+    transition: border-color 0.15s, box-shadow 0.15s !important;
+    position: relative !important;
+    z-index: 2 !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+}
+
+    input.kardex-input-field:focus,
+    select.kardex-input-field:focus {
+        outline: none !important;
+        border-color: #4f46e5 !important;
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12) !important;
+    }
+
+    input.kardex-input-field:disabled,
+    select.kardex-input-field:disabled {
+        background-color: #f8fafc !important;
+        color: #94a3b8 !important;
+        cursor: not-allowed !important;
+    }
+
+    input.kardex-input-field::placeholder {
+        color: #cbd5e1 !important;
+        opacity: 1 !important;
+    }
+
+select.kardex-input-field {
+    cursor: pointer !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 9L1 4h10z'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 12px center !important;
+    padding-right: 2.4rem !important;
+}
+
+input[type="number"].kardex-input-field::-webkit-outer-spin-button,
+input[type="number"].kardex-input-field::-webkit-inner-spin-button {
+    -webkit-appearance: none !important;
+    margin: 0 !important;
+}
+
+input[type="number"].kardex-input-field {
+    -moz-appearance: textfield !important;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FLATPICKR
+   ═══════════════════════════════════════════════════════════ */
+.flatpickr-calendar {
+    border-radius: 12px !important;
+    box-shadow: 0 12px 40px rgba(15, 23, 42, 0.18) !important;
+    border: 1px solid #e2e8f0 !important;
+    font-family: 'Plus Jakarta Sans', -apple-system, sans-serif !important;
+    padding: 8px !important;
+    z-index: 9999 !important;
+}
+
+    .flatpickr-calendar.arrowTop::before,
+    .flatpickr-calendar.arrowTop::after {
+        border-bottom-color: #fff !important;
+    }
+
+.flatpickr-months {
+    padding: 8px 4px !important;
+}
+
+.flatpickr-current-month {
+    font-size: 0.95rem !important;
+    font-weight: 700 !important;
+    color: #0f172a !important;
+}
+
+.flatpickr-monthDropdown-months {
+    font-weight: 700 !important;
+    font-family: inherit !important;
+    background: #fff !important;
+}
+
+.flatpickr-weekday {
+    color: #94a3b8 !important;
+    font-size: 0.68rem !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+}
+
+.flatpickr-day {
+    border-radius: 8px !important;
+    color: #334155 !important;
+    font-weight: 500 !important;
+    font-size: 0.82rem !important;
+    transition: all 0.1s !important;
+}
+
+    .flatpickr-day:hover {
+        background: #eef2ff !important;
+        border-color: #eef2ff !important;
+        color: #6366f1 !important;
+    }
+
+    .flatpickr-day.selected,
+    .flatpickr-day.selected:hover {
+        background: #6366f1 !important;
+        border-color: #6366f1 !important;
+        color: #fff !important;
+        font-weight: 700 !important;
+    }
+
+    .flatpickr-day.today {
+        border-color: #6366f1 !important;
+        color: #6366f1 !important;
+        font-weight: 700 !important;
+    }
+
+        .flatpickr-day.today.selected {
+            background: #6366f1 !important;
+            color: #fff !important;
+        }
+
+    .flatpickr-day.flatpickr-disabled {
+        color: #cbd5e1 !important;
+    }
+
+.flatpickr-prev-month,
+.flatpickr-next-month {
+    fill: #64748b !important;
+    transition: fill 0.15s !important;
+    padding: 8px !important;
+}
+
+    .flatpickr-prev-month:hover svg,
+    .flatpickr-next-month:hover svg {
+        fill: #6366f1 !important;
+    }
+
+.flatpickr-input[readonly] {
+    background-color: #fff !important;
+    cursor: pointer !important;
+}
+
+.flatpickr-input.form-control[readonly] {
+    background-color: #fff !important;
+}
+
+.flatpickr-calendar.noCalendar {
+    display: none !important;
 }

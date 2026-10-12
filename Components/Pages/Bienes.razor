@@ -73,207 +73,200 @@
             <EditForm @key="bienEditandoId" Model="bienDTO" OnValidSubmit="GuardarBien">
                 <DataAnnotationsValidator />
 
-                <div class="form-section">
-                    <h4 class="form-section-title">
-                        <i class="bi bi-card-list"></i> Identificación
-                    </h4>
-                    <div class="form-grid-3">
-                        @if (editando)
-                        {
-                            <div class="form-group">
-                                <label>Código</label>
-                                <div class="input-icon">
-                                    <i class="bi bi-upc-scan"></i>
-                                    <input type="text" class="form-control" value="@bienDTO.Codigo" disabled />
-                                </div>
-                                <small class="form-hint">El código no es editable</small>
-                            </div>
-                        }
-                        else
-                        {
-                            <div class="form-group">
-                                <label>Código</label>
-                                <div class="input-icon" style="display: flex; align-items: center; gap: 8px; padding: 0.55rem 0.85rem; background: var(--brand-soft); border: 1.5px dashed var(--brand-border); border-radius: var(--radius);">
-                                    <i class="bi bi-magic" style="color: var(--brand); font-size: 1.1rem;"></i>
-                                    <div>
-                                        <strong style="color: var(--brand); font-size: 0.85rem;">Automático</strong>
-                                        <div style="font-size: 0.72rem; color: var(--text-muted);">Ej: DEVO-@DateTime.Now.Year-XXX</div>
-                                    </div>
-                                </div>
-                            </div>
-                        }
+                @* ═══ FILA 1: Código | Nombre | Categoría | Marca | Modelo | Serie ═══ *@
+                <div class="form-fila-1">
 
-                        <div class="form-group">
-                            <label>Nombre *</label>
+                    @if (editando)
+                    {
+                        <div class="ff-code">
+                            <label>Código</label>
                             <div class="input-icon">
-                                <i class="bi bi-box-fill"></i>
-                                <InputText class="form-control" @bind-Value="bienDTO.Nombre" placeholder="Ej: Monitor Asus" />
+                                <i class="bi bi-upc-scan"></i>
+                                <input type="text" class="form-control" value="@bienDTO.Codigo" disabled />
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label>Categoría *</label>
-                            <div class="input-icon">
-                                <i class="bi bi-tags-fill"></i>
-                                <InputSelect class="form-control" @bind-Value="bienDTO.CategoriaId">
-                                    <option value="">Seleccione categoría</option>
-                                    @foreach (var cat in categorias)
-                                    {
-                                        <option value="@cat.Id">@cat.Nombre</option>
-                                    }
-                                </InputSelect>
+                    }
+                    else
+                    {
+                        <div class="ff-code">
+                            <label>Código</label>
+                            <div class="auto-codigo-chip">
+                                <i class="bi bi-magic"></i>
+                                <span>Auto</span>
                             </div>
                         </div>
+                    }
 
-                        <div class="form-group">
-                            <label>Marca</label>
-                            <div class="input-icon">
-                                <i class="bi bi-building"></i>
-                                <InputText class="form-control" @bind-Value="bienDTO.Marca" />
-                            </div>
+                    <div class="ff-nombre">
+                        <label>Nombre *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-box-fill"></i>
+                            <InputText class="form-control" @bind-Value="bienDTO.Nombre" placeholder="Ej: Monitor Asus" />
                         </div>
-                        <div class="form-group">
-                            <label>Modelo</label>
-                            <div class="input-icon">
-                                <i class="bi bi-cpu"></i>
-                                <InputText class="form-control" @bind-Value="bienDTO.Modelo" />
-                            </div>
+                    </div>
+
+                    <div class="ff-categoria">
+                        <label>Categoría *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-tags-fill"></i>
+                            <InputSelect class="form-control" @bind-Value="bienDTO.CategoriaId">
+                                <option value="">Seleccione categoría</option>
+                                @foreach (var cat in categorias)
+                                {
+                                    <option value="@cat.Id">@cat.Nombre</option>
+                                }
+                            </InputSelect>
                         </div>
-                        <div class="form-group">
-                            <label>Serie</label>
-                            <div class="input-icon">
-                                <i class="bi bi-upc"></i>
-                                <InputText class="form-control" @bind-Value="bienDTO.Serie" />
-                            </div>
+                    </div>
+
+                    <div class="ff-marca">
+                        <label>Marca</label>
+                        <div class="input-icon">
+                            <i class="bi bi-building"></i>
+                            <InputText class="form-control" @bind-Value="bienDTO.Marca" />
                         </div>
-                        <div class="form-group">
-                            <label>Valor Adquisición</label>
-                            <div class="input-icon">
-                                <i class="bi bi-currency-dollar"></i>
-                                <InputMoneda class="form-control" @bind-Value="bienDTO.ValorAdquisicion" />
-                            </div>
+                    </div>
+
+                    <div class="ff-modelo">
+                        <label>Modelo</label>
+                        <div class="input-icon">
+                            <i class="bi bi-cpu"></i>
+                            <InputText class="form-control" @bind-Value="bienDTO.Modelo" />
                         </div>
-                        <div class="form-group">
-                            <label>Cantidad</label>
-                            <div class="input-icon">
-                                <i class="bi bi-hash"></i>
-                                <InputNumber class="form-control" @bind-Value="bienDTO.Cantidad" min="1" />
-                            </div>
+                    </div>
+
+                    <div class="ff-serie">
+                        <label>Serie</label>
+                        <div class="input-icon">
+                            <i class="bi bi-upc"></i>
+                            <InputText class="form-control" @bind-Value="bienDTO.Serie" />
                         </div>
                     </div>
                 </div>
 
-                <div class="form-section">
-                    <h4 class="form-section-title">
-                        <i class="bi bi-geo-alt"></i> Ubicación y Responsable
-                    </h4>
-                    <div class="form-grid-3">
-                        <div class="form-group">
-                            <label>Ubicación (Aula)</label>
-                            <div class="input-icon">
-                                <i class="bi bi-geo-alt-fill"></i>
-                                <InputSelect class="form-control" @bind-Value="bienDTO.AulaId">
-                                    <option value="">— Sin asignar —</option>
-                                    @foreach (var a in aulas)
-                                    {
-                                        <option value="@a.Id">@a.Nombre</option>
-                                    }
-                                </InputSelect>
-                            </div>
+                @* ═══ FILA 2: Valor | Cantidad | Fecha | Vida útil | Residual ═══ *@
+                <div class="form-fila-2">
+
+                    <div class="ff-valor">
+                        <label>Valor Adquisición</label>
+                        <div class="input-icon">
+                            <i class="bi bi-currency-dollar"></i>
+                            <InputMoneda class="form-control" @bind-Value="bienDTO.ValorAdquisicion" />
                         </div>
-                        <div class="form-group">
-                            <label>Responsable</label>
-                            <div class="input-icon">
-                                <i class="bi bi-person-fill"></i>
-                                <InputSelect class="form-control" @bind-Value="bienDTO.FuncionarioId">
-                                    <option value="">— Sin asignar —</option>
-                                    @foreach (var f in funcionarios)
-                                    {
-                                        <option value="@f.Id">@f.NombreCompleto (@f.Cedula)</option>
-                                    }
-                                </InputSelect>
-                            </div>
+                    </div>
+
+                    <div class="ff-cantidad">
+                        <label>Cantidad</label>
+                        <div class="input-icon">
+                            <i class="bi bi-hash"></i>
+                            <InputNumber class="form-control" @bind-Value="bienDTO.Cantidad" min="1" />
                         </div>
-                        <div class="form-group">
-                            <label>Estado Físico</label>
-                            <div class="input-icon">
-                                <i class="bi bi-heart-pulse-fill"></i>
-                                <InputSelect class="form-control" @bind-Value="bienDTO.EstadoFisico">
-                                    <option value="bueno">Bueno</option>
-                                    <option value="regular">Regular</option>
-                                    <option value="malo">Malo</option>
-                                    <option value="baja">Baja</option>
-                                </InputSelect>
-                            </div>
+                    </div>
+
+                    <div class="ff-fecha">
+                        <label>Fecha Adquisición</label>
+                        <div class="input-icon">
+                            <i class="bi bi-calendar-check"></i>
+                            <InputDate class="form-control" @bind-Value="bienDTO.FechaAdquisicion" />
+                        </div>
+                    </div>
+
+                    <div class="ff-vida">
+                        <label>Vida Útil (CGN)</label>
+                        <div class="input-icon">
+                            <i class="bi bi-clock-history"></i>
+                            <InputSelect class="form-control" @bind-Value="bienDTO.VidaUtilId">
+                                <option value="">— Sin asignar —</option>
+                                @foreach (var v in vidasUtiles)
+                                {
+                                    <option value="@v.Id">@v.NombreCompleto</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    <div class="ff-residual">
+                        <label>Valor Residual</label>
+                        <div class="input-icon">
+                            <i class="bi bi-piggy-bank"></i>
+                            <InputMoneda class="form-control" @bind-Value="bienDTO.ValorResidual" />
                         </div>
                     </div>
                 </div>
 
-                <div class="form-section">
-                    <h4 class="form-section-title">
-                        <i class="bi bi-calculator"></i> Depreciación
-                    </h4>
-                    <div class="form-grid-3">
-                        <div class="form-group">
-                            <label>Fecha Adquisición</label>
-                            <div class="input-icon">
-                                <i class="bi bi-calendar-check"></i>
-                                <InputDate class="form-control" @bind-Value="bienDTO.FechaAdquisicion" />
-                            </div>
+                @* ═══ FILA 3: Ubicación | Responsable | Estado físico ═══ *@
+                <div class="form-fila-3">
+
+                    <div class="ff-aula">
+                        <label>Ubicación (Aula)</label>
+                        <div class="input-icon">
+                            <i class="bi bi-geo-alt-fill"></i>
+                            <InputSelect class="form-control" @bind-Value="bienDTO.AulaId">
+                                <option value="">— Sin asignar —</option>
+                                @foreach (var a in aulas)
+                                {
+                                    <option value="@a.Id">@a.Nombre</option>
+                                }
+                            </InputSelect>
                         </div>
-                        <div class="form-group">
-                            <label>Vida Útil (Tabla CGN)</label>
-                            <div class="input-icon">
-                                <i class="bi bi-clock-history"></i>
-                                <InputSelect class="form-control" @bind-Value="bienDTO.VidaUtilId">
-                                    <option value="">— Sin asignar —</option>
-                                    @foreach (var v in vidasUtiles)
-                                    {
-                                        <option value="@v.Id">@v.NombreCompleto</option>
-                                    }
-                                </InputSelect>
-                            </div>
+                    </div>
+
+                    <div class="ff-responsable">
+                        <label>Responsable</label>
+                        <div class="input-icon">
+                            <i class="bi bi-person-fill"></i>
+                            <InputSelect class="form-control" @bind-Value="bienDTO.FuncionarioId">
+                                <option value="">— Sin asignar —</option>
+                                @foreach (var f in funcionarios)
+                                {
+                                    <option value="@f.Id">@f.NombreCompleto (@f.Cedula)</option>
+                                }
+                            </InputSelect>
                         </div>
-                        <div class="form-group">
-                            <label>Valor Residual</label>
-                            <div class="input-icon">
-                                <i class="bi bi-piggy-bank"></i>
-                                <InputMoneda class="form-control" @bind-Value="bienDTO.ValorResidual" />
-                            </div>
+                    </div>
+
+                    <div class="ff-estado">
+                        <label>Estado Físico</label>
+                        <div class="input-icon">
+                            <i class="bi bi-heart-pulse-fill"></i>
+                            <InputSelect class="form-control" @bind-Value="bienDTO.EstadoFisico">
+                                <option value="bueno">Bueno</option>
+                                <option value="regular">Regular</option>
+                                <option value="malo">Malo</option>
+                                <option value="baja">Baja</option>
+                            </InputSelect>
                         </div>
                     </div>
                 </div>
 
-                <div class="form-section">
-                    <h4 class="form-section-title">
-                        <i class="bi bi-chat-left-text"></i> Observaciones
-                    </h4>
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label>Descripción</label>
-                            <div class="input-icon">
-                                <i class="bi bi-card-text"></i>
-                                <InputTextArea class="form-control" rows="3"
-                                               @bind-Value="bienDTO.Descripcion"
-                                               placeholder="Descripción detallada…" />
-                            </div>
-                        </div>
-                        <div class="form-group checkbox-group">
-                            <label>
-                                <InputCheckbox @bind-Value="bienDTO.Activo" />
-                                Bien Activo
-                            </label>
+                @* ═══ FILA 4: Descripción + Activo + Botones ═══ *@
+                <div class="form-fila-4">
+
+                    <div class="ff-descripcion">
+                        <label>Descripción</label>
+                        <div class="input-icon">
+                            <i class="bi bi-card-text"></i>
+                            <InputText class="form-control" @bind-Value="bienDTO.Descripcion" placeholder="Descripción detallada…" />
                         </div>
                     </div>
-                </div>
 
-                <div class="form-actions">
-                    <button type="button" class="btn btn-cancel" @onclick="CerrarFormulario">
-                        <i class="bi bi-x-lg"></i> Cerrar
-                    </button>
-                    <button type="submit" class="btn btn-save">
-                        <i class="bi @(editando ? "bi-check-circle-fill" : "bi-save-fill")"></i>
-                        @(editando ? "Actualizar" : "Guardar")
-                    </button>
+                    <div class="ff-activo">
+                        <label>&nbsp;</label>
+                        <label class="checkbox-inline">
+                            <InputCheckbox @bind-Value="bienDTO.Activo" />
+                            <span>Activo</span>
+                        </label>
+                    </div>
+
+                    <div class="ff-botones">
+                        <button type="button" class="btn btn-cancel" @onclick="CerrarFormulario">
+                            <i class="bi bi-x-lg"></i> Cerrar
+                        </button>
+                        <button type="submit" class="btn btn-save">
+                            <i class="bi @(editando ? "bi-check-circle-fill" : "bi-save-fill")"></i>
+                            @(editando ? "Actualizar" : "Guardar")
+                        </button>
+                    </div>
                 </div>
             </EditForm>
         </div>
@@ -281,6 +274,7 @@
 
     <div class="card-table">
 
+        @* ═══ BARRA SUPERIOR — Siempre visible ═══ *@
         <div class="filtros-toolbar">
             <div class="filtro-busqueda-principal">
                 <i class="bi bi-search"></i>
@@ -298,6 +292,15 @@
             </div>
 
             <div class="filtros-toolbar-actions">
+                <span class="badge-total">
+                    <i class="bi bi-box-seam"></i>
+                    <strong>@(_pagina?.TotalRegistros ?? 0)</strong> bienes
+                    @if (_hayFiltrosActivos)
+                    {
+                        <span class="filtro-activo-tag">· Filtrado</span>
+                    }
+                </span>
+
                 <button class="btn-filtros @(_mostrarFiltros ? "active" : "")"
                         @onclick="ToggleFiltros">
                     <i class="bi bi-sliders"></i>
@@ -316,6 +319,7 @@
             </div>
         </div>
 
+        @* ═══ PANEL DE FILTROS ═══ *@
         @if (_mostrarFiltros)
         {
             <div class="panel-filtros">
@@ -368,22 +372,12 @@
                             }
                         </select>
                     </div>
-                </div>
 
-                <div class="filtros-acciones">
-                    <span class="badge-total">
-                        <i class="bi bi-box-seam"></i>
-                        <strong>@(_pagina?.TotalRegistros ?? 0)</strong> bienes
-                        @if (_hayFiltrosActivos)
-                        {
-                            <span class="filtro-activo-tag">· Filtrado</span>
-                        }
-                    </span>
                     @if (_hayFiltrosAvanzados)
                     {
-                        <button class="btn-limpiar-filtros" @onclick="LimpiarTodosLosFiltros">
+                        <button class="btn-limpiar-filtros" @onclick="LimpiarTodosLosFiltros" title="Limpiar filtros">
                             <i class="bi bi-arrow-counterclockwise"></i>
-                            Limpiar filtros
+                            Limpiar
                         </button>
                     }
                 </div>
@@ -481,7 +475,8 @@
             </table>
         </div>
 
-        @if (_pagina is not null && _pagina.TotalRegistros > 0)
+        @* ═══ PAGINADOR — Visible solo sin formulario ═══ *@
+        @if (_pagina is not null && _pagina.TotalRegistros > 0 && !_mostrarFormulario)
         {
             <Paginador T="Bien"
                        Resultado="_pagina"
@@ -577,7 +572,7 @@
         bienEditandoId = 0;
         _bienAntesDeEditar = null;
         _mostrarFormulario = true;
-        _mostrarFiltros = false;
+        _mostrarFiltros = false;  // ← Cerrar filtros al abrir formulario
     }
 
     private void CerrarFormulario()
@@ -590,9 +585,13 @@
         StateHasChanged();
     }
 
+    // ═══ FIX: al abrir filtros, cerrar formulario ═══
     private void ToggleFiltros()
     {
-        if (_mostrarFormulario)
+        _mostrarFiltros = !_mostrarFiltros;
+
+        // Si se abren los filtros, cerrar el formulario
+        if (_mostrarFiltros && _mostrarFormulario)
         {
             _mostrarFormulario = false;
             bienDTO = new();
@@ -600,8 +599,6 @@
             bienEditandoId = 0;
             _bienAntesDeEditar = null;
         }
-
-        _mostrarFiltros = !_mostrarFiltros;
     }
 
     private async Task CargarBienes()
@@ -731,7 +728,6 @@
 
             if (editando)
             {
-                // ═══ GUARDAR EL "ANTES" PARA AUDITORÍA ═══
                 var antes = new
                 {
                     Nombre = _bienAntesDeEditar?.Nombre,
@@ -745,7 +741,6 @@
 
                 await BienRepository.ActualizarAsync(bien);
 
-                // ═══ REGISTRAR AUDITORÍA (EDITAR) ═══
                 await Auditoria.RegistrarEdicionAsync(
                     modulo: "bienes",
                     objetoTipo: "Bien",
@@ -772,7 +767,6 @@
             {
                 await BienRepository.CrearAsync(bien);
 
-                // ═══ REGISTRAR AUDITORÍA (CREAR) ═══
                 await Auditoria.RegistrarCreacionAsync(
                     modulo: "bienes",
                     objetoTipo: "Bien",
@@ -828,7 +822,7 @@
         bienEditandoId = bien.Id;
         _bienAntesDeEditar = bien;
         _mostrarFormulario = true;
-        _mostrarFiltros = false;
+        _mostrarFiltros = false;  // ← Cerrar filtros al abrir formulario
 
         bienDTO = new BienDTO
         {
@@ -872,7 +866,6 @@
         {
             await BienRepository.EliminarAsync(id);
 
-            // ═══ REGISTRAR AUDITORÍA (ELIMINAR - CRÍTICO) ═══
             await Auditoria.RegistrarEliminacionAsync(
                 modulo: "bienes",
                 objetoTipo: "Bien",
@@ -932,7 +925,6 @@
                 nombreArchivo,
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 
-            // ═══ REGISTRAR AUDITORÍA (EXPORTAR) ═══
             await Auditoria.RegistrarExportacionAsync(
                 "bienes",
                 $"Exportación Excel de inventario CGN con {todos.Count} bienes"

@@ -323,3 +323,20 @@
     padding: 0;
     overflow: hidden;
 }
+
+/* Asegurar que el layout principal permita altura fija */
+.page {
+    display: flex !important;
+    flex-direction: column !important;
+    height: calc(100vh - 60px) !important; /* ajustar si el header es más alto */
+    max-height: calc(100vh - 60px) !important;
+    overflow: hidden !important;
+}
+
+main {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+}

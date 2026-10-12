@@ -11,16 +11,18 @@ public class MovimientoConsumoDTO
 
     public int InstitucionId { get; set; }
 
-    [Required(ErrorMessage = "El tipo es obligatorio")]
+    [Required(ErrorMessage = "El tipo de movimiento es obligatorio")]
+    [StringLength(20, ErrorMessage = "El tipo no puede superar 20 caracteres")]
     public string TipoMovimiento { get; set; } = "ENTRADA";
 
     [Required(ErrorMessage = "La fecha es obligatoria")]
     public DateTime? FechaMovimiento { get; set; } = DateTime.Today;
 
-    [Range(0.01, double.MaxValue, ErrorMessage = "La cantidad debe ser > 0")]
+    [Required(ErrorMessage = "La cantidad es obligatoria")]
+    [Range(0.01, 999999999.99, ErrorMessage = "La cantidad debe ser mayor a 0")]
     public decimal Cantidad { get; set; }
 
-    [Range(0, double.MaxValue)]
+    [Range(0, 999999999.99, ErrorMessage = "El costo no puede ser negativo")]
     public decimal CostoUnitario { get; set; }
 
     public decimal ValorMovimiento { get; set; }
@@ -28,14 +30,16 @@ public class MovimientoConsumoDTO
     public decimal SaldoValor { get; set; }
     public decimal Cpp { get; set; }
 
-    [StringLength(100)]
+    [StringLength(100, ErrorMessage = "El documento no puede superar 100 caracteres")]
     public string? DocumentoReferencia { get; set; }
 
     public int? ProveedorId { get; set; }
     public int? FuncionarioRecibeId { get; set; }
+
+    [StringLength(500, ErrorMessage = "Las observaciones no pueden superar 500 caracteres")]
     public string? Observaciones { get; set; }
 
-    // Navegación
+    // ═══ Navegación (solo lectura) ═══
     public string? BienCodigo { get; set; }
     public string? BienNombre { get; set; }
     public string? UnidadMedida { get; set; }

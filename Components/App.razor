@@ -16,6 +16,9 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
           rel="stylesheet" />
 
+    <!-- Flatpickr CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css" />
+
     <!-- Estilos globales -->
     <link rel="stylesheet" href="Almacen.styles.css" />
     <link rel="stylesheet" href="app.css" />
@@ -97,6 +100,57 @@
     <!-- Scripts estáticos -->
     <script src="js/layout.js"></script>
     <script src="js/qr-reader.js"></script>
+
+    <!-- Flatpickr JS — ANTES de blazor.web.js -->
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/l10n/es.js"></script>
+
+    <!-- Inicializador de Flatpickr -->
+    <script>
+            window.initFlatpickr = function (selector, initialValue) {
+                try {
+                    if (!window.flatpickr) {
+                        console.warn('⚠ Flatpickr no está cargado');
+                        return false;
+                    }
+
+                    // Asegurar idioma español
+                    if (window.flatpickr.l10ns && window.flatpickr.l10ns.es) {
+                        flatpickr.localize(flatpickr.l10ns.es);
+                    }
+
+                    const element = document.querySelector(selector);
+                    if (!element) {
+                        console.warn('⚠ No se encontró el elemento: ' + selector);
+                        return false;
+                    }
+
+                    // Si ya tiene instancia, destruirla
+                    if (element._flatpickr) {
+                        element._flatpickr.destroy();
+                    }
+
+                    flatpickr(element, {
+                        locale: "es",
+                        dateFormat: "Y-m-d",
+                        altInput: true,
+                        altFormat: "d/m/Y",
+                        defaultDate: initialValue || element.value || "today",
+                        allowInput: false,
+                        disableMobile: true,
+                        static: false
+                    });
+
+                    console.log('✅ Flatpickr inicializado en: ' + selector);
+                    return true;
+                } catch (error) {
+                    console.error('❌ Error al inicializar Flatpickr:', error);
+                    return false;
+                }
+            };
+
+            console.log('✅ window.initFlatpickr registrada');
+    </script>
 
     <!-- Blazor al final -->
     <script src="_framework/blazor.web.js"></script>
