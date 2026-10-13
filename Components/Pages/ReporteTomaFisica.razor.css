@@ -363,24 +363,259 @@
         font-family: var(--font-mono);
     }
 
-/* ═══ IMPRESIÓN ═══ */
+/* ═══════════════════════════════════════════════════════════
+   IMPRESIÓN — Reporte en A4 (FIX con visibility)
+   ═══════════════════════════════════════════════════════════ */
+@page {
+    size: A4;
+    margin: 12mm 14mm;
+}
+
 @media print {
-    .btn-back,
-    .btn-export-pdf {
-        display: none !important;
+
+    /* ═══ 1. Reset global ═══ */
+    html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
+        overflow: visible !important;
+        height: auto !important;
+        width: auto !important;
+        font-size: 11pt !important;
+        color: #000 !important;
+    }
+
+        /* ═══ 2. Ocultar TODO con visibility (no colapsa layout) ═══ */
+        body * {
+            visibility: hidden !important;
+        }
+
+    /* ═══ 3. Mostrar SOLO el contenedor del reporte ═══ */
+    .reporte-container,
+    .reporte-container * {
+        visibility: visible !important;
     }
 
     .reporte-container {
-        padding: 0;
-        max-width: 100%;
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        width: 100% !important;
+        height: auto !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        max-width: 100% !important;
+        background: #fff !important;
+        display: block !important;
+        box-shadow: none !important;
     }
 
-    .reporte-header,
-    .kpi-rep,
-    .conciliacion-banner,
-    .seccion-detalle {
-        box-shadow: none;
-        border: 1px solid #ddd;
+    /* ═══ 4. Ocultar elementos NO imprimibles ═══ */
+    .btn-back,
+    .btn-export-pdf,
+    .app-sidebar,
+    .app-topbar,
+    .app-backdrop {
+        display: none !important;
+        visibility: hidden !important;
+    }
+
+    /* ═══ 5. Ajustes visuales del reporte ═══ */
+    .reporte-header {
+        box-shadow: none !important;
+        border: 1px solid #ddd !important;
+        padding: 16px 20px !important;
+        margin-bottom: 16px !important;
         page-break-inside: avoid;
+    }
+
+    .kpis-reporte {
+        display: grid !important;
+        grid-template-columns: repeat(4, 1fr) !important;
+        gap: 8px !important;
+        margin-bottom: 16px !important;
+        page-break-inside: avoid;
+    }
+
+    .kpi-rep {
+        box-shadow: none !important;
+        border: 1px solid #ddd !important;
+        padding: 10px 12px !important;
+        page-break-inside: avoid;
+        gap: 8px !important;
+    }
+
+        .kpi-rep .kpi-icon {
+            width: 32px !important;
+            height: 32px !important;
+            font-size: 0.9rem !important;
+            border-radius: 8px !important;
+        }
+
+    .kpi-lbl {
+        font-size: 0.62rem !important;
+    }
+
+    .kpi-val {
+        font-size: 1.4rem !important;
+    }
+
+    .conciliacion-banner {
+        box-shadow: none !important;
+        border: 1px solid #ddd !important;
+        page-break-inside: avoid;
+        margin-bottom: 16px !important;
+        padding: 14px 18px !important;
+    }
+
+    .seccion-detalle {
+        box-shadow: none !important;
+        border: 1px solid #ddd !important;
+        page-break-inside: auto;
+        margin-bottom: 16px !important;
+        overflow: visible !important;
+    }
+
+    .seccion-header {
+        page-break-after: avoid;
+        padding: 10px 14px !important;
+    }
+
+        .seccion-header h2 {
+            font-size: 0.9rem !important;
+        }
+
+    .seccion-hint {
+        font-size: 0.7rem !important;
+    }
+
+    .tabla-detalle {
+        overflow: visible !important;
+    }
+
+        .tabla-detalle table {
+            page-break-inside: auto;
+            font-size: 0.85rem !important;
+        }
+
+        .tabla-detalle tr {
+            page-break-inside: avoid;
+        }
+
+        .tabla-detalle th {
+            padding: 6px 10px !important;
+            font-size: 0.7rem !important;
+            background: #f5f5f5 !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        .tabla-detalle td {
+            padding: 6px 10px !important;
+        }
+
+    /* ═══ 6. Colores forzados (evitar fondos perdidos en print) ═══ */
+    .kpi-rep,
+    .kpi-rep.kpi-blue,
+    .kpi-rep.kpi-green,
+    .kpi-rep.kpi-red,
+    .kpi-rep.kpi-orange {
+        background: #fff !important;
+    }
+
+        .kpi-rep .kpi-icon {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+    .seccion-faltantes .seccion-header {
+        background: #fef2f2 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .seccion-faltantes h2 {
+        color: #991b1b !important;
+    }
+
+    .seccion-sobrantes .seccion-header {
+        background: #fffbeb !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .seccion-sobrantes h2 {
+        color: #92400e !important;
+    }
+
+    .seccion-conciliados .seccion-header {
+        background: #f0fdf4 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .seccion-conciliados h2 {
+        color: #166534 !important;
+    }
+
+    .conc-fill {
+        background: #4f46e5 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .conc-bar {
+        background: #e5e7eb !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .conc-msg {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+        .conc-msg.success {
+            background: #f0fdf4 !important;
+            color: #166534 !important;
+        }
+
+        .conc-msg.warning {
+            background: #fffbeb !important;
+            color: #92400e !important;
+        }
+
+        .conc-msg.danger {
+            background: #fef2f2 !important;
+            color: #991b1b !important;
+        }
+
+    .tabla-detalle code {
+        background: #eef2ff !important;
+        color: #4f46e5 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    /* ═══ 7. Remover sombras y transiciones ═══ */
+    * {
+        box-shadow: none !important;
+        text-shadow: none !important;
+        transition: none !important;
+        animation: none !important;
+    }
+
+    /* ═══ 8. Colores de texto forzados ═══ */
+    .reporte-header h1,
+    .conc-val,
+    .kpi-val {
+        color: #000 !important;
+    }
+
+    .reporte-header p,
+    .conc-lbl,
+    .kpi-lbl {
+        color: #666 !important;
     }
 }

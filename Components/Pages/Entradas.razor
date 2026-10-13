@@ -70,28 +70,97 @@
             <EditForm @key="entradaEditandoId" Model="entradaDTO" OnValidSubmit="Guardar">
                 <DataAnnotationsValidator />
 
-                <div class="form-grid-3">
+                @* ═══ FILA 1: Bien | Tipo Fuente | Fecha ═══ *@
+                <div class="form-fila-1">
 
-                    <div class="form-group" style="grid-column: span 2;">
+                    <div class="ff-bien">
                         <label>Bien *</label>
-                        <div class="input-icon">
-                            <i class="bi bi-box-seam"></i>
-                            <InputSelect class="form-select" @bind-Value="entradaDTO.BienId">
-                                <option value="0">— Seleccione bien —</option>
-                                @foreach (var b in bienes)
+
+                        @if (_bienSeleccionado != null)
+                        {
+                            @* ═══ Bien seleccionado — chip compacto ═══ *@
+                            <div class="bien-chip">
+                                <i class="bi bi-box-seam-fill"></i>
+                                <div class="bien-chip-info">
+                                    <span class="bien-chip-codigo">@_bienSeleccionado.Codigo</span>
+                                    <span class="bien-chip-nombre">@_bienSeleccionado.Nombre</span>
+                                </div>
+                                <button type="button" class="bien-chip-cambiar" @onclick="CambiarBien" title="Cambiar bien">
+                                    <i class="bi bi-arrow-repeat"></i>
+                                </button>
+                            </div>
+                        }
+                        else
+                        {
+                            @* ═══ Buscador con dropdown custom ═══ *@
+                            <div class="bien-buscador">
+                                <div class="bien-buscador-input">
+                                    <i class="bi bi-search"></i>
+                                    <input type="text"
+                                           placeholder="Buscar por código o nombre…"
+                                           value="@_textoBusquedaBien"
+                                           @oninput="OnBusquedaBienInput"
+                                           @onfocus="OnBusquedaBienFocus"
+                                           @onkeydown="OnBusquedaBienKeyDown"
+                                           autocomplete="off" />
+                                    @if (!string.IsNullOrWhiteSpace(_textoBusquedaBien))
+                                    {
+                                        <button type="button" class="bien-buscador-clear"
+                                                @onclick="LimpiarBusquedaBien"
+                                                @onclick:stopPropagation="true">
+                                            <i class="bi bi-x-lg"></i>
+                                        </button>
+                                    }
+                                </div>
+
+                                @if (_mostrarDropdownBien)
                                 {
-                                    <option value="@b.Id">@b.Codigo — @b.Nombre</option>
+                                    <div class="bien-dropdown" @onmousedown:preventDefault="true">
+                                        @if (_bienesFiltrados.Any())
+                                        {
+                                            <div class="bien-dropdown-header">
+                                                <span>@_bienesFiltrados.Count resultado(s)</span>
+                                            </div>
+                                            @foreach (var b in _bienesFiltrados.Take(20))
+                                            {
+                                                var bien = b;
+                                                <button type="button" class="bien-dropdown-item"
+                                                        @onclick="() => SeleccionarBienEntrada(bien)"
+                                                        @onclick:stopPropagation="true">
+                                                    <div class="bien-dropdown-item-top">
+                                                        <code>@bien.Codigo</code>
+                                                        <strong>@bien.Nombre</strong>
+                                                    </div>
+                                                    <div class="bien-dropdown-item-bottom">
+                                                        @if (!string.IsNullOrWhiteSpace(bien.CategoriaNombre))
+                                                        {
+                                                            <span>@bien.CategoriaNombre</span>
+                                                        }
+                                                        <span>@bien.ValorAdquisicion.ToString("C0", CulturaCOP)</span>
+                                                    </div>
+                                                </button>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <div class="bien-dropdown-empty">
+                                                <i class="bi bi-search"></i>
+                                                <span>Sin resultados para "@_textoBusquedaBien"</span>
+                                            </div>
+                                        }
+                                    </div>
                                 }
-                            </InputSelect>
-                        </div>
+                            </div>
+                        }
+
                         <ValidationMessage For="() => entradaDTO.BienId" class="form-error" />
                     </div>
 
-                    <div class="form-group">
+                    <div class="ff-tipo">
                         <label>Tipo Fuente *</label>
                         <div class="input-icon">
                             <i class="bi bi-tag"></i>
-                            <InputSelect class="form-select" @bind-Value="entradaDTO.TipoFuente">
+                            <InputSelect class="form-control" @bind-Value="entradaDTO.TipoFuente">
                                 <option value="FSE">Compra FSE</option>
                                 <option value="Donacion">Donación</option>
                                 <option value="Transferencia">Transferencia</option>
@@ -100,7 +169,7 @@
                         </div>
                     </div>
 
-                    <div class="form-group">
+                    <div class="ff-fecha">
                         <label>Fecha Entrada *</label>
                         <div class="input-icon">
                             <i class="bi bi-calendar-check"></i>
@@ -108,22 +177,25 @@
                         </div>
                         <ValidationMessage For="() => entradaDTO.FechaEntrada" class="form-error" />
                     </div>
+                </div>
 
-                    <div class="form-group">
+                @* ═══ FILA 2: N° Factura | Proveedor | Valor | Recibe ═══ *@
+                <div class="form-fila-2">
+
+                    <div class="ff-factura">
                         <label>N° Factura</label>
                         <div class="input-icon">
                             <i class="bi bi-receipt"></i>
                             <InputText class="form-control" @bind-Value="entradaDTO.NumeroFactura"
-                                       placeholder="Ej: FAC-2025-008"
-                                       inputmode="text" />
+                                       placeholder="Ej: FAC-2025-008" />
                         </div>
                     </div>
 
-                    <div class="form-group">
+                    <div class="ff-proveedor">
                         <label>Proveedor</label>
                         <div class="input-icon">
                             <i class="bi bi-shop"></i>
-                            <InputSelect class="form-select" @bind-Value="entradaDTO.ProveedorId">
+                            <InputSelect class="form-control" @bind-Value="entradaDTO.ProveedorId">
                                 <option value="">— Sin proveedor —</option>
                                 @foreach (var p in proveedores)
                                 {
@@ -133,7 +205,7 @@
                         </div>
                     </div>
 
-                    <div class="form-group">
+                    <div class="ff-valor">
                         <label>Valor</label>
                         <div class="input-icon">
                             <i class="bi bi-currency-dollar"></i>
@@ -141,11 +213,11 @@
                         </div>
                     </div>
 
-                    <div class="form-group">
+                    <div class="ff-recibe">
                         <label>Recibe (Funcionario)</label>
                         <div class="input-icon">
                             <i class="bi bi-person-check"></i>
-                            <InputSelect class="form-select" @bind-Value="entradaDTO.FuncionarioRecibeId">
+                            <InputSelect class="form-control" @bind-Value="entradaDTO.FuncionarioRecibeId">
                                 <option value="">— Sin asignar —</option>
                                 @foreach (var f in funcionarios)
                                 {
@@ -154,37 +226,40 @@
                             </InputSelect>
                         </div>
                     </div>
-
-                    <div class="form-group form-group-full">
-                        <label>Observaciones</label>
-                        <div class="input-icon">
-                            <i class="bi bi-chat-left-text textarea-icon"></i>
-                            <InputTextArea class="form-control" rows="2" @bind-Value="entradaDTO.Observaciones"
-                                           placeholder="Observaciones sobre la entrada" />
-                        </div>
-                    </div>
-
                 </div>
 
+                @* ═══ FILA 3: Observaciones (ancho) ═══ *@
+                <div class="form-fila-3">
+                    <div class="ff-observaciones">
+                        <label>Observaciones</label>
+                        <div class="input-icon">
+                            <i class="bi bi-chat-left-text"></i>
+                            <InputText class="form-control" @bind-Value="entradaDTO.Observaciones"
+                                       placeholder="Observaciones sobre la entrada" />
+                        </div>
+                    </div>
+                </div>
+
+                @* ═══ Soporte adjuntos (solo si editando) ═══ *@
                 @if (editando && entradaEditandoId > 0)
                 {
-                    <div class="form-section soportes-section">
-                        <h4 class="form-section-title">
-                            <i class="bi bi-paperclip soportes-icon"></i>
-                            <span>Soportes</span>
-                        </h4>
+                    <div class="form-soportes">
+                        <label><i class="bi bi-paperclip"></i> Soportes</label>
                         <AdjuntosUploader EntidadTipo="entrada" EntidadId="entradaEditandoId" />
                     </div>
                 }
 
-                <div class="form-actions">
-                    <button type="button" class="btn btn-cancel" @onclick="Cancelar">
-                        <i class="bi bi-x-lg"></i> Cerrar
-                    </button>
-                    <button type="submit" class="btn btn-save">
-                        <i class="bi @(editando ? "bi-check-circle-fill" : "bi-save-fill")"></i>
-                        @(editando ? "Actualizar" : "Guardar")
-                    </button>
+                @* ═══ FILA 4: Botones ═══ *@
+                <div class="form-fila-4">
+                    <div class="ff-botones">
+                        <button type="button" class="btn btn-cancel" @onclick="Cancelar">
+                            <i class="bi bi-x-lg"></i> Cerrar
+                        </button>
+                        <button type="submit" class="btn btn-save">
+                            <i class="bi @(editando ? "bi-check-circle-fill" : "bi-save-fill")"></i>
+                            @(editando ? "Actualizar" : "Guardar")
+                        </button>
+                    </div>
                 </div>
             </EditForm>
         </div>
@@ -192,8 +267,8 @@
 
     <div class="card-table">
 
+        @* ═══ BARRA SUPERIOR — Siempre visible ═══ *@
         <div class="filtros-toolbar">
-
             <div class="filtro-busqueda-principal">
                 <i class="bi bi-search"></i>
                 <input type="text"
@@ -210,6 +285,15 @@
             </div>
 
             <div class="filtros-toolbar-actions">
+                <span class="badge-total">
+                    <i class="bi bi-box-arrow-in-down"></i>
+                    <strong>@(_pagina?.TotalRegistros ?? 0)</strong> entradas
+                    @if (_hayFiltrosActivos)
+                    {
+                        <span class="filtro-activo-tag">· Filtrado</span>
+                    }
+                </span>
+
                 <button class="btn-filtros @(_mostrarFiltros ? "active" : "")"
                         @onclick="ToggleFiltros">
                     <i class="bi bi-sliders"></i>
@@ -223,6 +307,7 @@
             </div>
         </div>
 
+        @* ═══ PANEL DE FILTROS ═══ *@
         @if (_mostrarFiltros)
         {
             <div class="panel-filtros">
@@ -241,6 +326,7 @@
                     <div class="filtro-select">
                         <i class="bi bi-calendar"></i>
                         <input type="date"
+                               placeholder="Desde"
                                @bind="_filtroFechaDesde"
                                @bind:after="AplicarFiltrosAvanzados" />
                     </div>
@@ -248,25 +334,16 @@
                     <div class="filtro-select">
                         <i class="bi bi-calendar"></i>
                         <input type="date"
+                               placeholder="Hasta"
                                @bind="_filtroFechaHasta"
                                @bind:after="AplicarFiltrosAvanzados" />
                     </div>
-                </div>
 
-                <div class="filtros-acciones">
-                    <span class="badge-total">
-                        <i class="bi bi-box-arrow-in-down"></i>
-                        <strong>@(_pagina?.TotalRegistros ?? 0)</strong> entradas
-                        @if (_hayFiltrosActivos)
-                        {
-                            <span class="filtro-activo-tag">· Filtrado</span>
-                        }
-                    </span>
                     @if (_hayFiltrosAvanzados)
                     {
                         <button class="btn-limpiar-filtros" @onclick="LimpiarTodosLosFiltros">
                             <i class="bi bi-arrow-counterclockwise"></i>
-                            Limpiar filtros
+                            Limpiar
                         </button>
                     }
                 </div>
@@ -355,7 +432,8 @@
             </table>
         </div>
 
-        @if (_pagina is not null && _pagina.TotalRegistros > 0)
+        @* ═══ PAGINADOR — Oculto cuando el formulario está abierto ═══ *@
+        @if (_pagina is not null && _pagina.TotalRegistros > 0 && !_mostrarFormulario)
         {
             <Paginador T="EntradaDTO"
                        Resultado="_pagina"
@@ -366,7 +444,7 @@
 </div>
 
 @* ═══════════════════════════════════════════════════════════════
-   MODAL — Anular (FUERA del page-container para evitar overflow:hidden)
+   MODAL — Anular
    ═══════════════════════════════════════════════════════════════ *@
 @if (_modalAnulacionAbierto && _itemAAnular is not null)
 {
@@ -468,10 +546,15 @@
     private bool puedeEditar;
     private bool puedeAnular;
 
-    // ═══ Estado del modal de anulación ═══
     private bool _modalAnulacionAbierto = false;
     private EntradaDTO? _itemAAnular;
     private string _motivoAnulacion = "";
+
+    // ═══ Estado del buscador de bienes ═══
+    private Bien? _bienSeleccionado;
+    private string _textoBusquedaBien = string.Empty;
+    private bool _mostrarDropdownBien = false;
+    private List<Bien> _bienesFiltrados = new();
 
     private bool _hayFiltrosActivos =>
         !string.IsNullOrEmpty(_filtroTexto) ||
@@ -499,6 +582,7 @@
         bienes = await BienRepo.ObtenerTodosAsync();
         funcionarios = await FuncRepo.ObtenerTodosAsync();
         proveedores = await ProveedorRepo.ObtenerTodosAsync();
+        _bienesFiltrados = bienes.Take(20).ToList();
 
         await Cargar();
     }
@@ -538,6 +622,12 @@
         _entradaAntesDeEditar = null;
         _mostrarFormulario = true;
         _mostrarFiltros = false;
+
+        // Reset del chip del bien
+        _bienSeleccionado = null;
+        _textoBusquedaBien = string.Empty;
+        _mostrarDropdownBien = false;
+        _bienesFiltrados = bienes.Take(20).ToList();
     }
 
     private void Cancelar()
@@ -552,12 +642,21 @@
         entradaEditandoId = 0;
         _entradaAntesDeEditar = null;
         _filtroTexto = string.Empty;
+
+        // Reset del chip del bien
+        _bienSeleccionado = null;
+        _textoBusquedaBien = string.Empty;
+        _mostrarDropdownBien = false;
+
         StateHasChanged();
     }
 
+    // ═══ Al abrir filtros, cerrar formulario ═══
     private void ToggleFiltros()
     {
-        if (_mostrarFormulario)
+        _mostrarFiltros = !_mostrarFiltros;
+
+        if (_mostrarFiltros && _mostrarFormulario)
         {
             _mostrarFormulario = false;
             entradaDTO = new EntradaDTO
@@ -568,8 +667,11 @@
             editando = false;
             entradaEditandoId = 0;
             _entradaAntesDeEditar = null;
+
+            _bienSeleccionado = null;
+            _textoBusquedaBien = string.Empty;
+            _mostrarDropdownBien = false;
         }
-        _mostrarFiltros = !_mostrarFiltros;
     }
 
     private async Task AplicarFiltrosAvanzados()
@@ -629,6 +731,93 @@
         await Cargar();
         StateHasChanged();
     }
+
+    // ═══════════════════════════════════════════════════════════
+    // BUSCADOR DE BIENES — Dropdown custom
+    // ═══════════════════════════════════════════════════════════
+
+    private void OnBusquedaBienFocus()
+    {
+        _mostrarDropdownBien = true;
+
+        if (string.IsNullOrWhiteSpace(_textoBusquedaBien))
+        {
+            _bienesFiltrados = bienes.Take(20).ToList();
+        }
+        else
+        {
+            FiltrarBienes();
+        }
+    }
+
+    private void OnBusquedaBienInput(ChangeEventArgs e)
+    {
+        _textoBusquedaBien = e.Value?.ToString() ?? string.Empty;
+        _mostrarDropdownBien = true;
+
+        if (string.IsNullOrWhiteSpace(_textoBusquedaBien))
+        {
+            _bienesFiltrados = bienes.Take(20).ToList();
+        }
+        else
+        {
+            FiltrarBienes();
+        }
+    }
+
+    private void FiltrarBienes()
+    {
+        var filtro = _textoBusquedaBien.Trim().ToLowerInvariant();
+        _bienesFiltrados = bienes
+            .Where(b =>
+                (b.Codigo?.ToLowerInvariant().Contains(filtro) ?? false) ||
+                (b.Nombre?.ToLowerInvariant().Contains(filtro) ?? false))
+            .OrderBy(b => b.Codigo)
+            .ToList();
+    }
+
+    private void OnBusquedaBienKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+        {
+            _mostrarDropdownBien = false;
+            return;
+        }
+
+        if (e.Key == "Enter" && _mostrarDropdownBien && _bienesFiltrados.Count > 0)
+        {
+            SeleccionarBienEntrada(_bienesFiltrados[0]);
+        }
+    }
+
+    private void LimpiarBusquedaBien()
+    {
+        _textoBusquedaBien = string.Empty;
+        _bienesFiltrados = bienes.Take(20).ToList();
+        _mostrarDropdownBien = true;
+    }
+
+    private void SeleccionarBienEntrada(Bien bien)
+    {
+        _bienSeleccionado = bien;
+        entradaDTO.BienId = bien.Id;
+        _textoBusquedaBien = string.Empty;
+        _bienesFiltrados = new List<Bien>();
+        _mostrarDropdownBien = false;
+        StateHasChanged();
+    }
+
+    private void CambiarBien()
+    {
+        _bienSeleccionado = null;
+        entradaDTO.BienId = 0;
+        _textoBusquedaBien = string.Empty;
+        _bienesFiltrados = bienes.Take(20).ToList();
+        _mostrarDropdownBien = true;
+        StateHasChanged();
+    }
+
+    // ═══════════════════════════════════════════════════════════
 
     private async Task Guardar()
     {
@@ -731,10 +920,16 @@
                     ProveedorId = proveedorActual
                 };
 
+                // Reset del chip
+                _bienSeleccionado = null;
+                _textoBusquedaBien = string.Empty;
+                _mostrarDropdownBien = false;
+                _bienesFiltrados = bienes.Take(20).ToList();
+
                 try
                 {
                     await JS.InvokeVoidAsync("eval",
-                        "setTimeout(() => { const el = document.querySelector('.card-form input'); if (el) el.focus(); }, 100);");
+                        "setTimeout(() => { const el = document.querySelector('.bien-buscador-input input'); if (el) el.focus(); }, 100);");
                 }
                 catch { }
 
@@ -768,6 +963,12 @@
         entradaDTO.FuncionarioRecibeId = e.FuncionarioRecibeId;
         entradaDTO.Observaciones = e.Observaciones;
 
+        // ═══ Cargar el bien seleccionado en el chip ═══
+        _bienSeleccionado = bienes.FirstOrDefault(b => b.Id == e.BienId);
+        _textoBusquedaBien = string.Empty;
+        _mostrarDropdownBien = false;
+        _bienesFiltrados = bienes.Take(20).ToList();
+
         _filtroTexto = string.Empty;
         StateHasChanged();
     }
@@ -784,7 +985,6 @@
             return;
         }
 
-        // ═══ VALIDACIÓN: ¿Es la última entrada del bien? ═══
         try
         {
             var esUltima = await EntradaRepo.EsUltimaEntradaAsync(e.Id);

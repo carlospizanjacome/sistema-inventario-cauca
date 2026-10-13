@@ -5,6 +5,7 @@
 @using Almacen.Interfaces
 @using Almacen.Services
 @using Almacen.Helpers
+@using Almacen.Models
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.JSInterop
 @using System.Globalization
@@ -36,13 +37,14 @@
             @if (puedeCrear)
             {
                 <div class="header-actions">
-                    <button class="btn-nuevo" @onclick="AbrirFormulario">
+                    <button class="btn-nuevo btn-nuevo-prestamo" @onclick="AbrirFormulario">
                         <i class="bi bi-plus-lg"></i> Nuevo Préstamo
                     </button>
                 </div>
             }
         </div>
 
+        @* ═══ KPIs compactos clicables ═══ *@
         <section class="kpi-grid">
             <div class="kpi-card kpi-indigo kpi-clicable" @onclick="FiltrarActivos">
                 <div class="kpi-icon"><i class="bi bi-hourglass-split"></i></div>
@@ -73,24 +75,6 @@
                 </div>
             </div>
         </section>
-
-        <div class="pills-filter">
-            <button type="button" class="pill-btn @(_pillActivo is null ? "active-indigo" : "inactive")" @onclick="FiltrarTodos">
-                <i class="bi bi-list-ul"></i> Todos
-            </button>
-            <button type="button" class="pill-btn @(_pillActivo == "activos" ? "active-indigo" : "inactive")" @onclick="FiltrarActivos">
-                <i class="bi bi-hourglass-split"></i> Activos
-            </button>
-            <button type="button" class="pill-btn @(_pillActivo == "vencidos" ? "active-red" : "inactive")" @onclick="FiltrarVencidos">
-                <i class="bi bi-exclamation-triangle-fill"></i> Vencidos
-            </button>
-            <button type="button" class="pill-btn @(_pillActivo == "devueltos" ? "active-green" : "inactive")" @onclick="FiltrarDevueltos">
-                <i class="bi bi-check-circle-fill"></i> Devueltos
-            </button>
-            <button type="button" class="pill-btn @(_pillActivo == "historico" ? "active-gray" : "inactive")" @onclick="FiltrarHistorico">
-                <i class="bi bi-archive-fill"></i> Histórico
-            </button>
-        </div>
     }
 
     @if (_mostrarFormulario)
@@ -116,23 +100,100 @@
             <EditForm Model="dto" OnValidSubmit="Guardar">
                 <DataAnnotationsValidator />
 
-                <div class="form-grid-3">
-                    <div class="form-group" style="grid-column: span 2;">
+                @* ═══ FILA 1: Bien | Fecha Devolución | Solicitante ═══ *@
+                <div class="form-fila-1">
+
+                    <div class="ff-bien">
                         <label>Bien a prestar *</label>
-                        <div class="input-icon">
-                            <i class="bi bi-box-seam"></i>
-                            <InputSelect class="form-select" @bind-Value="dto.BienId">
-                                <option value="0">— Seleccione bien —</option>
-                                @foreach (var b in bienes)
+
+                        @if (_bienSeleccionado != null)
+                        {
+                            <div class="bien-chip">
+                                <i class="bi bi-box-seam-fill"></i>
+                                <div class="bien-chip-info">
+                                    <span class="bien-chip-codigo">@_bienSeleccionado.Codigo</span>
+                                    <span class="bien-chip-nombre">@_bienSeleccionado.Nombre</span>
+                                </div>
+                                <button type="button" class="bien-chip-cambiar" @onclick="CambiarBien" title="Cambiar bien">
+                                    <i class="bi bi-arrow-repeat"></i>
+                                </button>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="bien-buscador">
+                                <div class="bien-buscador-input">
+                                    <i class="bi bi-search"></i>
+                                    <input type="text"
+                                           placeholder="Buscar por código o nombre…"
+                                           value="@_textoBusquedaBien"
+                                           @oninput="OnBusquedaBienInput"
+                                           @onfocus="OnBusquedaBienFocus"
+                                           @onkeydown="OnBusquedaBienKeyDown"
+                                           autocomplete="off" />
+                                    @if (!string.IsNullOrWhiteSpace(_textoBusquedaBien))
+                                    {
+                                        <button type="button" class="bien-buscador-clear"
+                                                @onclick="LimpiarBusquedaBien"
+                                                @onclick:stopPropagation="true">
+                                            <i class="bi bi-x-lg"></i>
+                                        </button>
+                                    }
+                                </div>
+
+                                @if (_mostrarDropdownBien)
                                 {
-                                    <option value="@b.Id">@b.Codigo — @b.Nombre</option>
+                                    <div class="bien-dropdown" @onmousedown:preventDefault="true">
+                                        @if (_bienesFiltrados.Any())
+                                        {
+                                            <div class="bien-dropdown-header">
+                                                <span>@_bienesFiltrados.Count resultado(s)</span>
+                                            </div>
+                                            @foreach (var b in _bienesFiltrados.Take(20))
+                                            {
+                                                var bien = b;
+                                                <button type="button" class="bien-dropdown-item"
+                                                        @onclick="() => SeleccionarBienPrestamo(bien)"
+                                                        @onclick:stopPropagation="true">
+                                                    <div class="bien-dropdown-item-top">
+                                                        <code>@bien.Codigo</code>
+                                                        <strong>@bien.Nombre</strong>
+                                                    </div>
+                                                    <div class="bien-dropdown-item-bottom">
+                                                        @if (!string.IsNullOrWhiteSpace(bien.CategoriaNombre))
+                                                        {
+                                                            <span>@bien.CategoriaNombre</span>
+                                                        }
+                                                        <span>@bien.ValorAdquisicion.ToString("C0", CulturaCOP)</span>
+                                                    </div>
+                                                </button>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <div class="bien-dropdown-empty">
+                                                <i class="bi bi-search"></i>
+                                                <span>Sin resultados para "@_textoBusquedaBien"</span>
+                                            </div>
+                                        }
+                                    </div>
                                 }
-                            </InputSelect>
-                        </div>
+                            </div>
+                        }
+
                         <ValidationMessage For="() => dto.BienId" class="form-error" />
                     </div>
 
-                    <div class="form-group">
+                    <div class="ff-fecha">
+                        <label>Fecha devolución prevista *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-calendar-check"></i>
+                            <InputDate class="form-control" @bind-Value="dto.FechaDevolucionPrevista" />
+                        </div>
+                        <ValidationMessage For="() => dto.FechaDevolucionPrevista" class="form-error" />
+                    </div>
+
+                    <div class="ff-solicitante">
                         <label>Solicitante *</label>
                         <div class="input-icon">
                             <i class="bi bi-person-fill"></i>
@@ -146,16 +207,12 @@
                         </div>
                         <ValidationMessage For="() => dto.FuncionarioSolicitaId" class="form-error" />
                     </div>
+                </div>
 
-                    <div class="form-group">
-                        <label>Fecha devolución prevista *</label>
-                        <div class="input-icon">
-                            <i class="bi bi-calendar-check"></i>
-                            <InputDate class="form-control" @bind-Value="dto.FechaDevolucionPrevista" />
-                        </div>
-                    </div>
+                @* ═══ FILA 2: Motivo + Botones ═══ *@
+                <div class="form-fila-2">
 
-                    <div class="form-group" style="grid-column: span 2;">
+                    <div class="ff-motivo">
                         <label>Motivo del préstamo *</label>
                         <div class="input-icon">
                             <i class="bi bi-chat-left-text"></i>
@@ -164,15 +221,15 @@
                         </div>
                         <ValidationMessage For="() => dto.Motivo" class="form-error" />
                     </div>
-                </div>
 
-                <div class="form-actions">
-                    <button type="button" class="btn btn-cancel" @onclick="Cancelar">
-                        <i class="bi bi-x-lg"></i> Cerrar
-                    </button>
-                    <button type="submit" class="btn btn-save">
-                        <i class="bi bi-save-fill"></i> Crear solicitud
-                    </button>
+                    <div class="ff-botones">
+                        <button type="button" class="btn btn-cancel" @onclick="Cancelar">
+                            <i class="bi bi-x-lg"></i> Cancelar
+                        </button>
+                        <button type="submit" class="btn btn-save btn-save-prestamo">
+                            <i class="bi bi-save-fill"></i> Crear solicitud
+                        </button>
+                    </div>
                 </div>
             </EditForm>
         </div>
@@ -180,6 +237,29 @@
 
     <div class="card-table">
 
+        @* ═══ Pills de filtro rápido ═══ *@
+        @if (!_mostrarFormulario)
+        {
+            <div class="pills-filter">
+                <button type="button" class="pill-btn @(_pillActivo is null ? "active-indigo" : "inactive")" @onclick="FiltrarTodos">
+                    <i class="bi bi-list-ul"></i> Todos
+                </button>
+                <button type="button" class="pill-btn @(_pillActivo == "activos" ? "active-indigo" : "inactive")" @onclick="FiltrarActivos">
+                    <i class="bi bi-hourglass-split"></i> Activos
+                </button>
+                <button type="button" class="pill-btn @(_pillActivo == "vencidos" ? "active-red" : "inactive")" @onclick="FiltrarVencidos">
+                    <i class="bi bi-exclamation-triangle-fill"></i> Vencidos
+                </button>
+                <button type="button" class="pill-btn @(_pillActivo == "devueltos" ? "active-green" : "inactive")" @onclick="FiltrarDevueltos">
+                    <i class="bi bi-check-circle-fill"></i> Devueltos
+                </button>
+                <button type="button" class="pill-btn @(_pillActivo == "historico" ? "active-gray" : "inactive")" @onclick="FiltrarHistorico">
+                    <i class="bi bi-archive-fill"></i> Histórico
+                </button>
+            </div>
+        }
+
+        @* ═══ BARRA SUPERIOR — Siempre visible ═══ *@
         <div class="filtros-toolbar">
             <div class="filtro-busqueda-principal">
                 <i class="bi bi-search"></i>
@@ -197,15 +277,30 @@
             </div>
 
             <div class="filtros-toolbar-actions">
+                <span class="badge-total">
+                    <i class="bi bi-arrow-repeat"></i>
+                    <strong>@(_pagina?.TotalRegistros ?? 0)</strong> préstamos
+                    @if (_hayFiltrosActivos)
+                    {
+                        <span class="filtro-activo-tag">· Filtrado</span>
+                    }
+                </span>
+
                 <button class="btn-filtros @(_mostrarFiltros ? "active" : "")" @onclick="ToggleFiltros">
                     <i class="bi bi-sliders"></i>
                     <span>Filtros</span>
                     @if (_hayFiltrosAvanzados) { <span class="filtros-badge"></span> }
                     <i class="bi @(_mostrarFiltros ? "bi-chevron-up" : "bi-chevron-down")"></i>
                 </button>
+
+                <button class="btn-export-cgn" @onclick="ExportarExcel" disabled="@(_exportando)">
+                    <i class="bi @(_exportando ? "bi-hourglass-split" : "bi-download")"></i>
+                    <span>@(_exportando ? "Generando…" : "Exportar")</span>
+                </button>
             </div>
         </div>
 
+        @* ═══ PANEL DE FILTROS ═══ *@
         @if (_mostrarFiltros)
         {
             <div class="panel-filtros">
@@ -223,27 +318,26 @@
                             <option value="ANULADO">Anulado</option>
                         </select>
                     </div>
-                    <div class="filtro-select">
-                        <i class="bi bi-calendar"></i>
-                        <input type="date" @bind="_filtroFechaDesde" @bind:after="AplicarFiltrosAvanzados" />
-                    </div>
-                    <div class="filtro-select">
-                        <i class="bi bi-calendar"></i>
-                        <input type="date" @bind="_filtroFechaHasta" @bind:after="AplicarFiltrosAvanzados" />
-                    </div>
-                </div>
 
-                <div class="filtros-acciones">
-                    <span class="badge-total">
-                        <i class="bi bi-arrow-repeat"></i>
-                        <strong>@(_pagina?.TotalRegistros ?? 0)</strong> préstamos
-                        @if (_hayFiltrosActivos) { <span class="filtro-activo-tag">· Filtrado</span> }
-                    </span>
+                    <div class="filtro-select">
+                        <i class="bi bi-calendar"></i>
+                        <input type="date" placeholder="Desde"
+                               @bind="_filtroFechaDesde"
+                               @bind:after="AplicarFiltrosAvanzados" />
+                    </div>
+
+                    <div class="filtro-select">
+                        <i class="bi bi-calendar"></i>
+                        <input type="date" placeholder="Hasta"
+                               @bind="_filtroFechaHasta"
+                               @bind:after="AplicarFiltrosAvanzados" />
+                    </div>
+
                     @if (_hayFiltrosAvanzados)
                     {
                         <button class="btn-limpiar-filtros" @onclick="LimpiarTodosLosFiltros">
                             <i class="bi bi-arrow-counterclockwise"></i>
-                            Limpiar filtros
+                            Limpiar
                         </button>
                     }
                 </div>
@@ -259,7 +353,7 @@
                         <th>Solicitado</th>
                         <th>Devolución prevista</th>
                         <th class="text-center">Estado</th>
-                        <th class="text-center" style="width: 220px;">Acciones</th>
+                        <th class="text-center" style="width: 180px;">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -333,52 +427,57 @@
                                 </td>
                                 <td class="text-center">
                                     <div class="action-buttons">
+
+                                        @* ═══ VER — siempre visible ═══ *@
                                         <button class="btn-action btn-action-view"
-                                                @onclick="() => VerDetalle(p)" title="Ver detalle">
+                                                @onclick="() => VerDetalle(p)"
+                                                title="Ver detalle">
                                             <i class="bi bi-eye-fill"></i>
                                         </button>
 
+                                        @* ═══ APROBAR / RECHAZAR — solo en SOLICITADO ═══ *@
                                         @if (p.Estado == "SOLICITADO" && puedeAprobar)
                                         {
                                             <button class="btn-action btn-action-ok"
-                                                    @onclick="() => Aprobar(p)" title="Aprobar">
+                                                    @onclick="() => Aprobar(p)"
+                                                    title="Aprobar solicitud">
                                                 <i class="bi bi-check-lg"></i>
                                             </button>
                                             <button class="btn-action btn-action-delete"
-                                                    @onclick="() => Rechazar(p)" title="Rechazar">
+                                                    @onclick="() => Rechazar(p)"
+                                                    title="Rechazar solicitud">
                                                 <i class="bi bi-x-lg"></i>
                                             </button>
                                         }
 
+                                        @* ═══ ENTREGAR — solo en APROBADO ═══ *@
                                         @if (p.Estado == "APROBADO" && puedeEntregar)
                                         {
                                             <button class="btn-action btn-action-ok"
-                                                    @onclick="() => Entregar(p)" title="Registrar entrega">
+                                                    @onclick="() => Entregar(p)"
+                                                    title="Registrar entrega física">
                                                 <i class="bi bi-box-arrow-up-right"></i>
                                             </button>
                                         }
 
+                                        @* ═══ DEVOLVER — solo en PRESTADO/VENCIDO ═══ *@
                                         @if ((p.Estado == "PRESTADO" || p.Estado == "VENCIDO") && puedeDevolver)
                                         {
                                             <button class="btn-action btn-action-ok"
-                                                    @onclick="() => Devolver(p)" title="Registrar devolución">
+                                                    @onclick="() => Devolver(p)"
+                                                    title="Registrar devolución">
                                                 <i class="bi bi-box-arrow-in-down"></i>
                                             </button>
                                         }
 
-                                        @if ((p.Estado == "SOLICITADO" || p.Estado == "APROBADO") && puedeAprobar)
-                                        {
-                                            <button class="btn-action btn-action-delete"
-                                                    @onclick="() => Anular(p)" title="Anular">
-                                                <i class="bi bi-slash-circle"></i>
-                                            </button>
-                                        }
-
-                                        @if (p.EsTerminal && puedeEliminar)
+                                        @* ═══ ANULAR (soft-delete) — PATRÓN SALIDAS/BAJAS ═══
+                                           Botón rojo outline + icono bi-slash-circle-fill (relleno)
+                                           Visible solo en estados terminales y si aún no está anulada *@
+                                        @if (p.EsTerminal && puedeEliminar && !p.Anulada)
                                         {
                                             <button class="btn-action btn-action-delete"
                                                     @onclick="() => IntentarAnularRegistro(p)"
-                                                    title="Anular registro (soft-delete)">
+                                                    title="Anular préstamo (solo si está en estado terminal)">
                                                 <i class="bi bi-slash-circle-fill"></i>
                                             </button>
                                         }
@@ -391,7 +490,8 @@
             </table>
         </div>
 
-        @if (_pagina is not null && _pagina.TotalRegistros > 0)
+        @* ═══ PAGINADOR — Oculto con form abierto ═══ *@
+        @if (_pagina is not null && _pagina.TotalRegistros > 0 && !_mostrarFormulario)
         {
             <Paginador T="PrestamoDTO"
                        Resultado="_pagina"
@@ -402,8 +502,7 @@
 </div>
 
 @* ═══════════════════════════════════════════════════════════
-   MODAL DE ANULACIÓN DE REGISTRO (SOFT-DELETE)
-   FUERA del page-container
+   MODAL DE ANULACIÓN DE REGISTRO (SOFT-DELETE) — Patrón Salidas/Bajas
    ═══════════════════════════════════════════════════════════ *@
 @if (_modalAnularRegistroAbierto && _prestamoAAnular is not null)
 {
@@ -413,8 +512,8 @@
         <div class="modal-anular" @onclick:stopPropagation="true">
             <div class="modal-anular-header">
                 <div class="modal-anular-header-left">
-                    <span class="badge badge-warn">
-                        <i class="bi bi-exclamation-triangle-fill"></i> Anular
+                    <span class="badge badge-off">
+                        <i class="bi bi-slash-circle-fill"></i> Anular
                     </span>
                     <h3>Anular Registro de Préstamo</h3>
                 </div>
@@ -715,6 +814,15 @@
     private bool _detalleAbierto = false;
     private PrestamoDTO? _prestamoDetalle;
 
+    // ═══ Estado del buscador de bienes ═══
+    private Bien? _bienSeleccionado;
+    private string _textoBusquedaBien = string.Empty;
+    private bool _mostrarDropdownBien = false;
+    private List<Bien> _bienesFiltrados = new();
+
+    // ═══ Estado de exportación ═══
+    private bool _exportando = false;
+
     // ── Modal de anulación de registro (soft-delete) ──
     private bool _modalAnularRegistroAbierto = false;
     private PrestamoDTO? _prestamoAAnular;
@@ -773,6 +881,7 @@
 
         bienes = (await t1).ToList();
         funcionarios = (await t2).ToList();
+        _bienesFiltrados = bienes.Take(20).ToList();
 
         await Cargar();
     }
@@ -861,6 +970,93 @@
         await Cargar();
         StateHasChanged();
     }
+
+    // ═══════════════════════════════════════════════════════
+    // BUSCADOR DE BIENES — Dropdown custom
+    // ═══════════════════════════════════════════════════════
+
+    private void OnBusquedaBienFocus()
+    {
+        _mostrarDropdownBien = true;
+
+        if (string.IsNullOrWhiteSpace(_textoBusquedaBien))
+        {
+            _bienesFiltrados = bienes.Take(20).ToList();
+        }
+        else
+        {
+            FiltrarBienes();
+        }
+    }
+
+    private void OnBusquedaBienInput(ChangeEventArgs e)
+    {
+        _textoBusquedaBien = e.Value?.ToString() ?? string.Empty;
+        _mostrarDropdownBien = true;
+
+        if (string.IsNullOrWhiteSpace(_textoBusquedaBien))
+        {
+            _bienesFiltrados = bienes.Take(20).ToList();
+        }
+        else
+        {
+            FiltrarBienes();
+        }
+    }
+
+    private void FiltrarBienes()
+    {
+        var filtro = _textoBusquedaBien.Trim().ToLowerInvariant();
+        _bienesFiltrados = bienes
+            .Where(b =>
+                (b.Codigo?.ToLowerInvariant().Contains(filtro) ?? false) ||
+                (b.Nombre?.ToLowerInvariant().Contains(filtro) ?? false))
+            .OrderBy(b => b.Codigo)
+            .ToList();
+    }
+
+    private void OnBusquedaBienKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+        {
+            _mostrarDropdownBien = false;
+            return;
+        }
+
+        if (e.Key == "Enter" && _mostrarDropdownBien && _bienesFiltrados.Count > 0)
+        {
+            SeleccionarBienPrestamo(_bienesFiltrados[0]);
+        }
+    }
+
+    private void LimpiarBusquedaBien()
+    {
+        _textoBusquedaBien = string.Empty;
+        _bienesFiltrados = bienes.Take(20).ToList();
+        _mostrarDropdownBien = true;
+    }
+
+    private void SeleccionarBienPrestamo(Bien bien)
+    {
+        _bienSeleccionado = bien;
+        dto.BienId = bien.Id;
+        _textoBusquedaBien = string.Empty;
+        _bienesFiltrados = new List<Bien>();
+        _mostrarDropdownBien = false;
+        StateHasChanged();
+    }
+
+    private void CambiarBien()
+    {
+        _bienSeleccionado = null;
+        dto.BienId = 0;
+        _textoBusquedaBien = string.Empty;
+        _bienesFiltrados = bienes.Take(20).ToList();
+        _mostrarDropdownBien = true;
+        StateHasChanged();
+    }
+
+    // ═══════════════════════════════════════════════════════
 
     private void VerDetalle(PrestamoDTO prestamo)
     {
@@ -962,6 +1158,10 @@
         {
             FechaDevolucionPrevista = DateTime.Today.AddDays(7)
         };
+        _bienSeleccionado = null;
+        _textoBusquedaBien = string.Empty;
+        _mostrarDropdownBien = false;
+        _bienesFiltrados = bienes.Take(20).ToList();
         _mostrarFormulario = true;
         _mostrarFiltros = false;
     }
@@ -970,6 +1170,9 @@
     {
         _mostrarFormulario = false;
         dto = new PrestamoDTO();
+        _bienSeleccionado = null;
+        _textoBusquedaBien = string.Empty;
+        _mostrarDropdownBien = false;
         StateHasChanged();
     }
 
@@ -1153,36 +1356,8 @@
         }
     }
 
-    /// <summary>Cambia el estado a ANULADO (flujo normal: cancelar antes de entregar).</summary>
-    private async Task Anular(PrestamoDTO p)
-    {
-        var ok = await Confirm.Peligroso($"¿Anular el préstamo del bien '{p.BienNombre}'?");
-        if (!ok) return;
-
-        try
-        {
-            await PrestamoRepo.AnularAsync(p.Id);
-
-            await Auditoria.RegistrarAnulacionAsync(
-                modulo: "prestamos",
-                objetoTipo: "Préstamo",
-                objetoId: p.Id,
-                objetoCodigo: null,
-                objetoDescripcion: $"Préstamo de {p.BienNombre}",
-                motivo: "Préstamo anulado"
-            );
-
-            Toast.Warning("Préstamo anulado.");
-            await Cargar();
-        }
-        catch (Exception ex)
-        {
-            ErrorHelper.Mostrar(Toast, ex, "el préstamo", "anular");
-        }
-    }
-
     // ═══════════════════════════════════════════════════════
-    // SOFT-DELETE (anular registro del histórico)
+    // SOFT-DELETE (anular registro del histórico) — PATRÓN SALIDAS/BAJAS
     // ═══════════════════════════════════════════════════════
 
     private void IntentarAnularRegistro(PrestamoDTO p)
@@ -1265,6 +1440,39 @@
         finally
         {
             _procesandoAnulacionRegistro = false;
+            StateHasChanged();
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // EXPORTAR A EXCEL
+    // ═══════════════════════════════════════════════════════
+
+    private async Task ExportarExcel()
+    {
+        _exportando = true;
+        StateHasChanged();
+
+        try
+        {
+            var todos = _pagina?.Items?.ToList() ?? new List<PrestamoDTO>();
+
+            if (!todos.Any())
+            {
+                Toast.Warning("No hay préstamos para exportar.");
+                return;
+            }
+
+            Toast.Info($"Exportación a Excel en desarrollo ({todos.Count} préstamos).");
+            await Task.CompletedTask;
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error al exportar: {ex.Message}");
+        }
+        finally
+        {
+            _exportando = false;
             StateHasChanged();
         }
     }
