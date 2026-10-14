@@ -1,0 +1,268 @@
+﻿@page "/asistente-ia"
+@rendermode InteractiveServer
+
+@using Almacen.DTOs
+@using Almacen.Services
+@using Microsoft.JSInterop
+
+@inject AsistenteIAService AsistenteService
+@inject UsuarioSesionService Sesion
+@inject SeguridadService Seguridad
+@inject NavigationManager Navigation
+@inject ToastService Toast
+@inject IJSRuntime JS
+@inject AuditoriaService Auditoria
+
+<PageTitle>Asistente IA · Almacén</PageTitle>
+
+<div class="page-container page-crud">
+
+    <div class="page-header">
+        <div>
+            <h1><i class="bi bi-chat-dots-fill"></i> Asistente IA</h1>
+            <p class="subtitle">Preguntas en lenguaje natural sobre el inventario</p>
+        </div>
+        <div class="header-actions">
+            <button class="btn-clear-chat" @onclick="LimpiarChat" disabled="@(!_mensajes.Any())">
+                <i class="bi bi-arrow-counterclockwise"></i>
+                <span>Limpiar chat</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="card-table">
+        <div class="ai-container">
+
+            <!-- ═══ ZONA DE BIENVENIDA ═══ -->
+            @if (!_mensajes.Any())
+            {
+                <div class="ai-bienvenida">
+                    <div class="ai-hero">
+                        <div class="ai-hero-icono">
+                            <i class="bi bi-robot"></i>
+                            <span class="ai-hero-pulse"></span>
+                        </div>
+                        <h2>¡Hola! Soy tu asistente del inventario</h2>
+                        <p>Elige una pregunta frecuente o escribe la tuya abajo</p>
+                    </div>
+
+                    <div class="ai-preguntas-grid">
+                        @foreach (var p in _preguntasFrecuentes)
+                        {
+                            <button class="ai-pregunta-card ai-color-@p.Color"
+                                    @onclick="() => Preguntar(p.Id)"
+                                    disabled="@_cargando">
+                                <div class="ai-pregunta-icono">
+                                    <i class="bi @p.Icono"></i>
+                                </div>
+                                <div class="ai-pregunta-info">
+                                    <div class="ai-pregunta-texto">@p.Titulo</div>
+                                    <div class="ai-pregunta-categoria">@p.Categoria</div>
+                                </div>
+                                <i class="bi bi-arrow-right ai-pregunta-arrow"></i>
+                            </button>
+                        }
+                    </div>
+                </div>
+            }
+            else
+            {
+                <!-- ═══ CHAT ═══ -->
+                <div class="ai-chat" id="ai-chat-container">
+                    @foreach (var msg in _mensajes)
+                    {
+                        <div class="ai-mensaje ai-mensaje-@msg.Rol">
+                            <div class="ai-avatar @(msg.Rol == "bot" ? "bot" : "user")">
+                                <i class="bi @(msg.Rol == "bot" ? "bi-robot" : "bi-person-fill")"></i>
+                            </div>
+                            <div class="ai-mensaje-body">
+                                <div class="ai-mensaje-label">
+                                    @(msg.Rol == "bot" ? "Asistente" : "Tú")
+                                </div>
+                                <div class="ai-burbuja ai-burbuja-@msg.TipoRespuesta">
+                                    <div class="ai-burbuja-texto">@((MarkupString)FormatearTexto(msg.Contenido))</div>
+
+                                    @if (msg.Tabla is not null)
+                                    {
+                                        foreach (var t in msg.Tabla)
+                                        {
+                                            <div class="ai-tabla-wrap">
+                                                <table class="ai-tabla">
+                                                    <thead>
+                                                        <tr>
+                                                            @foreach (var col in t.Columnas)
+                                                            {
+                                                                <th>@col</th>
+                                                            }
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        @foreach (var fila in t.Filas)
+                                                        {
+                                                            <tr>
+                                                                @foreach (var celda in fila)
+                                                                {
+                                                                    <td>@celda</td>
+                                                                }
+                                                            </tr>
+                                                        }
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        }
+                                    }
+                                </div>
+                                <div class="ai-hora">@msg.Fecha.ToString("HH:mm")</div>
+                            </div>
+                        </div>
+                    }
+
+                    @if (_cargando)
+                    {
+                        <div class="ai-mensaje ai-mensaje-bot">
+                            <div class="ai-avatar bot"><i class="bi bi-robot"></i></div>
+                            <div class="ai-mensaje-body">
+                                <div class="ai-mensaje-label">Asistente</div>
+                                <div class="ai-burbuja ai-burbuja-info ai-burbuja-typing">
+                                    <div class="ai-typing">
+                                        <span></span><span></span><span></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <!-- ═══ SUGERENCIAS RÁPIDAS ═══ -->
+                <div class="ai-sugerencias-wrap">
+                    <div class="ai-sugerencias-label">Sugerencias rápidas:</div>
+                    <div class="ai-sugerencias">
+                        @foreach (var p in _preguntasFrecuentes.Take(6))
+                        {
+                            <button class="ai-sugerencia" @onclick="() => Preguntar(p.Id)" disabled="@_cargando">
+                                <i class="bi @p.Icono"></i>
+                                <span>@p.Titulo</span>
+                            </button>
+                        }
+                    </div>
+                </div>
+            }
+
+            <!-- ═══ INPUT DE TEXTO ═══ -->
+            <div class="ai-input-wrap">
+                <i class="bi bi-chat-text"></i>
+                <input type="text"
+                       class="ai-input"
+                       placeholder="Escribe tu pregunta… (próximamente IA libre)"
+                       disabled
+                       title="Chat libre disponible en Fase 3B" />
+                <button class="ai-input-btn" disabled title="Disponible en la próxima fase">
+                    <i class="bi bi-send-fill"></i>
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+@code {
+    private bool _cargando = false;
+    private List<PreguntaFrecuenteDTO> _preguntasFrecuentes = new();
+    private List<MensajeChatDTO> _mensajes = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await Seguridad.TienePermisoAsync("asistente_ia.ver"))
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+
+        _preguntasFrecuentes = AsistenteIAService.ObtenerPreguntasFrecuentes();
+    }
+
+    private async Task Preguntar(string idPregunta)
+    {
+        var pregunta = _preguntasFrecuentes.FirstOrDefault(p => p.Id == idPregunta);
+        if (pregunta is null) return;
+
+        _cargando = true;
+
+        _mensajes.Add(new MensajeChatDTO
+        {
+            Rol = "user",
+            Contenido = pregunta.Titulo,
+            Fecha = DateTime.Now
+        });
+
+        StateHasChanged();
+        await ScrollAlFinal();
+
+        try
+        {
+            var respuesta = await AsistenteService.ResolverAsync(idPregunta, Sesion.InstitucionId);
+
+            await Task.Delay(400);
+
+            _mensajes.Add(new MensajeChatDTO
+            {
+                Rol = "bot",
+                Contenido = respuesta.Respuesta,
+                TipoRespuesta = respuesta.TipoRespuesta,
+                Tabla = respuesta.Tabla,
+                Fecha = DateTime.Now
+            });
+
+            await Auditoria.RegistrarExportacionAsync(
+                "asistente_ia",
+                $"Pregunta: {pregunta.Titulo}"
+            );
+        }
+        catch (Exception ex)
+        {
+            _mensajes.Add(new MensajeChatDTO
+            {
+                Rol = "bot",
+                Contenido = $"Hubo un error: {ex.Message}",
+                TipoRespuesta = "danger",
+                Fecha = DateTime.Now
+            });
+        }
+        finally
+        {
+            _cargando = false;
+            StateHasChanged();
+            await ScrollAlFinal();
+        }
+    }
+
+    private void LimpiarChat()
+    {
+        _mensajes.Clear();
+        StateHasChanged();
+    }
+
+    private async Task ScrollAlFinal()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("eval", @"
+                setTimeout(() => {
+                    const el = document.getElementById('ai-chat-container');
+                    if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+                }, 150);
+            ");
+        }
+        catch { }
+    }
+
+    private static string FormatearTexto(string texto)
+    {
+        if (string.IsNullOrEmpty(texto)) return "";
+
+        var html = System.Net.WebUtility.HtmlEncode(texto);
+        html = System.Text.RegularExpressions.Regex.Replace(html, @"\*\*(.+?)\*\*", "<strong>$1</strong>");
+        html = html.Replace("\n", "<br/>");
+        return html;
+    }
+}

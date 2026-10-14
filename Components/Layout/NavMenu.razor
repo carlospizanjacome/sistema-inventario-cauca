@@ -254,6 +254,43 @@
             </div>
         }
 
+        <!-- ═══ INTELIGENCIA ═══ -->
+        @if (_puedeVer("ciencia_datos.ver") || _puedeVer("alertas_ia.ver") || _puedeVer("asistente_ia.ver"))
+        {
+            <div class="nav-group">
+                <button class="nav-group-header" type="button" @onclick="@(() => ToggleSeccion("inteligencia"))">
+                    <span>INTELIGENCIA</span>
+                    <i class="bi bi-chevron-@(EstaAbierto("inteligencia") ? "down" : "up")"></i>
+                </button>
+                @if (EstaAbierto("inteligencia"))
+                {
+                    <div class="nav-group-body">
+                        @if (_puedeVer("ciencia_datos.ver"))
+                        {
+                            <NavLink class="nav-btn inventario" href="ciencia-datos">
+                                <i class="bi bi-graph-up-arrow"></i>
+                                <span>Ciencia de Datos</span>
+                            </NavLink>
+                        }
+                        @if (_puedeVer("alertas_ia.ver"))
+                        {
+                            <NavLink class="nav-btn prestamos" href="alertas-ia">
+                                <i class="bi bi-bell-fill"></i>
+                                <span>Alertas IA</span>
+                            </NavLink>
+                        }
+                        @if (_puedeVer("asistente_ia.ver"))
+                        {
+                            <NavLink class="nav-btn entradas" href="asistente-ia">
+                                <i class="bi bi-chat-dots-fill"></i>
+                                <span>Asistente IA</span>
+                            </NavLink>
+                        }
+                    </div>
+                }
+            </div>
+        }
+
         <!-- ═══ SEGURIDAD ═══ -->
         @if (_puedeVer("usuarios.ver") || _puedeVer("roles.ver") || _puedeVer("permisos.ver") || _puedeVer("roles.permisos") || _puedeVer("auditoria.ver"))
         {
@@ -393,6 +430,7 @@
         { "movimientos", true },
         { "personal", false },
         { "contabilidad", false },
+        { "inteligencia", true },
         { "seguridad", false },
         { "configuracion", false },
         { "reportes", false }
@@ -414,7 +452,8 @@
             "depreciacion.ver", "reportes.ver", "toma_fisica.ver",
             "mantenimiento.ver", "garantias.ver",
             "usuarios.ver", "roles.ver", "permisos.ver", "roles.permisos",
-            "vidas_utiles.ver", "auditoria.ver"
+            "vidas_utiles.ver", "auditoria.ver",
+            "ciencia_datos.ver", "alertas_ia.ver", "asistente_ia.ver"
         };
 
         foreach (var c in codigos)

@@ -97,13 +97,24 @@
             console.log('✅ window.descargarArchivo registrada');
     </script>
 
-    <!-- Scripts estáticos -->
+    <!-- ═══════════════════════════════════════════════════════════
+         SCRIPTS ESTÁTICOS Y LIBRERÍAS EXTERNAS
+         TODOS deben ir ANTES de blazor.web.js
+         ═══════════════════════════════════════════════════════════ -->
+    <!-- Scripts propios -->
     <script src="js/layout.js"></script>
     <script src="js/qr-reader.js"></script>
 
-    <!-- Flatpickr JS — ANTES de blazor.web.js -->
+    <!-- Flatpickr JS -->
     <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/l10n/es.js"></script>
+
+    <!-- Chart.js 4.4 (debe ir ANTES de cd-charts.js y dashboard-charts.js) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <!-- Scripts de gráficos (usan Chart.js ya cargado) -->
+    <script src="js/dashboard-charts.js"></script>
+    <script src="js/cd-charts.js"></script>
 
     <!-- Inicializador de Flatpickr -->
     <script>
@@ -152,7 +163,10 @@
             console.log('✅ window.initFlatpickr registrada');
     </script>
 
-    <!-- Blazor al final -->
+    <!-- ═══════════════════════════════════════════════════════════
+         BLAZOR AL FINAL — Todos los scripts que Blazor invoca
+         ya están cargados cuando Blazor arranca.
+         ═══════════════════════════════════════════════════════════ -->
     <script src="_framework/blazor.web.js"></script>
 
     <!-- Script del loader -->
@@ -176,12 +190,6 @@
                 });
             })();
     </script>
-
-    <!-- Chart.js 4.4 -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-
-    <!-- Dashboard Charts -->
-    <script src="js/dashboard-charts.js"></script>
 
 </body>
 

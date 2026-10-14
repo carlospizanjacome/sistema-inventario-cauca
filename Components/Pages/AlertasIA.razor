@@ -1,0 +1,489 @@
+﻿@page "/alertas-ia"
+@rendermode InteractiveServer
+
+@using Almacen.DTOs
+@using Almacen.Services
+@using Microsoft.JSInterop
+
+@inject AlertasIAService AlertasService
+@inject UsuarioSesionService Sesion
+@inject SeguridadService Seguridad
+@inject NavigationManager Navigation
+@inject ToastService Toast
+@inject AuditoriaService Auditoria
+
+<PageTitle>Alertas IA · Almacén</PageTitle>
+
+<div class="page-container page-crud">
+
+    <div class="page-header">
+        <div>
+            <h1><i class="bi bi-bell-fill"></i> Alertas IA</h1>
+            <p class="subtitle">Detección automática de problemas en el inventario</p>
+        </div>
+        <div class="header-actions">
+            <button class="btn-export-cgn" @onclick="RefrescarAlertas" disabled="@_refrescando">
+                <i class="bi @(_refrescando ? "bi-hourglass-split" : "bi-arrow-clockwise")"></i>
+                <span>@(_refrescando ? "Analizando…" : "Re-escanear")</span>
+            </button>
+        </div>
+    </div>
+
+    @if (_cargando)
+    {
+        <div class="card-table">
+            <div style="padding:60px;text-align:center;color:#94a3b8;">
+                <i class="bi bi-hourglass-split" style="font-size:2rem;"></i>
+                <p style="margin-top:12px;">Analizando inventario…</p>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="card-table">
+
+            <!-- ═══ TABS ═══ -->
+            <div class="cd-tabs">
+                <button class="cd-tab @(_tab == 0 ? "active" : "")" @onclick="() => _tab = 0">
+                    <i class="bi bi-speedometer2"></i> Resumen
+                </button>
+                <button class="cd-tab @(_tab == 1 ? "active" : "")" @onclick="() => _tab = 1">
+                    <i class="bi bi-box-seam"></i> Stock Crítico
+                    @if (_stock.Count > 0)
+                    {
+                        <span class="cd-tab-badge">@_stock.Count</span>
+                    }
+                </button>
+                <button class="cd-tab @(_tab == 2 ? "active" : "")" @onclick="() => _tab = 2">
+                    <i class="bi bi-clock-history"></i> Préstamos Vencidos
+                    @if (_prestamos.Count > 0)
+                    {
+                        <span class="cd-tab-badge">@_prestamos.Count</span>
+                    }
+                </button>
+                <button class="cd-tab @(_tab == 3 ? "active" : "")" @onclick="() => _tab = 3">
+                    <i class="bi bi-person-dash"></i> Sin Responsable
+                    @if (_sinResponsable.Count > 0)
+                    {
+                        <span class="cd-tab-badge">@_sinResponsable.Count</span>
+                    }
+                </button>
+                <button class="cd-tab @(_tab == 4 ? "active" : "")" @onclick="() => _tab = 4">
+                    <i class="bi bi-geo-alt"></i> Sin Ubicación
+                    @if (_sinUbicacion.Count > 0)
+                    {
+                        <span class="cd-tab-badge">@_sinUbicacion.Count</span>
+                    }
+                </button>
+            </div>
+
+            <div class="table-responsive">
+
+                <!-- ═══ TAB 0: RESUMEN ═══ -->
+                @if (_tab == 0)
+                {
+                    <div class="cd-content">
+                        <div class="cd-kpi-grid">
+                            <div class="cd-kpi">
+                                <div class="cd-kpi-icon @(TotalAlertas > 0 ? "red" : "green")">
+                                    <i class="bi bi-bell-fill"></i>
+                                </div>
+                                <div>
+                                    <div class="cd-kpi-label">Total Alertas</div>
+                                    <div class="cd-kpi-value">@TotalAlertas</div>
+                                </div>
+                            </div>
+                            <div class="cd-kpi">
+                                <div class="cd-kpi-icon red"><i class="bi bi-exclamation-triangle-fill"></i></div>
+                                <div>
+                                    <div class="cd-kpi-label">Críticas</div>
+                                    <div class="cd-kpi-value">@Criticas</div>
+                                </div>
+                            </div>
+                            <div class="cd-kpi">
+                                <div class="cd-kpi-icon orange"><i class="bi bi-exclamation-circle-fill"></i></div>
+                                <div>
+                                    <div class="cd-kpi-label">Altas</div>
+                                    <div class="cd-kpi-value">@Altas</div>
+                                </div>
+                            </div>
+                            <div class="cd-kpi">
+                                <div class="cd-kpi-icon blue"><i class="bi bi-info-circle-fill"></i></div>
+                                <div>
+                                    <div class="cd-kpi-label">Medias</div>
+                                    <div class="cd-kpi-value">@Medias</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h3 class="cd-section-title"><i class="bi bi-list-check"></i> Alertas Detectadas</h3>
+
+                        <div class="ai-resumen-grid">
+                            <div class="ai-resumen-card @(_stock.Count > 0 ? "tiene-alerta" : "")">
+                                <div class="ai-resumen-icon red"><i class="bi bi-box-seam"></i></div>
+                                <div class="ai-resumen-info">
+                                    <h4>Stock Crítico</h4>
+                                    <p>Consumibles por debajo del mínimo</p>
+                                    <span class="ai-resumen-count">@_stock.Count</span>
+                                </div>
+                            </div>
+                            <div class="ai-resumen-card @(_prestamos.Count > 0 ? "tiene-alerta" : "")">
+                                <div class="ai-resumen-icon orange"><i class="bi bi-clock-history"></i></div>
+                                <div class="ai-resumen-info">
+                                    <h4>Préstamos Vencidos</h4>
+                                    <p>Bienes no devueltos en fecha</p>
+                                    <span class="ai-resumen-count">@_prestamos.Count</span>
+                                </div>
+                            </div>
+                            <div class="ai-resumen-card @(_sinResponsable.Count > 0 ? "tiene-alerta" : "")">
+                                <div class="ai-resumen-icon blue"><i class="bi bi-person-dash"></i></div>
+                                <div class="ai-resumen-info">
+                                    <h4>Sin Responsable</h4>
+                                    <p>Bienes sin funcionario asignado</p>
+                                    <span class="ai-resumen-count">@_sinResponsable.Count</span>
+                                </div>
+                            </div>
+                            <div class="ai-resumen-card @(_sinUbicacion.Count > 0 ? "tiene-alerta" : "")">
+                                <div class="ai-resumen-icon purple"><i class="bi bi-geo-alt"></i></div>
+                                <div class="ai-resumen-info">
+                                    <h4>Sin Ubicación</h4>
+                                    <p>Bienes sin aula asignada</p>
+                                    <span class="ai-resumen-count">@_sinUbicacion.Count</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="cd-info-box">
+                            <i class="bi bi-lightbulb"></i>
+                            <div>
+                                <strong>Las alertas se calculan en tiempo real.</strong>
+                                Haz click en <strong>"Re-escanear"</strong> para actualizar tras cambios en el inventario.
+                                <ul>
+                                    <li><strong>CRÍTICO:</strong> requiere acción inmediata</li>
+                                    <li><strong>ALTO:</strong> atender esta semana</li>
+                                    <li><strong>MEDIO:</strong> revisar cuando haya tiempo</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                <!-- ═══ TAB 1: STOCK CRÍTICO ═══ -->
+                @if (_tab == 1)
+                {
+                    <div class="cd-content">
+                        <h3 class="cd-section-title"><i class="bi bi-box-seam"></i> Consumibles con Stock Crítico</h3>
+
+                        @if (!_stock.Any())
+                        {
+                            <div class="cd-empty">
+                                <i class="bi bi-check-circle"></i>
+                                <p>No hay consumibles con stock crítico. ¡Todo en orden!</p>
+                            </div>
+                        }
+                        else
+                        {
+                            <table class="table modern-table">
+                                <thead>
+                                    <tr>
+                                        <th>Código</th>
+                                        <th>Bien</th>
+                                        <th class="text-center">Stock</th>
+                                        <th class="text-center">Mínimo</th>
+                                        <th class="text-center">Faltante</th>
+                                        <th class="text-end">CPP</th>
+                                        <th class="text-end">Valor Reposición</th>
+                                        <th class="text-center">Severidad</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var s in _stock)
+                                    {
+                                        <tr>
+                                            <td><code>@s.Codigo</code></td>
+                                            <td><strong>@s.Nombre</strong></td>
+                                            <td class="text-center">@s.StockActual.ToString("N0")</td>
+                                            <td class="text-center">@s.StockMinimo.ToString("N0")</td>
+                                            <td class="text-center">
+                                                <span class="badge badge-danger">+@s.Faltante.ToString("N0")</span>
+                                            </td>
+                                            <td class="text-end">@FormatearMoneda(s.Cpp)</td>
+                                            <td class="text-end">@FormatearMoneda(s.Faltante * s.Cpp)</td>
+                                            <td class="text-center">
+                                                <span class="badge @ClasificarSeveridad(s.Severidad)">@s.Severidad</span>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                    </div>
+                }
+
+                <!-- ═══ TAB 2: PRÉSTAMOS VENCIDOS ═══ -->
+                @if (_tab == 2)
+                {
+                    <div class="cd-content">
+                        <h3 class="cd-section-title"><i class="bi bi-clock-history"></i> Préstamos Vencidos</h3>
+
+                        @if (!_prestamos.Any())
+                        {
+                            <div class="cd-empty">
+                                <i class="bi bi-check-circle"></i>
+                                <p>No hay préstamos vencidos. ¡Excelente!</p>
+                            </div>
+                        }
+                        else
+                        {
+                            <table class="table modern-table">
+                                <thead>
+                                    <tr>
+                                        <th>Bien</th>
+                                        <th>Funcionario</th>
+                                        <th class="text-center">Prestado</th>
+                                        <th class="text-center">Devolución</th>
+                                        <th class="text-center">Días Retraso</th>
+                                        <th class="text-center">Severidad</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var p in _prestamos)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <div class="table-cell-primary">
+                                                    <strong>@p.BienNombre</strong>
+                                                    <small><code>@p.BienCodigo</code></small>
+                                                </div>
+                                            </td>
+                                            <td>@p.Funcionario</td>
+                                            <td class="text-center">@p.FechaPrestamo.ToString("dd/MM/yyyy")</td>
+                                            <td class="text-center">@p.FechaDevolucionPrevista.ToString("dd/MM/yyyy")</td>
+                                            <td class="text-center">
+                                                <strong class="text-danger">+@p.DiasRetraso días</strong>
+                                            </td>
+                                            <td class="text-center">
+                                                <span class="badge @ClasificarSeveridad(p.Severidad)">@p.Severidad</span>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                    </div>
+                }
+
+                <!-- ═══ TAB 3: SIN RESPONSABLE ═══ -->
+                @if (_tab == 3)
+                {
+                    <div class="cd-content">
+                        <h3 class="cd-section-title"><i class="bi bi-person-dash"></i> Bienes sin Responsable Asignado</h3>
+
+                        @if (!_sinResponsable.Any())
+                        {
+                            <div class="cd-empty">
+                                <i class="bi bi-check-circle"></i>
+                                <p>Todos los bienes tienen responsable. ¡Perfecto!</p>
+                            </div>
+                        }
+                        else
+                        {
+                            <table class="table modern-table">
+                                <thead>
+                                    <tr>
+                                        <th>Código</th>
+                                        <th>Bien</th>
+                                        <th>Categoría</th>
+                                        <th>Ubicación</th>
+                                        <th class="text-end">Valor</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var b in _sinResponsable)
+                                    {
+                                        <tr>
+                                            <td><code>@b.Codigo</code></td>
+                                            <td><strong>@b.Nombre</strong></td>
+                                            <td>
+                                                @if (!string.IsNullOrEmpty(b.Categoria))
+                                                {
+                                                    <span class="badge badge-neutral">@b.Categoria</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (!string.IsNullOrEmpty(b.Aula))
+                                                {
+                                                    <span>@b.Aula</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">—</span>
+                                                }
+                                            </td>
+                                            <td class="text-end">@FormatearMoneda(b.ValorAdquisicion)</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                    </div>
+                }
+
+                <!-- ═══ TAB 4: SIN UBICACIÓN ═══ -->
+                @if (_tab == 4)
+                {
+                    <div class="cd-content">
+                        <h3 class="cd-section-title"><i class="bi bi-geo-alt"></i> Bienes sin Ubicación Asignada</h3>
+
+                        @if (!_sinUbicacion.Any())
+                        {
+                            <div class="cd-empty">
+                                <i class="bi bi-check-circle"></i>
+                                <p>Todos los bienes tienen ubicación. ¡Perfecto!</p>
+                            </div>
+                        }
+                        else
+                        {
+                            <table class="table modern-table">
+                                <thead>
+                                    <tr>
+                                        <th>Código</th>
+                                        <th>Bien</th>
+                                        <th>Categoría</th>
+                                        <th>Responsable</th>
+                                        <th class="text-end">Valor</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var b in _sinUbicacion)
+                                    {
+                                        <tr>
+                                            <td><code>@b.Codigo</code></td>
+                                            <td><strong>@b.Nombre</strong></td>
+                                            <td>
+                                                @if (!string.IsNullOrEmpty(b.Categoria))
+                                                {
+                                                    <span class="badge badge-neutral">@b.Categoria</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (!string.IsNullOrEmpty(b.Responsable))
+                                                {
+                                                    <span>@b.Responsable</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">—</span>
+                                                }
+                                            </td>
+                                            <td class="text-end">@FormatearMoneda(b.ValorAdquisicion)</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                    </div>
+                }
+
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool _cargando = true;
+    private bool _refrescando = false;
+    private int _tab = 0;
+
+    private List<AlertaStockDTO> _stock = new();
+    private List<AlertaPrestamoDTO> _prestamos = new();
+    private List<AlertaSinResponsableDTO> _sinResponsable = new();
+    private List<AlertaSinUbicacionDTO> _sinUbicacion = new();
+
+    private int TotalAlertas => _stock.Count + _prestamos.Count + _sinResponsable.Count + _sinUbicacion.Count;
+    private int Criticas => _stock.Count(s => s.Severidad == "CRITICO") + _prestamos.Count(p => p.Severidad == "CRITICO");
+    private int Altas => _stock.Count(s => s.Severidad == "ALTO") + _prestamos.Count(p => p.Severidad == "ALTO");
+    private int Medias => _stock.Count(s => s.Severidad == "MEDIO") + _prestamos.Count(p => p.Severidad == "MEDIO");
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await Seguridad.TienePermisoAsync("alertas_ia.ver"))
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+
+        await CargarTodo();
+    }
+
+    private async Task CargarTodo()
+    {
+        _cargando = true;
+        StateHasChanged();
+
+        try
+        {
+            var institucionId = Sesion.InstitucionId;
+
+            var t1 = AlertasService.ObtenerAlertasStockAsync(institucionId);
+            var t2 = AlertasService.ObtenerAlertasPrestamosAsync(institucionId);
+            var t3 = AlertasService.ObtenerAlertasSinResponsableAsync(institucionId);
+            var t4 = AlertasService.ObtenerAlertasSinUbicacionAsync(institucionId);
+
+            await Task.WhenAll(t1, t2, t3, t4);
+
+            _stock = (await t1).ToList();
+            _prestamos = (await t2).ToList();
+            _sinResponsable = (await t3).ToList();
+            _sinUbicacion = (await t4).ToList();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error al cargar alertas: {ex.Message}");
+        }
+        finally
+        {
+            _cargando = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RefrescarAlertas()
+    {
+        _refrescando = true;
+        StateHasChanged();
+
+        try
+        {
+            await AlertasService.RefrescarVistasAsync();
+            await CargarTodo();
+
+            await Auditoria.RegistrarExportacionAsync(
+                "alertas_ia",
+                $"Re-escaneo de alertas. Total: {TotalAlertas}"
+            );
+
+            Toast.Exito($"Alertas actualizadas: {TotalAlertas} encontradas");
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+        finally
+        {
+            _refrescando = false;
+            StateHasChanged();
+        }
+    }
+
+    private static string FormatearMoneda(decimal valor)
+        => valor.ToString("C0", new System.Globalization.CultureInfo("es-CO"));
+
+    private static string ClasificarSeveridad(string severidad) => severidad switch
+    {
+        "CRITICO" => "badge-danger",
+        "ALTO" => "badge-warn",
+        "MEDIO" => "badge-info",
+        _ => "badge-neutral"
+    };
+}

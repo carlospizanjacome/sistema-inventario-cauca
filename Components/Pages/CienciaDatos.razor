@@ -1,0 +1,669 @@
+﻿@page "/ciencia-datos"
+@rendermode InteractiveServer
+
+@using Almacen.DTOs
+@using Almacen.Services
+@using Microsoft.JSInterop
+
+@inject CienciaDatosService CDService
+@inject UsuarioSesionService Sesion
+@inject SeguridadService Seguridad
+@inject NavigationManager Navigation
+@inject ToastService Toast
+@inject IJSRuntime JS
+@inject AuditoriaService Auditoria
+
+<PageTitle>Ciencia de Datos · Almacén</PageTitle>
+
+<div class="page-container page-crud">
+
+    <div class="page-header">
+        <div>
+            <h1><i class="bi bi-graph-up-arrow"></i> Ciencia de Datos</h1>
+            <p class="subtitle">Análisis estadístico y predictivo del inventario</p>
+        </div>
+        <div class="header-actions">
+            <button class="btn-export-cgn" @onclick="RefrescarVistas" disabled="@_refrescando">
+                <i class="bi @(_refrescando ? "bi-hourglass-split" : "bi-arrow-clockwise")"></i>
+                <span>@(_refrescando ? "Actualizando…" : "Actualizar datos")</span>
+            </button>
+        </div>
+    </div>
+
+    @if (_cargando)
+    {
+        <div class="card-table">
+            <div style="padding:60px;text-align:center;color:#94a3b8;">
+                <i class="bi bi-hourglass-split" style="font-size:2rem;"></i>
+                <p style="margin-top:12px;">Analizando datos…</p>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="card-table">
+
+            <!-- ═══ TABS ═══ -->
+            <div class="cd-tabs">
+                <button class="cd-tab @(_tab == 0 ? "active" : "")" @onclick="() => CambiarTab(0)">
+                    <i class="bi bi-speedometer2"></i> Resumen
+                </button>
+                <button class="cd-tab @(_tab == 1 ? "active" : "")" @onclick="() => CambiarTab(1)">
+                    <i class="bi bi-pie-chart"></i> Distribución
+                </button>
+                <button class="cd-tab @(_tab == 2 ? "active" : "")" @onclick="() => CambiarTab(2)">
+                    <i class="bi bi-exclamation-triangle"></i> Anomalías
+                    @if (_anomalias.Count(a => a.Clasificacion == "ANOMALO") > 0)
+                    {
+                        <span class="cd-tab-badge">@_anomalias.Count(a => a.Clasificacion == "ANOMALO")</span>
+                    }
+                </button>
+                <button class="cd-tab @(_tab == 3 ? "active" : "")" @onclick="() => CambiarTab(3)">
+                    <i class="bi bi-graph-up"></i> Tendencias
+                </button>
+                <button class="cd-tab @(_tab == 4 ? "active" : "")" @onclick="() => CambiarTab(4)">
+                    <i class="bi bi-trophy"></i> Ranking
+                </button>
+                <button class="cd-tab @(_tab == 5 ? "active" : "")" @onclick="() => CambiarTab(5)">
+                    <i class="bi bi-box-seam"></i> Proyecciones
+                </button>
+            </div>
+
+            <div class="table-responsive">
+
+                <!-- ═══ TAB 0: RESUMEN ═══ -->
+                @if (_tab == 0)
+                {
+                    <div class="cd-content">
+                        <div class="cd-kpi-grid">
+                            <div class="cd-kpi">
+                                <div class="cd-kpi-icon blue"><i class="bi bi-box-seam"></i></div>
+                                <div>
+                                    <div class="cd-kpi-label">Total Bienes Activos</div>
+                                    <div class="cd-kpi-value">@((_statsDevo?.TotalBienes ?? 0) + (_statsCons?.TotalBienes ?? 0))</div>
+                                </div>
+                            </div>
+                            <div class="cd-kpi">
+                                <div class="cd-kpi-icon green"><i class="bi bi-currency-dollar"></i></div>
+                                <div>
+                                    <div class="cd-kpi-label">Valor Total Inventario</div>
+                                    <div class="cd-kpi-value">@FormatearMoneda((_statsDevo?.ValorTotal ?? 0) + (_statsCons?.ValorTotal ?? 0))</div>
+                                </div>
+                            </div>
+                            <div class="cd-kpi">
+                                <div class="cd-kpi-icon orange"><i class="bi bi-graph-down-arrow"></i></div>
+                                <div>
+                                    <div class="cd-kpi-label">Depreciación Acumulada</div>
+                                    <div class="cd-kpi-value">@FormatearMoneda(_statsDevo?.DepreciacionTotal ?? 0)</div>
+                                </div>
+                            </div>
+                            <div class="cd-kpi">
+                                <div class="cd-kpi-icon red"><i class="bi bi-exclamation-triangle"></i></div>
+                                <div>
+                                    <div class="cd-kpi-label">Anomalías Detectadas</div>
+                                    <div class="cd-kpi-value">@_anomalias.Count(a => a.Clasificacion != "NORMAL")</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="cd-chart-grid">
+                            <div class="cd-chart-card">
+                                <h3 class="cd-section-title"><i class="bi bi-pie-chart-fill"></i> Valor por Tipo de Bien</h3>
+                                <div class="cd-chart-container">
+                                    <canvas id="chart-resumen"></canvas>
+                                </div>
+                            </div>
+
+                            <div class="cd-chart-card">
+                                <h3 class="cd-section-title"><i class="bi bi-bar-chart-fill"></i> Cantidad por Tipo</h3>
+                                <div class="cd-chart-container">
+                                    <canvas id="chart-resumen-valores"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h3 class="cd-section-title"><i class="bi bi-bar-chart-line"></i> Estadísticas Descriptivas</h3>
+
+                        <table class="table modern-table">
+                            <thead>
+                                <tr>
+                                    <th>Tipo</th>
+                                    <th class="text-center">Cantidad</th>
+                                    <th class="text-end">Promedio</th>
+                                    <th class="text-end">Mínimo</th>
+                                    <th class="text-end">Máximo</th>
+                                    <th class="text-end">Desv. Estándar</th>
+                                    <th class="text-center">Coef. Variación</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (_statsDevo is not null)
+                                {
+                                    <tr>
+                                        <td><span class="badge badge-info">Devolutivos</span></td>
+                                        <td class="text-center">@_statsDevo.TotalBienes</td>
+                                        <td class="text-end">@FormatearMoneda(_statsDevo.ValorPromedio)</td>
+                                        <td class="text-end">@FormatearMoneda(_statsDevo.ValorMinimo)</td>
+                                        <td class="text-end">@FormatearMoneda(_statsDevo.ValorMaximo)</td>
+                                        <td class="text-end">@FormatearMoneda(_statsDevo.DesviacionEstandar)</td>
+                                        <td class="text-center">
+                                            <span class="badge @(ClasificarCv(_statsDevo.CoeficienteVariacion))">@_statsDevo.CoeficienteVariacion.ToString("N1")%</span>
+                                        </td>
+                                    </tr>
+                                }
+                                @if (_statsCons is not null)
+                                {
+                                    <tr>
+                                        <td><span class="badge badge-ok">Consumo</span></td>
+                                        <td class="text-center">@_statsCons.TotalBienes</td>
+                                        <td class="text-end">@FormatearMoneda(_statsCons.ValorPromedio)</td>
+                                        <td class="text-end">@FormatearMoneda(_statsCons.ValorMinimo)</td>
+                                        <td class="text-end">@FormatearMoneda(_statsCons.ValorMaximo)</td>
+                                        <td class="text-end">@FormatearMoneda(_statsCons.DesviacionEstandar)</td>
+                                        <td class="text-center">
+                                            <span class="badge @(ClasificarCv(_statsCons.CoeficienteVariacion))">@_statsCons.CoeficienteVariacion.ToString("N1")%</span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+
+                        <div class="cd-info-box">
+                            <i class="bi bi-lightbulb"></i>
+                            <div>
+                                <strong>Interpretación del Coeficiente de Variación:</strong>
+                                <ul>
+                                    <li><strong>&lt; 25%:</strong> Baja dispersión (valores homogéneos)</li>
+                                    <li><strong>25–50%:</strong> Dispersión moderada</li>
+                                    <li><strong>&gt; 50%:</strong> Alta dispersión (valores muy heterogéneos)</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                <!-- ═══ TAB 1: DISTRIBUCIÓN ═══ -->
+                @if (_tab == 1)
+                {
+                    <div class="cd-content">
+                        <div class="cd-chart-card cd-chart-full">
+                            <h3 class="cd-section-title"><i class="bi bi-bar-chart-fill"></i> Cantidad por Categoría CGN</h3>
+                            <div class="cd-chart-container cd-chart-tall">
+                                <canvas id="chart-distribucion"></canvas>
+                            </div>
+                        </div>
+
+                        <h3 class="cd-section-title"><i class="bi bi-table"></i> Detalle por Categoría</h3>
+                        <table class="table modern-table">
+                            <thead>
+                                <tr>
+                                    <th>CGN</th>
+                                    <th>Categoría</th>
+                                    <th>Tipo</th>
+                                    <th class="text-center">Cantidad</th>
+                                    <th class="text-end">Valor Total</th>
+                                    <th class="text-end">Valor Promedio</th>
+                                    <th class="text-end">Depreciación</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var d in _distribucion)
+                                {
+                                    <tr>
+                                        <td><code>@d.CodigoCgn</code></td>
+                                        <td><strong>@d.CategoriaNombre</strong></td>
+                                        <td>
+                                            <span class="badge @(d.TipoBien == "devolutivo" ? "badge-info" : "badge-ok")">
+                                                @d.TipoBien
+                                            </span>
+                                        </td>
+                                        <td class="text-center">@d.Cantidad</td>
+                                        <td class="text-end">@FormatearMoneda(d.ValorTotal)</td>
+                                        <td class="text-end">@FormatearMoneda(d.ValorPromedio)</td>
+                                        <td class="text-end">@FormatearMoneda(d.DepreciacionTotal)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+
+                <!-- ═══ TAB 2: ANOMALÍAS ═══ -->
+                @if (_tab == 2)
+                {
+                    <div class="cd-content">
+                        <h3 class="cd-section-title"><i class="bi bi-exclamation-triangle"></i> Detección de Anomalías por Z-Score</h3>
+                        <p class="cd-help">
+                            El <strong>Z-Score</strong> mide qué tan lejos está un valor del promedio.
+                            <span class="badge badge-warn">REVISAR</span> = Z entre 1.5 y 2 ·
+                            <span class="badge badge-danger">ANOMALO</span> = Z mayor a 2
+                        </p>
+
+                        <table class="table modern-table">
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Nombre</th>
+                                    <th>Tipo</th>
+                                    <th class="text-end">Valor</th>
+                                    <th class="text-end">Media</th>
+                                    <th class="text-end">Z-Score</th>
+                                    <th class="text-center">Clasificación</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var a in _anomalias)
+                                {
+                                    <tr>
+                                        <td><code>@a.Codigo</code></td>
+                                        <td>@a.Nombre</td>
+                                        <td><span class="badge badge-neutral">@a.TipoBien</span></td>
+                                        <td class="text-end">@FormatearMoneda(a.ValorAdquisicion)</td>
+                                        <td class="text-end">@FormatearMoneda(a.Media)</td>
+                                        <td class="text-end">
+                                            <strong>@a.ZScore.ToString("N2")</strong>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge @ClasificarAnomalia(a.Clasificacion)">@a.Clasificacion</span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+
+                <!-- ═══ TAB 3: TENDENCIAS ═══ -->
+                @if (_tab == 3)
+                {
+                    <div class="cd-content">
+                        <div class="cd-chart-card cd-chart-full">
+                            <h3 class="cd-section-title"><i class="bi bi-graph-up"></i> Evolución Mensual de Entradas</h3>
+                            <div class="cd-chart-container cd-chart-tall">
+                                <canvas id="chart-tendencias"></canvas>
+                            </div>
+                        </div>
+
+                        @if (!_tendencias.Any())
+                        {
+                            <div class="cd-empty">
+                                <i class="bi bi-inbox"></i>
+                                <p>No hay datos de entradas suficientes para mostrar tendencias.</p>
+                            </div>
+                        }
+                        else
+                        {
+                            <h3 class="cd-section-title"><i class="bi bi-table"></i> Detalle por Mes</h3>
+                            <table class="table modern-table">
+                                <thead>
+                                    <tr>
+                                        <th>Mes</th>
+                                        <th class="text-center">Total Entradas</th>
+                                        <th class="text-center">Bienes Distintos</th>
+                                        <th class="text-end">Valor Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var t in _tendencias)
+                                    {
+                                        <tr>
+                                            <td><strong>@t.Mes.ToString("MMMM yyyy")</strong></td>
+                                            <td class="text-center">@t.TotalEntradas</td>
+                                            <td class="text-center">@t.BienesDistintos</td>
+                                            <td class="text-end">@FormatearMoneda(t.ValorEntradas)</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                    </div>
+                }
+
+                <!-- ═══ TAB 4: RANKING ═══ -->
+                @if (_tab == 4)
+                {
+                    <div class="cd-content">
+                        <div class="cd-chart-card cd-chart-full">
+                            <h3 class="cd-section-title"><i class="bi bi-trophy-fill"></i> Top Responsables por Bienes Asignados</h3>
+                            <div class="cd-chart-container cd-chart-tall">
+                                <canvas id="chart-ranking"></canvas>
+                            </div>
+                        </div>
+
+                        <h3 class="cd-section-title"><i class="bi bi-table"></i> Detalle del Ranking</h3>
+                        <table class="table modern-table">
+                            <thead>
+                                <tr>
+                                    <th class="text-center" style="width:60px;">#</th>
+                                    <th>Funcionario</th>
+                                    <th>Cargo</th>
+                                    <th class="text-center">Bienes</th>
+                                    <th class="text-end">Valor Total</th>
+                                    <th class="text-end">Valor Promedio</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @{
+                                    var i = 1;
+                                }
+                                @foreach (var r in _ranking)
+                                {
+                                    <tr>
+                                        <td class="text-center">
+                                            @if (i <= 3)
+                                            {
+                                                <span class="badge badge-warn">🏆 @i</span>
+                                            }
+                                            else
+                                            {
+                                                <span>@i</span>
+                                            }
+                                        </td>
+                                        <td><strong>@r.Funcionario</strong></td>
+                                        <td>@r.Cargo</td>
+                                        <td class="text-center"><span class="badge badge-info">@r.TotalBienes</span></td>
+                                        <td class="text-end">@FormatearMoneda(r.ValorTotal)</td>
+                                        <td class="text-end">@FormatearMoneda(r.ValorPromedio)</td>
+                                    </tr>
+                                    i++;
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+
+                <!-- ═══ TAB 5: PROYECCIONES ═══ -->
+                @if (_tab == 5)
+                {
+                    <div class="cd-content">
+                        <div class="cd-chart-card cd-chart-full">
+                            <h3 class="cd-section-title"><i class="bi bi-box-seam"></i> Stock Actual vs Mínimo</h3>
+                            <div class="cd-chart-container cd-chart-tall">
+                                <canvas id="chart-proyecciones"></canvas>
+                            </div>
+                        </div>
+
+                        <h3 class="cd-section-title"><i class="bi bi-table"></i> Detalle de Proyecciones</h3>
+                        <p class="cd-help">
+                            Basado en el consumo promedio de los últimos 6 meses.
+                            <span class="badge badge-danger">CRÍTICO</span> = stock bajo mínimo ·
+                            <span class="badge badge-warn">ALERTA</span> = menos de 2 meses
+                        </p>
+
+                        <table class="table modern-table">
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Bien</th>
+                                    <th class="text-center">Stock</th>
+                                    <th class="text-center">Mínimo</th>
+                                    <th class="text-end">CPP</th>
+                                    <th class="text-end">Valor Stock</th>
+                                    <th class="text-center">Consumo/mes</th>
+                                    <th class="text-center">Meses restantes</th>
+                                    <th class="text-center">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var p in _proyecciones)
+                                {
+                                    <tr>
+                                        <td><code>@p.Codigo</code></td>
+                                        <td><strong>@p.Nombre</strong></td>
+                                        <td class="text-center">@p.StockActual.ToString("N0")</td>
+                                        <td class="text-center">@p.StockMinimo.ToString("N0")</td>
+                                        <td class="text-end">@FormatearMoneda(p.Cpp)</td>
+                                        <td class="text-end">@FormatearMoneda(p.ValorStock)</td>
+                                        <td class="text-center">@p.ConsumoPromedio.ToString("N1")</td>
+                                        <td class="text-center">
+                                            @if (p.MesesRestantes.HasValue)
+                                            {
+                                                <strong>@p.MesesRestantes.Value.ToString("N1")</strong>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">—</span>
+                                            }
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge @ClasificarProyeccion(p.EstadoProyeccion)">@p.EstadoProyeccion</span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool _cargando = true;
+    private bool _refrescando = false;
+    private int _tab = 0;
+    private bool _datosListos = false;
+    private int _lastRenderedTab = -1;
+
+    private StatsInventarioDTO? _statsDevo;
+    private StatsInventarioDTO? _statsCons;
+    private List<DistribucionCategoriaDTO> _distribucion = new();
+    private List<AnomaliaValorDTO> _anomalias = new();
+    private List<TendenciaMensualDTO> _tendencias = new();
+    private List<RankingResponsableDTO> _ranking = new();
+    private List<ProyeccionStockDTO> _proyecciones = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await Seguridad.TienePermisoAsync("ciencia_datos.ver"))
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+
+        await CargarTodo();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_datosListos) return;
+
+        // ✅ Solo inicializar cuando cambia el tab
+        if (_lastRenderedTab == _tab) return;
+        _lastRenderedTab = _tab;
+
+        try
+        {
+            await Task.Delay(120);
+
+            switch (_tab)
+            {
+                case 0: await InitChartResumenAsync(); break;
+                case 1: await InitChartDistribucionAsync(); break;
+                case 3: await InitChartTendenciasAsync(); break;
+                case 4: await InitChartRankingAsync(); break;
+                case 5: await InitChartProyeccionesAsync(); break;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error inicializando chart (tab {_tab}): {ex.Message}");
+        }
+    }
+
+    private async Task CambiarTab(int nuevoTab)
+    {
+        _tab = nuevoTab;
+        _lastRenderedTab = -1;  // ✅ Forzar reinicialización
+        StateHasChanged();
+        await Task.CompletedTask;
+    }
+
+    private async Task CargarTodo()
+    {
+        _cargando = true;
+        _datosListos = false;
+        _lastRenderedTab = -1;
+        StateHasChanged();
+
+        try
+        {
+            var institucionId = Sesion.InstitucionId;
+
+            var t1 = CDService.ObtenerStatsAsync(institucionId);
+            var t2 = CDService.ObtenerDistribucionAsync(institucionId);
+            var t3 = CDService.ObtenerAnomaliasAsync(institucionId);
+            var t4 = CDService.ObtenerTendenciasAsync(institucionId);
+            var t5 = CDService.ObtenerRankingResponsablesAsync(institucionId);
+            var t6 = CDService.ObtenerProyeccionesAsync(institucionId);
+
+            await Task.WhenAll(t1, t2, t3, t4, t5, t6);
+
+            var stats = await t1;
+            _statsDevo = stats.FirstOrDefault(s => s.TipoBien == "devolutivo");
+            _statsCons = stats.FirstOrDefault(s => s.TipoBien == "consumo");
+            _distribucion = (await t2).ToList();
+            _anomalias = (await t3).ToList();
+            _tendencias = (await t4).ToList();
+            _ranking = (await t5).ToList();
+            _proyecciones = (await t6).ToList();
+
+            _datosListos = true;
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error al cargar análisis: {ex.Message}");
+        }
+        finally
+        {
+            _cargando = false;
+            StateHasChanged();
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // INICIALIZADORES DE GRÁFICOS
+    // ═══════════════════════════════════════════════════════════
+
+    private async Task InitChartResumenAsync()
+    {
+        var labels = new[] { "Devolutivos", "Consumo" };
+        var valores = new[]
+        {
+            (double)(_statsDevo?.ValorTotal ?? 0),
+            (double)(_statsCons?.ValorTotal ?? 0)
+        };
+        await JS.InvokeVoidAsync("CDCharts.crearDoughnut", "chart-resumen", labels, valores);
+
+        var labels2 = new[] { "Devolutivos", "Consumo" };
+        var valores2 = new[]
+        {
+            (double)(_statsDevo?.TotalBienes ?? 0),
+            (double)(_statsCons?.TotalBienes ?? 0)
+        };
+        await JS.InvokeVoidAsync("CDCharts.crearBarrasVerticales", "chart-resumen-valores", labels2, valores2);
+    }
+
+    private async Task InitChartDistribucionAsync()
+    {
+        if (!_distribucion.Any()) return;
+
+        var labels = _distribucion.Select(d => d.CategoriaNombre).ToArray();
+        var data = _distribucion.Select(d => (double)d.Cantidad).ToArray();
+
+        await JS.InvokeVoidAsync("CDCharts.crearBarrasHorizontales", "chart-distribucion", labels, data);
+    }
+
+    private async Task InitChartTendenciasAsync()
+    {
+        if (!_tendencias.Any()) return;
+
+        var labels = _tendencias.Select(t => t.Mes.ToString("MMM yyyy")).ToArray();
+        var data = _tendencias.Select(t => (double)t.ValorEntradas).ToArray();
+
+        await JS.InvokeVoidAsync("CDCharts.crearLinea", "chart-tendencias", labels, data);
+    }
+
+    private async Task InitChartRankingAsync()
+    {
+        if (!_ranking.Any()) return;
+
+        var labels = _ranking.Select(r => r.Funcionario).ToArray();
+        var data = _ranking.Select(r => (double)r.TotalBienes).ToArray();
+
+        await JS.InvokeVoidAsync("CDCharts.crearBarrasVerticales", "chart-ranking", labels, data);
+    }
+
+    private async Task InitChartProyeccionesAsync()
+    {
+        if (!_proyecciones.Any()) return;
+
+        var labels = _proyecciones.Select(p => p.Nombre).ToArray();
+        var stock = _proyecciones.Select(p => (double)p.StockActual).ToArray();
+        var minimo = _proyecciones.Select(p => (double)p.StockMinimo).ToArray();
+
+        await JS.InvokeVoidAsync("CDCharts.crearBarrasComparativas", "chart-proyecciones", labels, stock, minimo);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // REFRESCAR VISTAS
+    // ═══════════════════════════════════════════════════════════
+
+    private async Task RefrescarVistas()
+    {
+        _refrescando = true;
+        StateHasChanged();
+
+        try
+        {
+            await CDService.RefrescarVistasAsync();
+            await CargarTodo();
+
+            await Auditoria.RegistrarExportacionAsync(
+                "ciencia_datos",
+                "Refresco manual de vistas materializadas"
+            );
+
+            Toast.Exito("Vistas actualizadas con datos frescos");
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error al refrescar: {ex.Message}");
+        }
+        finally
+        {
+            _refrescando = false;
+            StateHasChanged();
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // HELPERS
+    // ═══════════════════════════════════════════════════════════
+
+    private static string FormatearMoneda(decimal valor)
+        => valor.ToString("C0", new System.Globalization.CultureInfo("es-CO"));
+
+    private static string ClasificarCv(decimal cv) => cv switch
+    {
+        < 25 => "badge-ok",
+        < 50 => "badge-info",
+        _ => "badge-warn"
+    };
+
+    private static string ClasificarAnomalia(string clasificacion) => clasificacion switch
+    {
+        "ANOMALO" => "badge-danger",
+        "REVISAR" => "badge-warn",
+        _ => "badge-neutral"
+    };
+
+    private static string ClasificarProyeccion(string estado) => estado switch
+    {
+        "CRITICO" => "badge-danger",
+        "ALERTA" => "badge-warn",
+        _ => "badge-ok"
+    };
+}

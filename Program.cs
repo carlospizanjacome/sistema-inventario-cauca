@@ -62,8 +62,6 @@ builder.Services.AddScoped<IImportacionRepository, ImportacionRepository>();
 builder.Services.AddScoped<ExcelImportService>();
 builder.Services.AddScoped<IConciliacionRepository, ConciliacionRepository>();
 
-
-
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IAuditoriaRepository, AuditoriaRepository>();
 builder.Services.AddScoped<AuditoriaService>();
@@ -71,12 +69,26 @@ builder.Services.AddScoped<AuditoriaService>();
 builder.Services.AddScoped<PlantillaNormativaService>();
 builder.Services.AddScoped<QrService>();
 builder.Services.AddScoped<ArchivoService>();
+
+// ═══════════════════════════════════════════════════════════════
+// CONEXIÓN A BASE DE DATOS
+// ═══════════════════════════════════════════════════════════════
 builder.Services.AddScoped<NpgsqlConnectionFactory>();
+
 builder.Services.AddScoped<ActaPdfService>();
 builder.Services.AddScoped<ExcelExportService>();
 
 builder.Services.AddScoped<ConfirmService>();
 builder.Services.AddScoped<ToastService>();
+
+builder.Services.AddScoped<AlertasIAService>();
+
+builder.Services.AddScoped<AsistenteIAService>();
+
+// ═══════════════════════════════════════════════════════════════
+// MÓDULO DE CIENCIA DE DATOS (INTELIGENCIA)
+// ═══════════════════════════════════════════════════════════════
+builder.Services.AddScoped<CienciaDatosService>();
 
 Dapper.DefaultTypeMap.MatchNamesWithUnderscores = true;
 var app = builder.Build();
