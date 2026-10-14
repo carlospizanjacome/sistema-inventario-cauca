@@ -770,6 +770,9 @@
         }
     }
 
+    // ═══════════════════════════════════════════════════════════
+    // GENERAR REPORTE — ahora carga kardex + bienes + entradas
+    // ═══════════════════════════════════════════════════════════
     private async Task GenerarReporte(ReporteNormativoDTO r)
     {
         try
@@ -782,13 +785,22 @@
                 return;
             }
 
-            var entradas = (await RepoNorm.ObtenerEntradasAsync()).ToList();
-            var bienes = (await BienRepo.ObtenerTodosAsync()).ToList();
+            // ✅ Cargar las 3 fuentes de datos en paralelo
+            var tBienes    = BienRepo.ObtenerTodosAsync();
+            var tEntradas  = RepoNorm.ObtenerEntradasAsync();
+            var tKardex    = RepoNorm.ObtenerMovimientosKardexAsync();
+
+            await Task.WhenAll(tBienes, tEntradas, tKardex);
+
+            var bienes    = (await tBienes).ToList();
+            var entradas  = (await tEntradas).ToList();
+            var kardex    = (await tKardex).ToList();
 
             var bytes = PlantillaService.GenerarReporte(
                 plantillaBytes,
                 bienes,
                 entradas,
+                kardex,
                 Sesion.InstitucionNombre ?? "",
                 Sesion.UsuarioActual?.NombreCompleto ?? "");
 

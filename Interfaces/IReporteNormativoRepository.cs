@@ -18,8 +18,8 @@ public interface IReporteNormativoRepository
     Task ActualizarPlantillaAsync(int id, byte[] contenido, string nombreArchivo);
     Task<byte[]?> ObtenerContenidoPlantillaAsync(int id);
 
-    // ✅ NUEVO — trae entradas asociadas a bienes para FUB
     Task<IEnumerable<EntradaConBienDTO>> ObtenerEntradasAsync();
+    Task<IEnumerable<MovimientoKardexReporteDTO>> ObtenerMovimientosKardexAsync();
 
     Task<(int Borradores, int Vigentes, int Retirados, int Total)> ObtenerMetricasAsync();
 }

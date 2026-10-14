@@ -16,6 +16,7 @@
 @inject IJSRuntime JS
 @inject SeguridadService Seguridad
 @inject ToastService Toast
+@inject AuditoriaService Auditoria
 
 <PageTitle>Kárdex · Almacén</PageTitle>
 
@@ -979,30 +980,18 @@
 
         var limpio = texto.Replace("$", "").Replace(" ", "").Trim();
 
-        // Reglas:
-        // - Si tiene coma → es decimal colombiano. Ej: "18.000,50" → "18000.50"
-        // - Si NO tiene coma y tiene punto → puede ser miles o decimal.
-        //   Ej: "18.000" → normalmente son miles → "18000"
-        //   Ej: "18000" → es 18000
-        //   Ej: "18.5" → decimal (raro en COP)
-
         if (limpio.Contains(','))
         {
-            // Formato colombiano con coma decimal
             limpio = limpio.Replace(".", "").Replace(",", ".");
         }
         else if (limpio.Contains('.'))
         {
-            // Formato con punto. Puede ser miles (18.000) o decimal (18.5)
             var partes = limpio.Split('.');
 
-            // Si el último grupo tiene exactamente 3 dígitos → es separador de miles
             if (partes.Length > 1 && partes.Last().Length == 3)
             {
                 limpio = limpio.Replace(".", "");
             }
-            // Si el último grupo tiene 1 o 2 dígitos → es decimal
-            // Ej: "18.5" → 18.5
         }
 
         return decimal.TryParse(limpio,
@@ -1011,7 +1000,7 @@
             out valor);
     }
 
-    // ═══ REGISTRAR ═══
+    // ═══ REGISTRAR — CON AUDITORÍA ═══
 
     private async Task RegistrarMovimiento()
     {
@@ -1037,7 +1026,30 @@
         try
         {
             _movDTO.BienId = _bienIdSeleccionado;
-            await KardexRepo.RegistrarMovimientoAsync(_movDTO);
+            var idMovimiento = await KardexRepo.RegistrarMovimientoAsync(_movDTO);
+
+            // ═══ AUDITORÍA: CREAR movimiento de Kardex ═══
+            await Auditoria.RegistrarCreacionAsync(
+                modulo: "kardex",
+                objetoTipo: "MovimientoConsumo",
+                objetoId: idMovimiento,
+                objetoCodigo: _movDTO.DocumentoReferencia ?? "SIN-DOC",
+                objetoDescripcion: $"Movimiento {_movDTO.TipoMovimiento} · {_bienSeleccionado.Codigo} · Cant {_movDTO.Cantidad:N2}",
+                despues: new
+                {
+                    BienId = _bienIdSeleccionado,
+                    BienCodigo = _bienSeleccionado.Codigo,
+                    BienNombre = _bienSeleccionado.Nombre,
+                    TipoMovimiento = _movDTO.TipoMovimiento,
+                    Cantidad = _movDTO.Cantidad,
+                    CostoUnitario = _movDTO.CostoUnitario,
+                    FechaMovimiento = _movDTO.FechaMovimiento,
+                    DocumentoReferencia = _movDTO.DocumentoReferencia,
+                    FuncionarioRecibeId = _movDTO.FuncionarioRecibeId,
+                    Observaciones = _movDTO.Observaciones
+                },
+                motivo: $"Registro de movimiento de {_movDTO.TipoMovimiento} en Kardex"
+            );
 
             Toast.Exito("Movimiento registrado correctamente");
 

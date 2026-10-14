@@ -16,21 +16,13 @@
 <PageTitle>Conciliación · Almacén</PageTitle>
 
 <style>
-    /* ═══ Habilitar scroll del body SOLO en Conciliación ═══ */
-    body:has(.page-conciliacion) {
-        overflow: auto !important;
-    }
-
-    html:has(.page-conciliacion) {
-        overflow-y: auto !important;
-    }
-
+    body:has(.page-conciliacion) { overflow: auto !important; }
+    html:has(.page-conciliacion) { overflow-y: auto !important; }
     .app-content:has(.page-conciliacion) {
         padding-left: 16px !important;
         padding-right: 16px !important;
         overflow: visible !important;
     }
-
     .page-container.page-conciliacion {
         max-width: 100% !important;
         width: 100% !important;
@@ -42,19 +34,16 @@
 
 <div class="page-container page-crud page-conciliacion">
 
-    <div class="page-header">
-        <div>
+    @* ═══ HEADER + SELECTOR EN 1 FILA ═══ *@
+    <div class="conc-header-linea">
+        <div class="conc-header-info">
             <h1><i class="bi bi-check2-square"></i> Conciliación físico-contable</h1>
-            <p class="subtitle">Comparación entre inventario físico y registros contables (V2.0 §7.13)</p>
+            <p class="subtitle">Comparación entre inventario físico y registros contables</p>
         </div>
-    </div>
-
-    <div class="conc-selector">
-        <label>Seleccione una toma física cerrada:</label>
-        <div class="input-icon">
+        <div class="conc-selector-compact">
             <i class="bi bi-clipboard-check"></i>
             <select @bind="_tomaSeleccionadaId" @bind:after="CambiarToma">
-                <option value="0">— Seleccione una toma —</option>
+                <option value="0">— Seleccione una toma cerrada —</option>
                 @foreach (var t in _tomasCerradas)
                 {
                     <option value="@t.Id">@t.Etiqueta</option>
@@ -88,46 +77,45 @@
     }
     else
     {
-        <section class="kpi-grid">
+        @* ═══ 7 KPIs EN 1 SOLA FILA ═══ *@
+        <div class="kpis-linea">
+
             <div class="kpi-card kpi-blue">
                 <div class="kpi-icon"><i class="bi bi-clipboard-data"></i></div>
                 <div class="kpi-body">
-                    <span class="kpi-label">Sistema (snapshot)</span>
+                    <span class="kpi-label">Sistema</span>
                     <span class="kpi-value">@_global.TotalSistema</span>
                     <span class="kpi-sub">@_global.ValorSistema.ToString("C0", CulturaCOP)</span>
                 </div>
             </div>
+
             <div class="kpi-card kpi-green">
                 <div class="kpi-icon"><i class="bi bi-qr-code-scan"></i></div>
                 <div class="kpi-body">
-                    <span class="kpi-label">Físico (escaneado)</span>
+                    <span class="kpi-label">Físico</span>
                     <span class="kpi-value">@_global.TotalFisico</span>
                     <span class="kpi-sub">@_global.ValorFisico.ToString("C0", CulturaCOP)</span>
                 </div>
             </div>
+
             <div class="kpi-card @(_global.DiferenciaCantidad == 0 ? "kpi-green" : "kpi-red")">
                 <div class="kpi-icon"><i class="bi bi-arrow-left-right"></i></div>
                 <div class="kpi-body">
-                    <span class="kpi-label">Diferencia neta</span>
-                    <span class="kpi-value">
-                        @(_global.DiferenciaCantidad > 0 ? "+" : "")@_global.DiferenciaCantidad
-                    </span>
-                    <span class="kpi-sub">
-                        @(_global.DiferenciaValor >= 0 ? "+" : "")@_global.DiferenciaValor.ToString("C0", CulturaCOP)
-                    </span>
+                    <span class="kpi-label">Diferencia</span>
+                    <span class="kpi-value">@(_global.DiferenciaCantidad > 0 ? "+" : "")@_global.DiferenciaCantidad</span>
+                    <span class="kpi-sub">@(_global.DiferenciaValor >= 0 ? "+" : "")@_global.DiferenciaValor.ToString("C0", CulturaCOP)</span>
                 </div>
             </div>
+
             <div class="kpi-card kpi-indigo">
                 <div class="kpi-icon"><i class="bi bi-percent"></i></div>
                 <div class="kpi-body">
-                    <span class="kpi-label">% Conciliación</span>
+                    <span class="kpi-label">% Concil.</span>
                     <span class="kpi-value">@_global.PorcentajeConciliacion.ToString("N2")%</span>
                     <span class="kpi-sub">@_global.TotalConciliados de @_global.TotalSistema</span>
                 </div>
             </div>
-        </section>
 
-        <div class="conc-estados">
             <div class="conc-estado est-ok">
                 <i class="bi bi-check-circle-fill"></i>
                 <div>
@@ -136,6 +124,7 @@
                     <span class="est-val">@_global.ValorConciliados.ToString("C0", CulturaCOP)</span>
                 </div>
             </div>
+
             <div class="conc-estado est-falt">
                 <i class="bi bi-x-octagon-fill"></i>
                 <div>
@@ -144,6 +133,7 @@
                     <span class="est-val">@_global.ValorFaltantes.ToString("C0", CulturaCOP)</span>
                 </div>
             </div>
+
             <div class="conc-estado est-sobr">
                 <i class="bi bi-plus-circle-fill"></i>
                 <div>
@@ -152,9 +142,11 @@
                     <span class="est-val">@_global.ValorSobrantes.ToString("C0", CulturaCOP)</span>
                 </div>
             </div>
+
         </div>
 
-        <div class="card-table">
+        @* ═══ TABLA 1 — Categorías (scroll interno) ═══ *@
+        <div class="card-table card-cat">
             <div class="filtros-toolbar">
                 <div class="filtros-titulo">
                     <i class="bi bi-list-columns"></i>
@@ -168,9 +160,9 @@
                         <tr>
                             <th>CGN</th>
                             <th>Categoría</th>
-                            <th class="text-end">Cant. sistema</th>
+                            <th class="text-end">Cant. sis.</th>
                             <th class="text-end">Cant. física</th>
-                            <th class="text-end">Dif. cantidad</th>
+                            <th class="text-end">Dif. cant.</th>
                             <th class="text-end">Valor sistema</th>
                             <th class="text-end">Valor físico</th>
                             <th class="text-end">Dif. valor</th>
@@ -226,7 +218,8 @@
             </div>
         </div>
 
-        <div class="card-table">
+        @* ═══ TABLA 2 — Detalle (scroll interno) ═══ *@
+        <div class="card-table card-det">
             <div class="filtros-toolbar">
                 <div class="filtros-titulo">
                     <i class="bi bi-exclamation-triangle"></i>
@@ -240,7 +233,7 @@
                 </div>
             </div>
 
-            <div class="pills-filter" style="display:flex;gap:8px;flex-wrap:wrap;padding:12px 18px;border-bottom:1px solid #e2e8f0;">
+            <div class="pills-filter">
                 <button type="button" class="@GetPillClass(null)" @onclick="FiltrarTodos">
                     <i class="bi bi-list-ul"></i> Todos (@_detalle.Count)
                 </button>
@@ -259,7 +252,7 @@
             </div>
 
             <div class="table-responsive">
-                <table class="table modern-table">
+                <table class="table modern-table tabla-detalle">
                     <thead>
                         <tr>
                             <th>Código</th>
@@ -284,17 +277,15 @@
                             @foreach (var d in _detalleFiltrado)
                             {
                                 <tr class="@GetRowClass(d)" @key="d.DetalleId">
-                                    <td><code>@d.CodigoSnapshot</code></td>
-                                    <td>
-                                        <div class="table-cell-primary">
-                                            <strong>@d.NombreSnapshot</strong>
-                                            @if (!string.IsNullOrEmpty(d.CategoriaNombre))
-                                            {
-                                                <small>@d.CategoriaNombre</small>
-                                            }
-                                        </div>
+                                    <td class="col-codigo"><code>@d.CodigoSnapshot</code></td>
+                                    <td class="col-bien">
+                                        <span class="bien-nombre" title="@d.NombreSnapshot">@d.NombreSnapshot</span>
+                                        @if (!string.IsNullOrEmpty(d.CategoriaNombre))
+                                        {
+                                            <small class="bien-categoria">@d.CategoriaNombre</small>
+                                        }
                                     </td>
-                                    <td>
+                                    <td class="col-cgn">
                                         @if (!string.IsNullOrEmpty(d.CodigoCgn))
                                         {
                                             <code>@d.CodigoCgn</code>
@@ -304,24 +295,24 @@
                                             <span class="text-muted">—</span>
                                         }
                                     </td>
-                                    <td class="text-center">
+                                    <td class="text-center col-tipo">
                                         <span class="badge @GetClaseBadgeTipo(d.Tipo)">@d.Tipo</span>
                                     </td>
-                                    <td class="text-end num">@((d.ValorAdquisicion ?? 0).ToString("C0", CulturaCOP))</td>
-                                    <td>
+                                    <td class="text-end num col-valor">@((d.ValorAdquisicion ?? 0).ToString("C0", CulturaCOP))</td>
+                                    <td class="col-ubic">
                                         @if (!string.IsNullOrWhiteSpace(d.UbicacionSnapshot))
                                         {
-                                            <span class="text-muted">@d.UbicacionSnapshot</span>
+                                            <span class="text-muted" title="@d.UbicacionSnapshot">@d.UbicacionSnapshot</span>
                                         }
                                         else
                                         {
                                             <span class="text-muted">—</span>
                                         }
                                     </td>
-                                    <td>
+                                    <td class="col-ubic">
                                         @if (!string.IsNullOrWhiteSpace(d.UbicacionReal))
                                         {
-                                            <span class="@(d.UbicacionDiferente ? "text-warning fw-bold" : "")">
+                                            <span class="@(d.UbicacionDiferente ? "text-warning fw-bold" : "")" title="@d.UbicacionReal">
                                                 @d.UbicacionReal
                                                 @if (d.UbicacionDiferente)
                                                 {
@@ -334,20 +325,20 @@
                                             <span class="text-muted">—</span>
                                         }
                                     </td>
-                                    <td>
+                                    <td class="col-func">
                                         @if (!string.IsNullOrWhiteSpace(d.FuncionarioSnapshot))
                                         {
-                                            <span class="text-muted">@d.FuncionarioSnapshot</span>
+                                            <span class="text-muted" title="@d.FuncionarioSnapshot">@d.FuncionarioSnapshot</span>
                                         }
                                         else
                                         {
                                             <span class="text-muted">—</span>
                                         }
                                     </td>
-                                    <td>
+                                    <td class="col-func">
                                         @if (!string.IsNullOrWhiteSpace(d.FuncionarioReal))
                                         {
-                                            <span class="@(d.FuncionarioDiferente ? "text-warning fw-bold" : "")">
+                                            <span class="@(d.FuncionarioDiferente ? "text-warning fw-bold" : "")" title="@d.FuncionarioReal">
                                                 @d.FuncionarioReal
                                                 @if (d.FuncionarioDiferente)
                                                 {
@@ -360,7 +351,7 @@
                                             <span class="text-muted">—</span>
                                         }
                                     </td>
-                                    <td class="text-muted small">@(d.Observaciones ?? "—")</td>
+                                    <td class="col-obs text-muted small" title="@d.Observaciones">@(string.IsNullOrWhiteSpace(d.Observaciones) ? "—" : d.Observaciones)</td>
                                 </tr>
                             }
                         }
@@ -501,7 +492,7 @@
                     $"\"{d.CategoriaNombre ?? ""}\"",
                     d.Tipo,
                     d.Encontrado ? "SI" : "NO",
-                   (d.ValorAdquisicion ?? 0).ToString("F2", CultureInfo.InvariantCulture),
+                    (d.ValorAdquisicion ?? 0).ToString("F2", CultureInfo.InvariantCulture),
                     $"\"{d.UbicacionSnapshot ?? ""}\"",
                     $"\"{d.UbicacionReal ?? ""}\"",
                     $"\"{d.FuncionarioSnapshot ?? ""}\"",

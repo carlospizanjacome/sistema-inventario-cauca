@@ -189,11 +189,10 @@ public class ReporteNormativoRepository : IReporteNormativoRepository
     }
 
     // ═══════════════════════════════════════════════════════════
-    // OBTENER ENTRADAS (FIXED: filtro institución + anulada + legacy)
+    // ENTRADAS (devolutivos) — F06 FUB
     // ═══════════════════════════════════════════════════════════
     public async Task<IEnumerable<EntradaConBienDTO>> ObtenerEntradasAsync()
     {
-        // Filtro por institución (regla de oro #1)
         var (filtro, param) = FiltroInstitucion.Construir(
             _sesion.EsSuperAdmin,
             _sesion.InstitucionId,
@@ -206,17 +205,63 @@ public class ReporteNormativoRepository : IReporteNormativoRepository
                 e.numero_factura             AS NumeroFactura,
                 e.fecha_entrada::timestamp   AS FechaEntrada,
                 e.valor                      AS Valor,
-                -- Fallback: si no hay FK, usar texto legacy
                 COALESCE(p.nombre, e.proveedor) AS ProveedorNombre,
-                p.nit                        AS ProveedorNit
+                p.nit                        AS ProveedorNit,
+                e.observaciones              AS Observaciones,
+                f.nombre_completo            AS FuncionarioRecibeNombre
             FROM entradas e
             LEFT JOIN proveedores p ON p.id = e.proveedor_id
+            LEFT JOIN funcionarios f ON f.id = e.funcionario_recibe_id
             WHERE e.anulada = FALSE
               {filtro}
             ORDER BY e.fecha_entrada DESC;";
 
         using var cn = new NpgsqlConnection(_cs);
         return await cn.QueryAsync<EntradaConBienDTO>(sql, param);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // MOVIMIENTOS DEL KARDEX (consumibles) — CGN-001 + F06 FUB
+    // ═══════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════
+    // MOVIMIENTOS DEL KARDEX (consumibles) — CGN-001 + F06 FUB
+    // ═══════════════════════════════════════════════════════════
+    public async Task<IEnumerable<MovimientoKardexReporteDTO>> ObtenerMovimientosKardexAsync()
+    {
+        var (filtro, param) = FiltroInstitucion.Construir(
+            _sesion.EsSuperAdmin,
+            _sesion.InstitucionId,
+            tabla: "m");
+
+        var sql = $@"
+        SELECT
+            m.id                        AS Id,
+            m.bien_id                   AS BienId,
+            b.codigo                    AS BienCodigo,
+            b.nombre                    AS BienNombre,
+            c.codigo_cgn                AS CodigoCgn,
+            c.nombre                    AS CategoriaNombre,
+            m.tipo_movimiento           AS TipoMovimiento,
+            m.fecha_movimiento::timestamp AS FechaMovimiento,
+            m.cantidad                  AS Cantidad,
+            m.costo_unitario            AS CostoUnitario,
+            m.valor_movimiento          AS ValorMovimiento,
+            m.documento_referencia      AS DocumentoReferencia,
+            p.nombre                    AS ProveedorNombre,
+            p.nit                       AS ProveedorNit,
+            f.nombre_completo           AS FuncionarioNombre,
+            m.observaciones             AS Observaciones
+        FROM movimientos_consumo m
+        LEFT JOIN bienes b       ON b.id = m.bien_id
+        LEFT JOIN categorias c   ON c.id = b.categoria_id
+        LEFT JOIN proveedores p  ON p.id = m.proveedor_id
+        LEFT JOIN funcionarios f ON f.id = m.funcionario_recibe_id
+        WHERE m.anulada = FALSE
+          {filtro}
+        ORDER BY m.fecha_movimiento ASC, m.id ASC;";
+
+        using var cn = new NpgsqlConnection(_cs);
+        return await cn.QueryAsync<MovimientoKardexReporteDTO>(sql, param);
     }
 
     public async Task<(int Borradores, int Vigentes, int Retirados, int Total)> ObtenerMetricasAsync()

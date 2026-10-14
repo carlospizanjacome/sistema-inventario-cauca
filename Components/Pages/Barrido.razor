@@ -13,6 +13,7 @@
 @inject NavigationManager Navigation
 @inject ToastService Toast
 @inject ConfirmService Confirm
+@inject AuditoriaService Auditoria
 
 <PageTitle>Barrido · Toma Física</PageTitle>
 
@@ -389,14 +390,10 @@
             if (codigoLimpio.StartsWith("INV-", StringComparison.OrdinalIgnoreCase))
                 codigoLimpio = codigoLimpio.Substring(4);
 
-            // ═══ AUTORRELLENO DESDE SNAPSHOT ═══
-            // Si el usuario no especificó ubicación/funcionario/estado,
-            // tomamos los valores del snapshot del bien.
             var detalleSnap = await TomaRepo.BuscarPorCodigoAsync(TomaId, codigoLimpio);
 
             if (detalleSnap is not null)
             {
-                // Autocompletar ubicación
                 if (string.IsNullOrWhiteSpace(_ubicacionReal)
                     && !string.IsNullOrWhiteSpace(detalleSnap.UbicacionSnapshot)
                     && detalleSnap.UbicacionSnapshot != "—")
@@ -405,7 +402,6 @@
                     _ubicacionAutoCargada = true;
                 }
 
-                // Autocompletar funcionario (buscar por nombre)
                 if (!_funcionarioRealId.HasValue
                     && !string.IsNullOrWhiteSpace(detalleSnap.FuncionarioSnapshot)
                     && detalleSnap.FuncionarioSnapshot != "—")
@@ -420,7 +416,6 @@
                     }
                 }
 
-                // ✨ Autocompletar estado físico (del bien actual)
                 if (string.IsNullOrWhiteSpace(_estadoFisicoReal)
                     && !string.IsNullOrWhiteSpace(detalleSnap.EstadoFisicoBien))
                 {
@@ -431,7 +426,6 @@
                 StateHasChanged();
             }
 
-            // ═══ CONFIRMACIÓN SI ES SOBRANTE ═══
             var requiereConfirmacion = await TomaRepo.RequiereConfirmacionSobranteAsync(TomaId, codigoLimpio);
 
             if (requiereConfirmacion)
@@ -460,7 +454,6 @@
                 }
             }
 
-            // ═══ GUARDAR ESCANEO ═══
             var dto = new EscaneoDTO
             {
                 CodigoQr = codigoLimpio,
@@ -478,14 +471,12 @@
                 return;
             }
 
-            // Recargar detalles
             await RecargarDetalle();
             _ultimoEscaneo = _detalles
                 .Where(d => d.CodigoSnapshot == codigoLimpio || d.CodigoSnapshot == codigoLimpio.Replace("INV-", ""))
                 .OrderByDescending(d => d.FechaEscaneo)
                 .FirstOrDefault();
 
-            // Toast según tipo
             switch (tipo)
             {
                 case "CONCILIADO":
@@ -499,7 +490,6 @@
                     break;
             }
 
-            // Vibración en móvil
             try { await JS.InvokeVoidAsync("navigator.vibrate", 100); }
             catch { }
 
@@ -511,7 +501,7 @@
         }
     }
 
-    // ═══════════ CERRAR TOMA ═══════════
+    // ═══════════ CERRAR TOMA — CON AUDITORÍA ═══════════
 
     private async Task CerrarToma()
     {
@@ -531,7 +521,36 @@
 
         try
         {
+            // Capturar datos ANTES del cierre para auditoría
+            var codigo = _toma.Codigo;
+            var nombre = _toma.Nombre;
+            var totalSnapshot = _toma.TotalBienesSnapshot;
+
             await TomaRepo.CerrarAsync(TomaId);
+
+            // Recargar toma para obtener totales reales post-cierre
+            var tomaCerrada = await TomaRepo.ObtenerPorIdAsync(TomaId);
+
+            // ═══ AUDITORÍA: CERRAR (CRÍTICO) ═══
+            await Auditoria.RegistrarAsync(
+                operacion: "CERRAR",
+                modulo: "toma_fisica",
+                objetoTipo: "TomaFisica",
+                objetoId: TomaId,
+                objetoCodigo: codigo,
+                objetoDescripcion: nombre,
+                despues: new
+                {
+                    TotalBienes = tomaCerrada?.TotalBienesSnapshot ?? totalSnapshot,
+                    Conciliados = tomaCerrada?.TotalEncontrados ?? _conciliadosCount,
+                    Faltantes = tomaCerrada?.TotalFaltantes ?? 0,
+                    Sobrantes = tomaCerrada?.TotalSobrantes ?? _sobrantesCount,
+                    FechaCierre = DateTime.Now
+                },
+                motivo: "Cierre de toma física desde barrido",
+                severidad: "CRITICO"
+            );
+
             Toast.Exito("Toma cerrada correctamente");
             Navigation.NavigateTo($"/toma-fisica/reporte/{TomaId}");
         }

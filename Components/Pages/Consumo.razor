@@ -67,7 +67,6 @@
             <EditForm @key="bienEditandoId" Model="bienDTO" OnValidSubmit="Guardar">
                 <DataAnnotationsValidator />
 
-                @* ═══ FILA 1: Código | Nombre | Categoría | Unidad | Stock ═══ *@
                 <div class="form-fila-1">
 
                     @if (editando)
@@ -139,7 +138,6 @@
                     </div>
                 </div>
 
-                @* ═══ FILA 2: Descripción + Activo + Botones ═══ *@
                 <div class="form-fila-2">
 
                     <div class="ff-descripcion">
@@ -175,7 +173,6 @@
 
     <div class="card-table">
 
-        @* ═══ BARRA DE FILTROS — Estilo /bienes ═══ *@
         <div class="consumo-filtros-header">
             <div class="consumo-busqueda">
                 <i class="bi bi-search"></i>
@@ -532,12 +529,10 @@
         catch (TaskCanceledException) { }
     }
 
-    // ═══ FIX: Al abrir filtros, cerrar el formulario ═══
     private void ToggleFiltros()
     {
         _mostrarFiltros = !_mostrarFiltros;
 
-        // Si se abren los filtros, cerrar el formulario para dar espacio
         if (_mostrarFiltros && _mostrarFormulario)
         {
             _mostrarFormulario = false;
@@ -629,7 +624,7 @@
         bienEditandoId = 0;
         _mostrarFormulario = true;
         _filtroTexto = string.Empty;
-        _mostrarFiltros = false;   // ← Cerrar filtros al abrir formulario
+        _mostrarFiltros = false;
     }
 
     private async Task Guardar()
@@ -661,60 +656,54 @@
                 await KardexRepo.ActualizarBienConsumoAsync(bienDTO);
                 Toast.Exito($"Bien '{bienDTO.Nombre}' actualizado.");
 
-                try
-                {
-                    await Auditoria.RegistrarEdicionAsync(
-                        modulo: "consumo",
-                        objetoTipo: "BienConsumo",
-                        objetoId: bienEditandoId,
-                        objetoCodigo: bienDTO.Codigo,
-                        objetoDescripcion: $"Edición de bien de consumo: {bienDTO.Nombre}",
-                        antes: anterior is null ? null : new
-                        {
-                            Nombre = anterior.Nombre,
-                            Descripcion = anterior.Descripcion,
-                            CategoriaId = anterior.CategoriaId,
-                            UnidadMedida = anterior.UnidadMedida,
-                            StockMinimo = anterior.StockMinimo,
-                            Activo = anterior.Activo
-                        },
-                        despues: new
-                        {
-                            Nombre = bienDTO.Nombre,
-                            Descripcion = bienDTO.Descripcion,
-                            CategoriaId = bienDTO.CategoriaId,
-                            UnidadMedida = bienDTO.UnidadMedida,
-                            StockMinimo = bienDTO.StockMinimo,
-                            Activo = bienDTO.Activo
-                        });
-                }
-                catch { }
+                // ═══ AUDITORÍA: edición ═══
+                await Auditoria.RegistrarEdicionAsync(
+                    modulo: "consumo",
+                    objetoTipo: "BienConsumo",
+                    objetoId: bienEditandoId,
+                    objetoCodigo: bienDTO.Codigo,
+                    objetoDescripcion: $"Edición de bien de consumo: {bienDTO.Nombre}",
+                    antes: anterior is null ? null : new
+                    {
+                        Nombre = anterior.Nombre,
+                        Descripcion = anterior.Descripcion,
+                        CategoriaId = anterior.CategoriaId,
+                        UnidadMedida = anterior.UnidadMedida,
+                        StockMinimo = anterior.StockMinimo,
+                        Activo = anterior.Activo
+                    },
+                    despues: new
+                    {
+                        Nombre = bienDTO.Nombre,
+                        Descripcion = bienDTO.Descripcion,
+                        CategoriaId = bienDTO.CategoriaId,
+                        UnidadMedida = bienDTO.UnidadMedida,
+                        StockMinimo = bienDTO.StockMinimo,
+                        Activo = bienDTO.Activo
+                    });
             }
             else
             {
-                await KardexRepo.CrearBienConsumoAsync(bienDTO);
+                var nuevoBienId = await KardexRepo.CrearBienConsumoAsync(bienDTO);
                 Toast.Exito($"Bien '{bienDTO.Nombre}' creado con código {bienDTO.Codigo}.");
 
-                try
-                {
-                    await Auditoria.RegistrarCreacionAsync(
-                        modulo: "consumo",
-                        objetoTipo: "BienConsumo",
-                        objetoId: 0,
-                        objetoCodigo: bienDTO.Codigo,
-                        objetoDescripcion: $"Creación de bien de consumo: {bienDTO.Nombre}",
-                        despues: new
-                        {
-                            Codigo = bienDTO.Codigo,
-                            Nombre = bienDTO.Nombre,
-                            Descripcion = bienDTO.Descripcion,
-                            CategoriaId = bienDTO.CategoriaId,
-                            UnidadMedida = bienDTO.UnidadMedida,
-                            StockMinimo = bienDTO.StockMinimo,
-                            Activo = bienDTO.Activo
-                        });
-                }
-                catch { }
+                // ═══ AUDITORÍA: creación (con ID real) ═══
+                await Auditoria.RegistrarCreacionAsync(
+                    modulo: "consumo",
+                    objetoTipo: "BienConsumo",
+                    objetoId: nuevoBienId,
+                    objetoCodigo: bienDTO.Codigo,
+                    objetoDescripcion: $"Creación de bien de consumo: {bienDTO.Nombre}",
+                    despues: new
+                    {
+                        Codigo = bienDTO.Codigo,
+                        Nombre = bienDTO.Nombre,
+                        Descripcion = bienDTO.Descripcion,
+                        CategoriaId = bienDTO.CategoriaId,
+                        UnidadMedida = bienDTO.UnidadMedida,
+                        StockMinimo = bienDTO.StockMinimo,
+                        Activo = bienDTO.Activo
+                    });
 
                 var unidadActual = bienDTO.UnidadMedida;
                 var categoriaActual = bienDTO.CategoriaId;
@@ -753,7 +742,7 @@
         editando = true;
         bienEditandoId = b.Id;
         _mostrarFormulario = true;
-        _mostrarFiltros = false;   // ← Cerrar filtros al abrir formulario
+        _mostrarFiltros = false;
 
         bienDTO.Id = b.Id;
         bienDTO.Codigo = b.Codigo;
@@ -790,27 +779,24 @@
             await KardexRepo.EliminarBienConsumoAsync(b.Id);
             Toast.Exito("Bien eliminado");
 
-            try
-            {
-                await Auditoria.RegistrarEliminacionAsync(
-                    modulo: "consumo",
-                    objetoTipo: "BienConsumo",
-                    objetoId: b.Id,
-                    objetoCodigo: b.Codigo,
-                    objetoDescripcion: $"Eliminación de bien de consumo: {b.Nombre}",
-                    antes: new
-                    {
-                        Codigo = b.Codigo,
-                        Nombre = b.Nombre,
-                        Descripcion = b.Descripcion,
-                        CategoriaId = b.CategoriaId,
-                        UnidadMedida = b.UnidadMedida,
-                        StockMinimo = b.StockMinimo,
-                        StockActual = b.StockActual,
-                        Activo = b.Activo
-                    });
-            }
-            catch { }
+            // ═══ AUDITORÍA: eliminación ═══
+            await Auditoria.RegistrarEliminacionAsync(
+                modulo: "consumo",
+                objetoTipo: "BienConsumo",
+                objetoId: b.Id,
+                objetoCodigo: b.Codigo,
+                objetoDescripcion: $"Eliminación de bien de consumo: {b.Nombre}",
+                antes: new
+                {
+                    Codigo = b.Codigo,
+                    Nombre = b.Nombre,
+                    Descripcion = b.Descripcion,
+                    CategoriaId = b.CategoriaId,
+                    UnidadMedida = b.UnidadMedida,
+                    StockMinimo = b.StockMinimo,
+                    StockActual = b.StockActual,
+                    Activo = b.Activo
+                });
 
             await Cargar();
             await CargarBajoStock();

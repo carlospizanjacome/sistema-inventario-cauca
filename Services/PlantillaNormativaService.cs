@@ -1,5 +1,6 @@
 ﻿using Almacen.DTOs;
 using Almacen.Models;
+using Almacen.Interfaces;
 using ClosedXML.Excel;
 
 namespace Almacen.Services;
@@ -9,7 +10,7 @@ public class PlantillaNormativaService
     public PlantillaNormativaService() { }
 
     // ═══════════════════════════════════════════════════════════
-    // PROCESAR PLANTILLA (valida y convierte CSV → XLSX si aplica)
+    // PROCESAR PLANTILLA
     // ═══════════════════════════════════════════════════════════
     public async Task<(bool Ok, byte[] Contenido, string NombreArchivo, string Mensaje)>
         ProcesarPlantillaAsync(Stream contenido, string nombreOriginal)
@@ -111,12 +112,13 @@ public class PlantillaNormativaService
     }
 
     // ═══════════════════════════════════════════════════════════
-    // GENERAR REPORTE (detecta tipo según columnas de la plantilla)
+    // GENERAR REPORTE
     // ═══════════════════════════════════════════════════════════
     public byte[] GenerarReporte(
         byte[] plantillaBytes,
         List<Bien> bienes,
         List<EntradaConBienDTO> entradas,
+        List<MovimientoKardexReporteDTO> kardex,
         string nombreInstitucion,
         string nombreUsuario)
     {
@@ -137,7 +139,6 @@ public class PlantillaNormativaService
                 columnas[texto] = c;
         }
 
-        // Detectar el "modo" del reporte según las columnas
         bool esAgrupadoPorCgn = columnas.Keys.Any(k =>
             Normalizar(k).Contains("SALDO INICIAL") ||
             Normalizar(k).Contains("MOVIMIENTO DEBITO"));
@@ -150,32 +151,103 @@ public class PlantillaNormativaService
 
         if (esAgrupadoPorCgn)
         {
-            // ═══ MODO 1: Agrupar por cuenta CGN (CGN 2026-001) ═══
-            var grupos = bienes
-                .GroupBy(b => new { Cgn = b.CodigoCgn ?? "SIN-CGN", Nombre = b.CategoriaNombre ?? "Sin categoría" })
-                .Select(g => new
-                {
-                    Cgn = g.Key.Cgn,
-                    Concepto = g.Key.Nombre,
-                    MovDebito = g.Sum(x => x.ValorAdquisicion),
-                    MovCredito = g.Sum(x => x.DepreciacionAcumulada),
-                    SaldoFinal = g.Sum(x => x.ValorNeto)
-                })
-                .OrderBy(g => g.Cgn);
+            var nombresOficialesCgn = new Dictionary<string, string>
+            {
+                { "163501", "Materiales y suministros" },
+                { "163502", "Papelería" },
+                { "163503", "Aseo y cafetería" },
+                { "163504", "Equipos de comunicación" },
+                { "163505", "Equipos de laboratorio" },
+                { "163506", "Mobiliario" },
+                { "163507", "Equipos de cómputo" },
+                { "163508", "Equipos deportivos" },
+                { "163509", "Herramientas" },
+                { "163510", "Otros" },
+                { "1905",   "Categoría especial 1905" }
+            };
 
-            foreach (var g in grupos)
+            var grupoDevolutivos = bienes
+                .GroupBy(b => b.CodigoCgn ?? "SIN-CGN")
+                .ToDictionary(
+                    g => g.Key,
+                    g =>
+                    {
+                        var activos = g.Where(x => x.Activo).ToList();
+                        var dadosDeBaja = g.Where(x => !x.Activo).ToList();
+                        return (
+                            Debito: g.Sum(x => x.ValorAdquisicion),
+                            Credito: dadosDeBaja.Sum(x => x.ValorAdquisicion),
+                            SaldoFinal: activos.Sum(x => x.ValorAdquisicion)
+                        );
+                    });
+
+            var grupoConsumibles = kardex
+                .Where(k => !string.IsNullOrWhiteSpace(k.CodigoCgn))
+                .GroupBy(k => k.CodigoCgn!)
+                .ToDictionary(
+                    g => g.Key,
+                    g =>
+                    {
+                        var debito = g.Where(m =>
+                            m.TipoMovimiento == "ENTRADA" ||
+                            m.TipoMovimiento == "AJUSTE_POS")
+                            .Sum(m => m.ValorMovimiento);
+
+                        var credito = g.Where(m =>
+                            m.TipoMovimiento == "SALIDA" ||
+                            m.TipoMovimiento == "AJUSTE_NEG")
+                            .Sum(m => m.ValorMovimiento);
+
+                        return (
+                            Debito: debito,
+                            Credito: credito,
+                            SaldoFinal: debito - credito
+                        );
+                    });
+
+            var codigosUnicos = grupoDevolutivos.Keys
+                .Union(grupoConsumibles.Keys)
+                .OrderBy(c => c)
+                .ToList();
+
+            var gruposFinales = codigosUnicos.Select(cgn =>
+            {
+                grupoDevolutivos.TryGetValue(cgn, out var dev);
+                grupoConsumibles.TryGetValue(cgn, out var cons);
+
+                return new
+                {
+                    Cgn = cgn,
+                    Concepto = nombresOficialesCgn.TryGetValue(cgn, out var n)
+                        ? n
+                        : (bienes.FirstOrDefault(b => b.CodigoCgn == cgn)?.CategoriaNombre
+                            ?? "Sin categoría"),
+
+                    MovDebito = dev.Debito + cons.Debito,
+                    MovCredito = dev.Credito + cons.Credito,
+                    SaldoFinal = dev.SaldoFinal + cons.SaldoFinal
+                };
+            }).ToList();
+
+            foreach (var g in gruposFinales)
             {
                 foreach (var (nombreCol, colIdx) in columnas)
                 {
                     var n = Normalizar(nombreCol);
                     object? valor = null;
 
-                    if (n == "CODIGO" || n.Contains("CODIGO CGN")) valor = g.Cgn;
-                    else if (n == "CONCEPTO" || n.Contains("NOMBRE")) valor = g.Concepto;
-                    else if (n.Contains("SALDO INICIAL")) valor = 0m;
-                    else if (n.Contains("MOVIMIENTO DEBITO")) valor = g.MovDebito;
-                    else if (n.Contains("MOVIMIENTO CREDITO")) valor = g.MovCredito;
-                    else if (n.Contains("SALDO FINAL")) valor = g.SaldoFinal;
+                    if (n == "CODIGO" || n.Contains("CODIGO CGN"))
+                        valor = g.Cgn;
+                    else if (n == "CONCEPTO" || n.Contains("NOMBRE"))
+                        valor = g.Concepto;
+                    else if (n.Contains("SALDO INICIAL"))
+                        valor = 0m;
+                    else if (n.Contains("MOVIMIENTO DEBITO"))
+                        valor = g.MovDebito;
+                    else if (n.Contains("MOVIMIENTO CREDITO"))
+                        valor = g.MovCredito;
+                    else if (n.Contains("SALDO FINAL"))
+                        valor = g.SaldoFinal;
 
                     if (valor is not null)
                         ws.Cell(fila, colIdx).Value = XLCellValue.FromObject(valor);
@@ -185,15 +257,10 @@ public class PlantillaNormativaService
         }
         else if (esFubConEntradas)
         {
-            // ═══ MODO 2: FUB con datos de entradas vigentes ═══
-            // IMPORTANTE: Un bien sin entrada vigente (anulada = FALSE) NO
-            // debe aparecer en el FUB, porque contablemente no tiene soporte.
-            // Regla: solo se reportan bienes que tienen una entrada vigente.
             var entradasPorBien = entradas
                 .GroupBy(e => e.BienId)
                 .ToDictionary(g => g.Key, g => g.First());
 
-            // Filtrar: solo bienes que tienen entrada vigente
             var bienesConSoporte = bienes
                 .Where(b => entradasPorBien.ContainsKey(b.Id))
                 .ToList();
@@ -204,7 +271,18 @@ public class PlantillaNormativaService
 
                 foreach (var (nombreCol, colIdx) in columnas)
                 {
-                    var valor = ObtenerValorFub(nombreCol, b, entrada);
+                    var valor = ObtenerValorFubDevolutivo(nombreCol, b, entrada);
+                    if (valor is not null)
+                        ws.Cell(fila, colIdx).Value = valor.Value;
+                }
+                fila++;
+            }
+
+            foreach (var k in kardex)
+            {
+                foreach (var (nombreCol, colIdx) in columnas)
+                {
+                    var valor = ObtenerValorFubConsumo(nombreCol, k);
                     if (valor is not null)
                         ws.Cell(fila, colIdx).Value = valor.Value;
                 }
@@ -213,7 +291,6 @@ public class PlantillaNormativaService
         }
         else
         {
-            // ═══ MODO 3: Por bien individual (PPE) ═══
             foreach (var b in bienes)
             {
                 foreach (var (nombreCol, colIdx) in columnas)
@@ -298,7 +375,7 @@ public class PlantillaNormativaService
         };
     }
 
-    private static XLCellValue? ObtenerValorFub(string nombreColumna, Bien b, EntradaConBienDTO? entrada)
+    private static XLCellValue? ObtenerValorFubDevolutivo(string nombreColumna, Bien b, EntradaConBienDTO? entrada)
     {
         var n = Normalizar(nombreColumna);
 
@@ -312,21 +389,30 @@ public class PlantillaNormativaService
             var x when x == "MODELO" => b.Modelo ?? "",
             var x when x == "SERIE" => b.Serie ?? "",
 
-            var x when x.Contains("TIPO MOVIMIENTO") => entrada?.TipoFuente == "FSE" ? "ADQUISICION" : "ADQUISICION",
-            var x when x == "FECHA" => entrada?.FechaEntrada?.ToString("dd/MM/yyyy") ?? b.FechaAdquisicion?.ToString("dd/MM/yyyy") ?? "",
+            var x when x.Contains("TIPO MOVIMIENTO") => "ADQUISICION",
+            var x when x == "FECHA" => entrada?.FechaEntrada?.ToString("dd/MM/yyyy")
+                ?? b.FechaAdquisicion?.ToString("dd/MM/yyyy") ?? "",
             var x when x == "VALOR" => entrada?.Valor ?? b.ValorAdquisicion,
 
-            // ⚠️ ORDEN CORREGIDO: específicas ANTES que genéricas
-            // El switch evalúa en orden. "NIT PROVEEDOR" contiene "PROVEEDOR",
-            // por eso debe ir primero o matchea la condición genérica.
             var x when x.Contains("NIT PROVEEDOR") => entrada?.ProveedorNit ?? "",
             var x when x.Contains("NUMERO FACTURA") => entrada?.NumeroFactura ?? "",
             var x when x.Contains("FACTURA") => entrada?.NumeroFactura ?? "",
             var x when x.Contains("PROVEEDOR") => entrada?.ProveedorNombre ?? "",
 
             var x when x.Contains("UBICACION") => b.AulaNombre ?? b.Ubicacion ?? "",
-            var x when x.Contains("RESPONSABLE") => b.FuncionarioNombre ?? b.Responsable ?? "",
-            var x when x.Contains("FUNCIONARIO") => b.FuncionarioNombre ?? "",
+
+            var x when x.Contains("RESPONSABLE") =>
+                b.FuncionarioNombre
+                ?? entrada?.FuncionarioRecibeNombre
+                ?? b.Responsable
+                ?? "",
+
+            var x when x.Contains("FUNCIONARIO") =>
+                b.FuncionarioNombre
+                ?? entrada?.FuncionarioRecibeNombre
+                ?? "",
+
+            var x when x.Contains("OBSERVACION") => entrada?.Observaciones ?? "",
 
             var x when x.Contains("VALOR ADQUISICION") => b.ValorAdquisicion,
             var x when x.Contains("DEPRECIACION ACUM") => b.DepreciacionAcumulada,
@@ -335,9 +421,50 @@ public class PlantillaNormativaService
             _ => null
         };
     }
+
+    private static XLCellValue? ObtenerValorFubConsumo(string nombreColumna, MovimientoKardexReporteDTO k)
+    {
+        var n = Normalizar(nombreColumna);
+
+        return n switch
+        {
+            var x when x == "CODIGO" => k.BienCodigo ?? "",
+            var x when x.Contains("CODIGO BIEN") => k.BienCodigo ?? "",
+            var x when x.Contains("CODIGO CGN") => k.CodigoCgn ?? "-",
+            var x when x.Contains("NOMBRE") => k.BienNombre ?? "",
+
+            var x when x.Contains("TIPO MOVIMIENTO") => k.TipoMovimiento,
+
+            var x when x == "FECHA" => k.FechaMovimiento.ToString("dd/MM/yyyy"),
+            var x when x == "VALOR" => k.ValorMovimiento,
+
+            var x when x.Contains("NIT PROVEEDOR") => k.ProveedorNit ?? "",
+            var x when x.Contains("NUMERO FACTURA") => k.DocumentoReferencia ?? "",
+            var x when x.Contains("FACTURA") => k.DocumentoReferencia ?? "",
+            var x when x.Contains("PROVEEDOR") => k.ProveedorNombre ?? "",
+
+            var x when x.Contains("UBICACION") => "",
+            var x when x.Contains("RESPONSABLE") => k.FuncionarioNombre ?? "",
+            var x when x.Contains("FUNCIONARIO") => k.FuncionarioNombre ?? "",
+            var x when x.Contains("OBSERVACION") => k.Observaciones ?? "",
+
+            var x when x == "MARCA" => "",
+            var x when x == "MODELO" => "",
+            var x when x == "SERIE" => "",
+            var x when x.Contains("CANTIDAD") => k.Cantidad,
+            var x when x.Contains("VALOR ADQUISICION") => k.ValorMovimiento,
+            var x when x.Contains("DEPRECIACION") => 0m,
+            var x when x.Contains("VALOR NETO") => k.ValorMovimiento,
+
+            _ => null
+        };
+    }
 }
 
-/// <summary>DTO ligero con datos de la entrada + el bien asociado.</summary>
+// ═══════════════════════════════════════════════════════════════
+// DTOs DE APOYO
+// ═══════════════════════════════════════════════════════════════
+
 public class EntradaConBienDTO
 {
     public int BienId { get; set; }
@@ -347,4 +474,26 @@ public class EntradaConBienDTO
     public decimal Valor { get; set; }
     public string? ProveedorNombre { get; set; }
     public string? ProveedorNit { get; set; }
+    public string? Observaciones { get; set; }
+    public string? FuncionarioRecibeNombre { get; set; }
+}
+
+public class MovimientoKardexReporteDTO
+{
+    public int Id { get; set; }
+    public int BienId { get; set; }
+    public string BienCodigo { get; set; } = "";
+    public string BienNombre { get; set; } = "";
+    public string? CodigoCgn { get; set; }
+    public string? CategoriaNombre { get; set; }
+    public string TipoMovimiento { get; set; } = "";
+    public DateTime FechaMovimiento { get; set; }
+    public decimal Cantidad { get; set; }
+    public decimal CostoUnitario { get; set; }
+    public decimal ValorMovimiento { get; set; }
+    public string? DocumentoReferencia { get; set; }
+    public string? ProveedorNombre { get; set; }
+    public string? ProveedorNit { get; set; }
+    public string? FuncionarioNombre { get; set; }
+    public string? Observaciones { get; set; }
 }

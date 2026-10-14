@@ -45,4 +45,23 @@ public class MovimientoConsumoDTO
     public string? UnidadMedida { get; set; }
     public string? ProveedorNombre { get; set; }
     public string? FuncionarioNombre { get; set; }
+
+    /// <summary>
+    /// DTO ligero con datos de la entrada + el bien asociado.
+    /// Usado en F06 FUB para incluir movimientos de bienes devolutivos.
+    /// </summary>
+    public class EntradaConBienDTO
+    {
+        public int BienId { get; set; }
+        public string TipoFuente { get; set; } = "";
+        public string? NumeroFactura { get; set; }
+        public DateTime? FechaEntrada { get; set; }
+        public decimal Valor { get; set; }
+        public string? ProveedorNombre { get; set; }
+        public string? ProveedorNit { get; set; }
+
+        // ✅ NUEVOS — necesarios para el F06 FUB
+        public string? Observaciones { get; set; }
+        public string? FuncionarioRecibeNombre { get; set; }
+    }
 }

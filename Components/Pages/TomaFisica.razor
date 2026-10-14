@@ -554,6 +554,9 @@
         _mostrarFormulario = true;
     }
 
+    // ═══════════════════════════════════════════════════════════
+    // GUARDAR — Con auditoría (CREAR / EDITAR)
+    // ═══════════════════════════════════════════════════════════
     private async Task Guardar()
     {
         if (await TomaRepo.ExisteCodigoAsync(_model.Codigo, editando ? _model.Id : null))
@@ -567,11 +570,49 @@
             if (editando)
             {
                 await TomaRepo.ActualizarAsync(_model);
+
+                // ═══ AUDITORÍA: EDITAR ═══
+                await Auditoria.RegistrarEdicionAsync(
+                    modulo: "toma_fisica",
+                    objetoTipo: "TomaFisica",
+                    objetoId: _model.Id,
+                    objetoCodigo: _model.Codigo,
+                    objetoDescripcion: $"Edición: {_model.Nombre}",
+                    antes: null,
+                    despues: new
+                    {
+                        _model.Codigo,
+                        _model.Nombre,
+                        _model.FechaInicio,
+                        _model.ResponsableId,
+                        _model.Observaciones
+                    },
+                    motivo: "Edición de toma física"
+                );
+
                 Toast.Exito("Toma actualizada");
             }
             else
             {
-                await TomaRepo.CrearAsync(_model);
+                var nuevoId = await TomaRepo.CrearAsync(_model);
+
+                // ═══ AUDITORÍA: CREAR ═══
+                await Auditoria.RegistrarCreacionAsync(
+                    modulo: "toma_fisica",
+                    objetoTipo: "TomaFisica",
+                    objetoId: nuevoId,
+                    objetoCodigo: _model.Codigo,
+                    objetoDescripcion: $"Creación: {_model.Nombre}",
+                    despues: new
+                    {
+                        _model.Codigo,
+                        _model.Nombre,
+                        _model.FechaInicio,
+                        _model.ResponsableId,
+                        _model.Observaciones
+                    }
+                );
+
                 Toast.Exito("Toma creada en estado Borrador");
             }
             Cancelar();
@@ -583,6 +624,9 @@
         }
     }
 
+    // ═══════════════════════════════════════════════════════════
+    // ABRIR — Con auditoría CRÍTICA
+    // ═══════════════════════════════════════════════════════════
     private async Task Abrir(TomaFisicaDTO t)
     {
         if (!puedeAbrir) return;
@@ -600,6 +644,24 @@
         try
         {
             var count = await TomaRepo.AbrirAsync(t.Id);
+
+            // ═══ AUDITORÍA: ABRIR (CRÍTICO) ═══
+            await Auditoria.RegistrarAsync(
+                operacion: "ABRIR",
+                modulo: "toma_fisica",
+                objetoTipo: "TomaFisica",
+                objetoId: t.Id,
+                objetoCodigo: t.Codigo,
+                objetoDescripcion: t.Nombre,
+                despues: new
+                {
+                    TotalCongelados = count,
+                    FechaApertura = DateTime.Now
+                },
+                motivo: "Congelación de inventario",
+                severidad: "CRITICO"
+            );
+
             Toast.Exito($"Toma abierta. {count} bienes congelados listos para barrido.");
             await Cargar();
         }
@@ -609,6 +671,9 @@
         }
     }
 
+    // ═══════════════════════════════════════════════════════════
+    // CERRAR — Con auditoría CRÍTICA
+    // ═══════════════════════════════════════════════════════════
     private async Task Cerrar(TomaFisicaDTO t)
     {
         if (!puedeCerrar) return;
@@ -627,6 +692,27 @@
         try
         {
             await TomaRepo.CerrarAsync(t.Id);
+
+            // ═══ AUDITORÍA: CERRAR (CRÍTICO) ═══
+            await Auditoria.RegistrarAsync(
+                operacion: "CERRAR",
+                modulo: "toma_fisica",
+                objetoTipo: "TomaFisica",
+                objetoId: t.Id,
+                objetoCodigo: t.Codigo,
+                objetoDescripcion: t.Nombre,
+                despues: new
+                {
+                    TotalBienes = t.TotalBienesSnapshot,
+                    Conciliados = t.TotalEncontrados,
+                    Faltantes = t.TotalFaltantes,
+                    Sobrantes = t.TotalSobrantes,
+                    FechaCierre = DateTime.Now
+                },
+                motivo: "Cierre de toma física",
+                severidad: "CRITICO"
+            );
+
             Toast.Exito("Toma cerrada correctamente");
             await Cargar();
         }
@@ -653,6 +739,9 @@
         _mostrarFormulario = true;
     }
 
+    // ═══════════════════════════════════════════════════════════
+    // ELIMINAR — Con auditoría
+    // ═══════════════════════════════════════════════════════════
     private async Task Eliminar(TomaFisicaDTO t)
     {
         var ok = await Confirm.Peligroso($"¿Eliminar la toma '{t.Nombre}'? Solo se permite en estado Borrador sin conteos.");
@@ -666,6 +755,24 @@
                 Toast.Warning("No se pudo eliminar. Solo se pueden eliminar tomas en Borrador sin conteos registrados.");
                 return;
             }
+
+            // ═══ AUDITORÍA: ELIMINAR ═══
+            await Auditoria.RegistrarEliminacionAsync(
+                modulo: "toma_fisica",
+                objetoTipo: "TomaFisica",
+                objetoId: t.Id,
+                objetoCodigo: t.Codigo,
+                objetoDescripcion: t.Nombre,
+                antes: new
+                {
+                    Codigo = t.Codigo,
+                    Nombre = t.Nombre,
+                    Estado = t.Estado,
+                    FechaInicio = t.FechaInicio
+                },
+                motivo: "Eliminación de toma en Borrador"
+            );
+
             Toast.Exito("Toma eliminada");
             await Cargar();
         }
@@ -708,6 +815,9 @@
         _procesandoAnulacion = false;
     }
 
+    // ═══════════════════════════════════════════════════════════
+    // ANULAR — Con auditoría
+    // ═══════════════════════════════════════════════════════════
     private async Task ConfirmarAnulacion()
     {
         if (_tomaAAnular is null) return;
@@ -732,17 +842,27 @@
             var toma = _tomaAAnular;
             await TomaRepo.AnularAsync(toma.Id, _motivoAnulacion.Trim());
 
-            try
-            {
-                await Auditoria.RegistrarAnulacionAsync(
-                    modulo: "toma_fisica",
-                    objetoTipo: "TomaFisica",
-                    objetoId: toma.Id,
-                    objetoCodigo: toma.Codigo,
-                    objetoDescripcion: $"Anulación — {toma.Nombre}",
-                    motivo: _motivoAnulacion.Trim());
-            }
-            catch { }
+            // ═══ AUDITORÍA: ANULAR ═══
+            await Auditoria.RegistrarAnulacionAsync(
+                modulo: "toma_fisica",
+                objetoTipo: "TomaFisica",
+                objetoId: toma.Id,
+                objetoCodigo: toma.Codigo,
+                objetoDescripcion: $"Anulación — {toma.Nombre}",
+                antes: new
+                {
+                    Codigo = toma.Codigo,
+                    Nombre = toma.Nombre,
+                    Estado = toma.Estado,
+                    Anulada = false
+                },
+                despues: new
+                {
+                    Anulada = true,
+                    Motivo = _motivoAnulacion.Trim()
+                },
+                motivo: _motivoAnulacion.Trim()
+            );
 
             Toast.Exito($"Toma '{toma.Codigo}' anulada correctamente.");
             CerrarModalAnular();
