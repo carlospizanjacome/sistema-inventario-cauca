@@ -1,4 +1,4 @@
-@page "/ciencia-datos"
+﻿@page "/ciencia-datos"
 @rendermode InteractiveServer
 
 @using Almacen.DTOs
@@ -43,7 +43,6 @@
     {
         <div class="card-table">
 
-            <!-- TABS -->
             <div class="cd-tabs">
                 <button class="cd-tab @(_tab == 0 ? "active" : "")" @onclick="() => CambiarTab(0)">
                     <i class="bi bi-speedometer2"></i> Resumen
@@ -449,7 +448,6 @@
             Navigation.NavigateTo("/");
             return;
         }
-
         await CargarTodo();
     }
 
@@ -462,7 +460,6 @@
         try
         {
             await Task.Delay(120);
-
             switch (_tab)
             {
                 case 0: await InitChartResumenAsync(); break;
@@ -496,14 +493,12 @@
         try
         {
             var institucionId = Sesion.InstitucionId;
-
             var t1 = CDService.ObtenerStatsAsync(institucionId);
             var t2 = CDService.ObtenerDistribucionAsync(institucionId);
             var t3 = CDService.ObtenerAnomaliasAsync(institucionId);
             var t4 = CDService.ObtenerTendenciasAsync(institucionId);
             var t5 = CDService.ObtenerRankingResponsablesAsync(institucionId);
             var t6 = CDService.ObtenerProyeccionesAsync(institucionId);
-
             await Task.WhenAll(t1, t2, t3, t4, t5, t6);
 
             var stats = await t1;
@@ -514,7 +509,6 @@
             _tendencias = (await t4).ToList();
             _ranking = (await t5).ToList();
             _proyecciones = (await t6).ToList();
-
             _datosListos = true;
         }
         catch (Exception ex)
@@ -550,41 +544,33 @@
     private async Task InitChartDistribucionAsync()
     {
         if (!_distribucion.Any()) return;
-
         var labels = _distribucion.Select(d => d.CategoriaNombre).ToArray();
         var data = _distribucion.Select(d => (double)d.Cantidad).ToArray();
-
         await JS.InvokeVoidAsync("CDCharts.crearBarrasHorizontales", "chart-distribucion", labels, data);
     }
 
     private async Task InitChartTendenciasAsync()
     {
         if (!_tendencias.Any()) return;
-
         var labels = _tendencias.Select(t => t.Mes.ToString("MMM yyyy")).ToArray();
         var data = _tendencias.Select(t => (double)t.ValorEntradas).ToArray();
-
         await JS.InvokeVoidAsync("CDCharts.crearLinea", "chart-tendencias", labels, data);
     }
 
     private async Task InitChartRankingAsync()
     {
         if (!_ranking.Any()) return;
-
         var labels = _ranking.Select(r => r.Funcionario).ToArray();
         var data = _ranking.Select(r => (double)r.TotalBienes).ToArray();
-
         await JS.InvokeVoidAsync("CDCharts.crearBarrasVerticales", "chart-ranking", labels, data);
     }
 
     private async Task InitChartProyeccionesAsync()
     {
         if (!_proyecciones.Any()) return;
-
         var labels = _proyecciones.Select(p => p.Nombre).ToArray();
         var stock = _proyecciones.Select(p => (double)p.StockActual).ToArray();
         var minimo = _proyecciones.Select(p => (double)p.StockMinimo).ToArray();
-
         await JS.InvokeVoidAsync("CDCharts.crearBarrasComparativas", "chart-proyecciones", labels, stock, minimo);
     }
 
@@ -597,12 +583,7 @@
         {
             await CDService.RefrescarVistasAsync();
             await CargarTodo();
-
-            await Auditoria.RegistrarExportacionAsync(
-                "ciencia_datos",
-                "Refresco manual de vistas"
-            );
-
+            await Auditoria.RegistrarExportacionAsync("ciencia_datos", "Refresco manual de vistas");
             Toast.Exito("Vistas actualizadas");
         }
         catch (Exception ex)

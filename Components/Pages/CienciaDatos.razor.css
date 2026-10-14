@@ -1,7 +1,4 @@
-/* ═══════════════════════════════════════════════════════════
-   CIENCIA DE DATOS — Estilos con gráficos
-   ═══════════════════════════════════════════════════════════ */
-
+/* CSS for CienciaDatos component */
 .page-container.page-crud,
 .page-crud {
     display: flex !important;
@@ -17,7 +14,6 @@
 
     .page-crud > .page-header {
         flex-shrink: 0 !important;
-        flex-grow: 0 !important;
         margin-bottom: 0 !important;
     }
 
@@ -40,7 +36,6 @@
     overflow-x: auto !important;
 }
 
-/* ═══ TABS ═══ */
 .cd-tabs {
     display: flex !important;
     flex-shrink: 0 !important;
@@ -49,7 +44,6 @@
     border-bottom: 1px solid #e2e8f0 !important;
     background: #fafbfc !important;
     overflow-x: auto !important;
-    scrollbar-width: thin;
 }
 
 .cd-tab {
@@ -81,10 +75,6 @@
         background: #fff !important;
     }
 
-    .cd-tab i {
-        font-size: 0.95rem !important;
-    }
-
 .cd-tab-badge {
     display: inline-flex !important;
     align-items: center !important;
@@ -100,22 +90,8 @@
     margin-left: 4px !important;
 }
 
-/* ═══ CONTENIDO ═══ */
 .cd-content {
     padding: 20px 24px 32px !important;
-    animation: cdFadeIn 0.2s ease !important;
-}
-
-@keyframes cdFadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(4px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
 }
 
 .cd-section-title {
@@ -141,16 +117,11 @@
     line-height: 1.6 !important;
 }
 
-    .cd-help .badge {
-        margin: 0 2px !important;
-    }
-
-/* ═══ KPIs ═══ */
 .cd-kpi-grid {
     display: grid !important;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) !important;
     gap: 12px !important;
-    margin-bottom: 24px !important;
+    margin-bottom: 28px !important;
 }
 
 .cd-kpi {
@@ -162,14 +133,7 @@
     border: 1px solid #e2e8f0 !important;
     border-radius: 12px !important;
     box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04) !important;
-    transition: all 0.15s ease !important;
 }
-
-    .cd-kpi:hover {
-        border-color: #c7d2fe !important;
-        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.08) !important;
-        transform: translateY(-1px) !important;
-    }
 
 .cd-kpi-icon {
     width: 44px !important;
@@ -216,7 +180,6 @@
     margin-top: 4px !important;
 }
 
-/* ═══ GRÁFICOS ═══ */
 .cd-chart-grid {
     display: grid !important;
     grid-template-columns: 1fr 1fr !important;
@@ -237,12 +200,6 @@
     margin-bottom: 24px !important;
 }
 
-.cd-chart-card .cd-section-title {
-    margin-bottom: 12px !important;
-    font-size: 0.95rem !important;
-    padding-bottom: 8px !important;
-}
-
 .cd-chart-container {
     position: relative !important;
     height: 280px !important;
@@ -253,11 +210,6 @@
     height: 340px !important;
 }
 
-.cd-chart-container canvas {
-    max-width: 100% !important;
-}
-
-/* ═══ INFO BOX ═══ */
 .cd-info-box {
     display: flex !important;
     gap: 12px !important;
@@ -292,7 +244,6 @@
         color: #1e3a8a !important;
     }
 
-/* ═══ EMPTY STATE ═══ */
 .cd-empty {
     display: flex !important;
     flex-direction: column !important;
@@ -306,9 +257,9 @@
     .cd-empty i {
         font-size: 2.5rem !important;
         opacity: 0.6 !important;
+        color: #16a34a !important;
     }
 
-/* ═══ TABLAS ═══ */
 .cd-content .modern-table {
     font-size: 0.86rem !important;
 }
@@ -328,7 +279,6 @@
         border-bottom: 1px solid #e2e8f0 !important;
     }
 
-/* ═══ RESPONSIVE ═══ */
 @media (max-width: 1200px) {
     .cd-chart-grid {
         grid-template-columns: 1fr !important;
