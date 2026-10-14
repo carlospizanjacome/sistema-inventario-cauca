@@ -1,0 +1,2 @@
+[phases.build]
+cmds = ["dotnet restore \"Almacen.csproj\"", "dotnet clean \"Almacen.csproj\" -c Release", "dotnet publish \"Almacen.csproj\" -c Release -o /app/publish"]
