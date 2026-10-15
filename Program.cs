@@ -5,7 +5,7 @@ using Almacen.Models;
 using Almacen.Repositories;
 using Almacen.Services;
 
-// ═══ CULTURA GLOBAL: $12.000 · 12.345,67 · 1.234 ═══
+// CULTURA GLOBAL
 var culturaCO = (CultureInfo)CultureInfo.GetCultureInfo("es-CO").Clone();
 culturaCO.NumberFormat.CurrencyPositivePattern = 0;
 culturaCO.NumberFormat.CurrencyNegativePattern = 1;
@@ -70,9 +70,7 @@ builder.Services.AddScoped<PlantillaNormativaService>();
 builder.Services.AddScoped<QrService>();
 builder.Services.AddScoped<ArchivoService>();
 
-// ═══════════════════════════════════════════════════════════════
-// CONEXIÓN A BASE DE DATOS
-// ═══════════════════════════════════════════════════════════════
+// CONEXION A BASE DE DATOS
 builder.Services.AddScoped<NpgsqlConnectionFactory>();
 
 builder.Services.AddScoped<ActaPdfService>();
@@ -82,12 +80,7 @@ builder.Services.AddScoped<ConfirmService>();
 builder.Services.AddScoped<ToastService>();
 
 builder.Services.AddScoped<AlertasIAService>();
-
 builder.Services.AddScoped<AsistenteIAService>();
-
-// ═══════════════════════════════════════════════════════════════
-// MÓDULO DE CIENCIA DE DATOS (INTELIGENCIA)
-// ═══════════════════════════════════════════════════════════════
 builder.Services.AddScoped<CienciaDatosService>();
 
 Dapper.DefaultTypeMap.MatchNamesWithUnderscores = true;
@@ -106,11 +99,5 @@ app.UseAntiforgery();
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
-
-if (!app.Environment.IsDevelopment())
-{
-    var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
-    app.Urls.Add($"http://0.0.0.0:{port}");
-}
 
 app.Run();
