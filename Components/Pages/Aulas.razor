@@ -11,6 +11,8 @@
 
 @inject IAulaRepository AulaRepo
 @inject IBloqueRepository BloqueRepo
+@inject ISedeRepository SedeRepo
+@inject UsuarioSesionService Sesion
 @inject ToastService Toast
 @inject ConfirmService Confirm
 @inject IJSRuntime JS
@@ -93,13 +95,10 @@
                         <div class="input-icon">
                             <i class="bi bi-tag"></i>
                             <InputSelect @bind-Value="_model.Tipo" class="form-control">
-                                <option value="Aula">Aula</option>
-                                <option value="Laboratorio">Laboratorio</option>
-                                <option value="Oficina">Oficina</option>
-                                <option value="Bodega">Bodega</option>
-                                <option value="Biblioteca">Biblioteca</option>
-                                <option value="Baño">Baño</option>
-                                <option value="Otro">Otro</option>
+                                @foreach (var t in _tiposDisponibles)
+                                {
+                                    <option value="@t">@t</option>
+                                }
                             </InputSelect>
                         </div>
                     </div>
@@ -327,7 +326,16 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // BloqueRepo ya filtra por sede del usuario
         _bloques = (await BloqueRepo.ObtenerTodosAsync()).ToList();
+
+        // Si solo ve una sede, preseleccionar el único bloque si es el caso
+        if (!Sesion.VeTodasLasSedes && _bloques.Count == 1)
+        {
+            _bloqueSeleccionadoId = _bloques[0].Id;
+            _bloqueSeleccionadoNombre = $"{_bloques[0].SedeNombre} / {_bloques[0].Nombre}";
+        }
+
         await Cargar();
     }
 
@@ -424,7 +432,14 @@
 
     private void AbrirFormulario()
     {
-        _model = new AulaDTO { Activo = true, Tipo = "Aula" };
+        _model = new AulaDTO { Activo = true, Tipo = _tiposDisponibles[0] };
+
+        // Preselección de bloque
+        if (!Sesion.VeTodasLasSedes && _bloques.Count == 1)
+        {
+            _model.BloqueId = _bloques[0].Id;
+        }
+
         _editando = false;
         _mostrarFormulario = true;
     }

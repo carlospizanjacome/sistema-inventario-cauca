@@ -15,6 +15,7 @@
 @inject IAulaRepository AulaRepository
 @inject IFuncionarioRepository FuncionarioRepository
 @inject IVidaUtilRepository VidaUtilRepo
+@inject ISedeRepository SedeRepo
 @inject IJSRuntime JS
 @inject SeguridadService Seguridad
 @inject NavigationManager Navigation
@@ -144,7 +145,7 @@
                     </div>
                 </div>
 
-                @* ═══ FILA 2: Valor | Cantidad | Fecha | Vida útil | Residual ═══ *@
+                @* ═══ FILA 2: Valor | Cantidad | Fecha | Vida útil | Residual | Sede ═══ *@
                 <div class="form-fila-2">
 
                     <div class="ff-valor">
@@ -172,14 +173,14 @@
                     </div>
 
                     <div class="ff-vida">
-                        <label>Vida Útil (CGN)</label>
+                        <label>Categoría CGN *</label>
                         <div class="input-icon">
                             <i class="bi bi-clock-history"></i>
                             <InputSelect class="form-control" @bind-Value="bienDTO.VidaUtilId">
                                 <option value="">— Sin asignar —</option>
                                 @foreach (var v in vidasUtiles)
                                 {
-                                    <option value="@v.Id">@v.NombreCompleto</option>
+                                    <option value="@v.Id">@v.NombreCompletoConVidaUtil</option>
                                 }
                             </InputSelect>
                         </div>
@@ -192,6 +193,35 @@
                             <InputMoneda class="form-control" @bind-Value="bienDTO.ValorResidual" />
                         </div>
                     </div>
+
+                    @* ⬇️ Sede *@
+                    @if (Sesion.VeTodasLasSedes)
+                    {
+                        <div class="ff-sede">
+                            <label>Sede *</label>
+                            <div class="input-icon">
+                                <i class="bi bi-geo-alt-fill"></i>
+                                <InputSelect class="form-control" @bind-Value="bienDTO.SedeId">
+                                    <option value="">— Seleccione sede —</option>
+                                    @foreach (var s in _sedes)
+                                    {
+                                        <option value="@s.Id">@s.Nombre</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="ff-sede">
+                            <label>Sede</label>
+                            <div class="input-icon input-readonly">
+                                <i class="bi bi-geo-alt-fill"></i>
+                                <input type="text" class="form-control"
+                                       value="@(Sesion.SedeNombre ?? "Sin sede")" disabled />
+                            </div>
+                        </div>
+                    }
                 </div>
 
                 @* ═══ FILA 3: Ubicación | Responsable | Estado físico ═══ *@
@@ -274,7 +304,7 @@
 
     <div class="card-table">
 
-        @* ═══ BARRA SUPERIOR — Siempre visible ═══ *@
+        @* ═══ BARRA SUPERIOR ═══ *@
         <div class="filtros-toolbar">
             <div class="filtro-busqueda-principal">
                 <i class="bi bi-search"></i>
@@ -373,6 +403,20 @@
                         </select>
                     </div>
 
+                    @if (Sesion.VeTodasLasSedes && _sedes.Any())
+                    {
+                        <div class="filtro-select">
+                            <i class="bi bi-geo-alt-fill"></i>
+                            <select @bind="_filtroSedeId" @bind:after="AplicarFiltrosAvanzados">
+                                <option value="">Todas las sedes</option>
+                                @foreach (var s in _sedes)
+                                {
+                                    <option value="@s.Id">@s.Nombre</option>
+                                }
+                            </select>
+                        </div>
+                    }
+
                     @if (_hayFiltrosAvanzados)
                     {
                         <button class="btn-limpiar-filtros" @onclick="LimpiarTodosLosFiltros" title="Limpiar filtros">
@@ -391,6 +435,7 @@
                         <th>Código</th>
                         <th>Bien</th>
                         <th class="text-center">Cant.</th>
+                        <th>Sede</th>
                         <th>Ubicación</th>
                         <th>Responsable</th>
                         <th class="text-center">Estado</th>
@@ -400,11 +445,11 @@
                 <tbody>
                     @if (_pagina is null)
                     {
-                        <tr><td colspan="7" class="text-center py-3 text-muted">Cargando bienes…</td></tr>
+                        <tr><td colspan="8" class="text-center py-3 text-muted">Cargando bienes…</td></tr>
                     }
                     else if (!_pagina.Items.Any())
                     {
-                        <tr><td colspan="7" class="text-center py-3 text-muted">Sin bienes para mostrar.</td></tr>
+                        <tr><td colspan="8" class="text-center py-3 text-muted">Sin bienes para mostrar.</td></tr>
                     }
                     else
                     {
@@ -423,6 +468,18 @@
                                 </td>
                                 <td class="text-center">
                                     <span class="badge badge-neutral">@bien.Cantidad</span>
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(bien.SedeNombre))
+                                    {
+                                        <span class="badge-sede">
+                                            <i class="bi bi-geo-alt-fill"></i> @bien.SedeNombre
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
                                 </td>
                                 <td>
                                     @if (!string.IsNullOrEmpty(bien.AulaNombre))
@@ -475,7 +532,6 @@
             </table>
         </div>
 
-        @* ═══ PAGINADOR — Visible solo sin formulario ═══ *@
         @if (_pagina is not null && _pagina.TotalRegistros > 0 && !_mostrarFormulario)
         {
             <Paginador T="Bien"
@@ -498,6 +554,7 @@
     private List<AulaDTO> aulas = new();
     private List<FuncionarioDTO> funcionarios = new();
     private List<VidaUtilDTO> vidasUtiles = new();
+    private List<SedeDTO> _sedes = new();
 
     private int _paginaActual = 1;
     private int _tamanoPagina = 25;
@@ -516,6 +573,7 @@
     private string? _filtroActivo;
     private string? _filtroAulaId;
     private string? _filtroFuncionarioId;
+    private string? _filtroSedeId;
 
     private bool _hayFiltrosActivos =>
         !string.IsNullOrEmpty(_filtroTexto) ||
@@ -523,14 +581,16 @@
         !string.IsNullOrEmpty(_filtroEstadoFisico) ||
         !string.IsNullOrEmpty(_filtroActivo) ||
         !string.IsNullOrEmpty(_filtroAulaId) ||
-        !string.IsNullOrEmpty(_filtroFuncionarioId);
+        !string.IsNullOrEmpty(_filtroFuncionarioId) ||
+        !string.IsNullOrEmpty(_filtroSedeId);
 
     private bool _hayFiltrosAvanzados =>
         !string.IsNullOrEmpty(_filtroCategoriaId) ||
         !string.IsNullOrEmpty(_filtroEstadoFisico) ||
         !string.IsNullOrEmpty(_filtroActivo) ||
         !string.IsNullOrEmpty(_filtroAulaId) ||
-        !string.IsNullOrEmpty(_filtroFuncionarioId);
+        !string.IsNullOrEmpty(_filtroFuncionarioId) ||
+        !string.IsNullOrEmpty(_filtroSedeId);
 
     protected override async Task OnInitializedAsync()
     {
@@ -548,13 +608,15 @@
         var t2 = AulaRepository.ObtenerTodasAsync();
         var t3 = FuncionarioRepository.ObtenerTodosAsync();
         var t4 = VidaUtilRepo.ObtenerTodosAsync();
+        var t5 = SedeRepo.ObtenerTodasAsync();
 
-        await Task.WhenAll(t1, t2, t3, t4);
+        await Task.WhenAll(t1, t2, t3, t4, t5);
 
         categorias = (await t1).ToList();
         aulas = (await t2).ToList();
         funcionarios = (await t3).ToList();
         vidasUtiles = (await t4).ToList();
+        _sedes = (await t5).ToList();
 
         await CargarBienes();
     }
@@ -566,13 +628,14 @@
             Activo = true,
             TipoBien = "devolutivo",
             EstadoFisico = "bueno",
-            Cantidad = 1
+            Cantidad = 1,
+            SedeId = Sesion.VeTodasLasSedes ? null : Sesion.SedeId
         };
         editando = false;
         bienEditandoId = 0;
         _bienAntesDeEditar = null;
         _mostrarFormulario = true;
-        _mostrarFiltros = false;  // ← Cerrar filtros al abrir formulario
+        _mostrarFiltros = false;
     }
 
     private void CerrarFormulario()
@@ -585,12 +648,10 @@
         StateHasChanged();
     }
 
-    // ═══ FIX: al abrir filtros, cerrar formulario ═══
     private void ToggleFiltros()
     {
         _mostrarFiltros = !_mostrarFiltros;
 
-        // Si se abren los filtros, cerrar el formulario
         if (_mostrarFiltros && _mostrarFormulario)
         {
             _mostrarFormulario = false;
@@ -606,6 +667,7 @@
         int? categoriaId = int.TryParse(_filtroCategoriaId, out var c) ? c : null;
         int? aulaId = int.TryParse(_filtroAulaId, out var a) ? a : null;
         int? funcionarioId = int.TryParse(_filtroFuncionarioId, out var f) ? f : null;
+        int? sedeFiltroId = int.TryParse(_filtroSedeId, out var s) ? s : null;
         bool? activo = bool.TryParse(_filtroActivo, out var act) ? act : null;
 
         if (_hayFiltrosAvanzados)
@@ -618,7 +680,8 @@
                     EstadoFisico = _filtroEstadoFisico,
                     Activo = activo,
                     AulaId = aulaId,
-                    FuncionarioId = funcionarioId
+                    FuncionarioId = funcionarioId,
+                    SedeId = sedeFiltroId
                 },
                 _paginaActual,
                 _tamanoPagina);
@@ -688,6 +751,7 @@
         _filtroActivo = null;
         _filtroAulaId = null;
         _filtroFuncionarioId = null;
+        _filtroSedeId = null;
         _paginaActual = 1;
         await CargarBienes();
         StateHasChanged();
@@ -718,6 +782,7 @@
                 AulaId = bienDTO.AulaId,
                 FuncionarioId = bienDTO.FuncionarioId,
                 InstitucionId = bienDTO.InstitucionId,
+                SedeId = bienDTO.SedeId,
                 VidaUtilId = bienDTO.VidaUtilId,
                 CodigoQr = bienDTO.CodigoQr,
                 ValorResidual = bienDTO.ValorResidual,
@@ -735,6 +800,7 @@
                     EstadoFisico = _bienAntesDeEditar?.EstadoFisico,
                     AulaId = _bienAntesDeEditar?.AulaId,
                     FuncionarioId = _bienAntesDeEditar?.FuncionarioId,
+                    SedeId = _bienAntesDeEditar?.SedeId,
                     Activo = _bienAntesDeEditar?.Activo,
                     Cantidad = _bienAntesDeEditar?.Cantidad
                 };
@@ -755,6 +821,7 @@
                         EstadoFisico = bien.EstadoFisico,
                         AulaId = bien.AulaId,
                         FuncionarioId = bien.FuncionarioId,
+                        SedeId = bien.SedeId,
                         Activo = bien.Activo,
                         Cantidad = bien.Cantidad
                     },
@@ -781,7 +848,8 @@
                         bien.EstadoFisico,
                         bien.Cantidad,
                         bien.AulaId,
-                        bien.FuncionarioId
+                        bien.FuncionarioId,
+                        bien.SedeId
                     }
                 );
 
@@ -791,6 +859,7 @@
                 var categoriaActual = bienDTO.CategoriaId;
                 var aulaActual = bienDTO.AulaId;
                 var funcionarioActual = bienDTO.FuncionarioId;
+                var sedeActual = bienDTO.SedeId;
 
                 bienDTO = new BienDTO
                 {
@@ -800,7 +869,8 @@
                     Cantidad = 1,
                     CategoriaId = categoriaActual,
                     AulaId = aulaActual,
-                    FuncionarioId = funcionarioActual
+                    FuncionarioId = funcionarioActual,
+                    SedeId = sedeActual
                 };
 
                 await JS.InvokeVoidAsync("eval",
@@ -822,7 +892,7 @@
         bienEditandoId = bien.Id;
         _bienAntesDeEditar = bien;
         _mostrarFormulario = true;
-        _mostrarFiltros = false;  // ← Cerrar filtros al abrir formulario
+        _mostrarFiltros = false;
 
         bienDTO = new BienDTO
         {
@@ -842,6 +912,7 @@
             AulaId = bien.AulaId,
             FuncionarioId = bien.FuncionarioId,
             InstitucionId = bien.InstitucionId,
+            SedeId = bien.SedeId,
             VidaUtilId = bien.VidaUtilId,
             CodigoQr = bien.CodigoQr,
             ValorResidual = bien.ValorResidual,

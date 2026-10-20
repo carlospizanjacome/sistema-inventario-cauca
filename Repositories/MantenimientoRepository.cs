@@ -19,11 +19,35 @@ public class MantenimientoRepository : IMantenimientoRepository
         _sesion = sesion;
     }
 
+    private bool DebeFiltrarPorSede() => !_sesion.VeTodasLasSedes;
+
+    private (string Sql, DynamicParameters Parametros) ConstruirFiltros(string alias)
+    {
+        var condiciones = new List<string>();
+        var parametros = new DynamicParameters();
+
+        if (!_sesion.EsSuperAdmin && _sesion.InstitucionId > 0)
+        {
+            condiciones.Add($"{alias}.institucion_id = @InstitucionId");
+            parametros.Add("InstitucionId", _sesion.InstitucionId);
+        }
+
+        if (DebeFiltrarPorSede())
+        {
+            condiciones.Add($"{alias}.sede_id = @SedeId");
+            parametros.Add("SedeId", _sesion.SedeId!.Value);
+        }
+
+        var sql = condiciones.Count > 0 ? " AND " + string.Join(" AND ", condiciones) : string.Empty;
+        return (sql, parametros);
+    }
+
     private const string BaseSelect = @"
         SELECT
             m.id,
             m.bien_id                    AS BienId,
             m.institucion_id             AS InstitucionId,
+            m.sede_id                    AS SedeId,
             m.tipo,
             m.estado,
             m.fecha_ingreso::timestamp            AS FechaIngreso,
@@ -48,11 +72,13 @@ public class MantenimientoRepository : IMantenimientoRepository
             b.nombre                     AS BienNombre,
             c.nombre                     AS BienCategoriaNombre,
             p.nombre                     AS ProveedorNombre,
-            p.nit                        AS ProveedorNit
+            p.nit                        AS ProveedorNit,
+            sed.nombre                   AS SedeNombre
         FROM mantenimientos m
         LEFT JOIN bienes b       ON b.id = m.bien_id
         LEFT JOIN categorias c   ON c.id = b.categoria_id
-        LEFT JOIN proveedores p  ON p.id = m.proveedor_id";
+        LEFT JOIN proveedores p  ON p.id = m.proveedor_id
+        LEFT JOIN sedes sed      ON sed.id = m.sede_id";
 
     public async Task<ResultadoPaginado<MantenimientoDTO>> ObtenerPaginadoAsync(
         int pagina, int tamano,
@@ -66,13 +92,9 @@ public class MantenimientoRepository : IMantenimientoRepository
         if (tamano < 1) tamano = 25;
         if (tamano > 200) tamano = 200;
 
-        var (filtroInst, _) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "m");
+        var (filtroSql, parametros) = ConstruirFiltros("m");
 
-        // Regla de negocio: las vistas operativas solo muestran registros vigentes.
         var condiciones = new List<string> { "m.anulada = FALSE" };
-        var parametros = new DynamicParameters();
-        parametros.Add("InstitucionId", _sesion.InstitucionId);
 
         if (!string.IsNullOrWhiteSpace(filtroTexto))
         {
@@ -107,17 +129,17 @@ public class MantenimientoRepository : IMantenimientoRepository
             parametros.Add("FechaHasta", filtroFechaHasta.Value.Date);
         }
 
-        var whereExtra = string.Join(" AND ", condiciones);
+        var whereExtra = " AND " + string.Join(" AND ", condiciones);
 
         parametros.Add("Tamano", tamano);
         parametros.Add("Offset", (pagina - 1) * tamano);
 
         var sqlCount = $@"SELECT COUNT(*) FROM mantenimientos m
                           LEFT JOIN bienes b ON b.id = m.bien_id
-                          WHERE {whereExtra} {filtroInst};";
+                          WHERE 1=1 {filtroSql} {whereExtra};";
 
         var sqlData = $@"{BaseSelect}
-                         WHERE {whereExtra} {filtroInst}
+                         WHERE 1=1 {filtroSql} {whereExtra}
                          ORDER BY 
                             CASE m.estado
                                 WHEN 'EN_PROCESO' THEN 1
@@ -145,44 +167,49 @@ public class MantenimientoRepository : IMantenimientoRepository
 
     public async Task<MantenimientoDTO?> ObtenerPorIdAsync(int id)
     {
-        var (filtroInst, _) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "m");
+        var (filtroSql, parametros) = ConstruirFiltros("m");
+        parametros.Add("Id", id);
 
-        // El expediente del bien debe mostrar TODO el historial, incluyendo anulados.
-        var sql = $"{BaseSelect} WHERE m.id = @Id {filtroInst};";
+        var sql = $"{BaseSelect} WHERE m.id = @Id {filtroSql};";
 
         using var cn = new NpgsqlConnection(_cs);
-        return await cn.QueryFirstOrDefaultAsync<MantenimientoDTO>(sql,
-            new { Id = id, InstitucionId = _sesion.InstitucionId });
+        return await cn.QueryFirstOrDefaultAsync<MantenimientoDTO>(sql, parametros);
     }
 
     public async Task<IEnumerable<MantenimientoDTO>> ObtenerPorBienAsync(int bienId)
     {
-        var (filtroInst, _) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "m");
+        var (filtroSql, parametros) = ConstruirFiltros("m");
+        parametros.Add("BienId", bienId);
 
-        // El expediente del bien debe mostrar TODO el historial, incluyendo anulados.
         var sql = $@"{BaseSelect}
-                     WHERE m.bien_id = @BienId {filtroInst}
+                     WHERE m.bien_id = @BienId {filtroSql}
                      ORDER BY m.fecha_ingreso DESC, m.id DESC;";
 
         using var cn = new NpgsqlConnection(_cs);
-        return await cn.QueryAsync<MantenimientoDTO>(sql,
-            new { BienId = bienId, InstitucionId = _sesion.InstitucionId });
+        return await cn.QueryAsync<MantenimientoDTO>(sql, parametros);
     }
 
     public async Task<int> CrearAsync(MantenimientoDTO dto)
     {
+        if (!_sesion.EsSuperAdmin)
+            dto.InstitucionId = _sesion.InstitucionId;
+
+        if (!_sesion.VeTodasLasSedes)
+            dto.SedeId = _sesion.SedeId;
+
+        if (dto.SedeId == null)
+            throw new InvalidOperationException("La sede es obligatoria para registrar el mantenimiento.");
+
         const string sql = @"
             INSERT INTO mantenimientos
-                (bien_id, institucion_id, tipo, estado,
+                (bien_id, institucion_id, sede_id, tipo, estado,
                  fecha_ingreso, fecha_devolucion_prevista,
                  proveedor_id, tecnico_responsable,
                  diagnostico, costo, estado_bien_ingreso,
                  observaciones, anulada,
                  created_at, updated_at)
             VALUES
-                (@BienId, @InstitucionId, @Tipo, 'ABIERTO',
+                (@BienId, @InstitucionId, @SedeId, @Tipo, 'ABIERTO',
                  @FechaIngreso, @FechaDevolucionPrevista,
                  @ProveedorId, @TecnicoResponsable,
                  @Diagnostico, @Costo, @EstadoBienIngreso,
@@ -194,7 +221,8 @@ public class MantenimientoRepository : IMantenimientoRepository
         return await cn.ExecuteScalarAsync<int>(sql, new
         {
             dto.BienId,
-            InstitucionId = _sesion.InstitucionId,
+            dto.InstitucionId,
+            dto.SedeId,
             dto.Tipo,
             FechaIngreso = dto.FechaIngreso.Date,
             FechaDevolucionPrevista = dto.FechaDevolucionPrevista?.Date,
@@ -268,12 +296,6 @@ public class MantenimientoRepository : IMantenimientoRepository
         });
     }
 
-    /// <summary>
-    /// Anula lógicamente un mantenimiento (soft-delete).
-    /// No elimina el registro físico para preservar la auditoría.
-    /// </summary>
-    /// <param name="id">ID del mantenimiento a anular.</param>
-    /// <param name="motivo">Razón de la anulación (obligatorio para auditoría).</param>
     public async Task AnularAsync(int id, string motivo)
     {
         const string sql = @"
@@ -298,8 +320,7 @@ public class MantenimientoRepository : IMantenimientoRepository
 
     public async Task<(int Abiertos, int EnProceso, int CerradosMes, decimal CostoMes)> ObtenerMetricasAsync()
     {
-        var (filtroInst, _) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "m");
+        var (filtroSql, parametros) = ConstruirFiltros("m");
 
         var sql = $@"
             SELECT
@@ -310,10 +331,9 @@ public class MantenimientoRepository : IMantenimientoRepository
                 COALESCE(SUM(m.costo) FILTER (WHERE m.estado = 'CERRADO'
                                  AND DATE_TRUNC('month', m.fecha_salida) = DATE_TRUNC('month', NOW())), 0)::numeric AS CostoMes
             FROM mantenimientos m
-            WHERE m.anulada = FALSE {filtroInst};";
+            WHERE m.anulada = FALSE {filtroSql};";
 
         using var cn = new NpgsqlConnection(_cs);
-        return await cn.QueryFirstAsync<(int Abiertos, int EnProceso, int CerradosMes, decimal CostoMes)>(
-            sql, new { InstitucionId = _sesion.InstitucionId });
+        return await cn.QueryFirstAsync<(int Abiertos, int EnProceso, int CerradosMes, decimal CostoMes)>(sql, parametros);
     }
 }

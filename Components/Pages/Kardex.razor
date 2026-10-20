@@ -87,7 +87,7 @@
     @* ═══ CONTENIDO ═══ *@
     @if (_bienSeleccionado != null)
     {
-        @* ═══ STRIP ═══ *@
+        @* ═══ STRIP DEL BIEN ═══ *@
         <div class="kx-strip @(_bienSeleccionado.BajoStockMinimo ? "kx-strip-warn" : "")">
             <div class="kx-strip-bien">
                 <code>@_bienSeleccionado.Codigo</code>
@@ -138,6 +138,7 @@
                 <DataAnnotationsValidator />
 
                 <div class="kx-form">
+                    @* Fila 1 *@
                     <div class="kx-field">
                         <label for="mov-tipo">Tipo *</label>
                         <div class="kx-input">
@@ -231,7 +232,8 @@
                         </div>
                     </div>
 
-                    <div class="kx-field">
+                    @* Fila 2 *@
+                    <div class="kx-field kx-field-recibe">
                         <label for="mov-recibe">Recibe</label>
                         <div class="kx-input">
                             <i class="bi bi-person-check"></i>
@@ -246,7 +248,6 @@
                         </div>
                     </div>
 
-                    @* ═══ Fila 2: Observaciones (6/7) + Botón (1/7) ═══ *@
                     <div class="kx-field kx-field-obs">
                         <label for="mov-obs">Observaciones</label>
                         <div class="kx-input">
@@ -269,15 +270,7 @@
 
         @* ═══ HISTÓRICO CON FILTROS ═══ *@
         <div class="kx-panel">
-            <div class="kx-panel-header">
-                <div class="kx-panel-title">
-                    <i class="bi bi-clock-history"></i>
-                    <span>Histórico de movimientos</span>
-                </div>
-                <span class="kx-panel-badge">@(_movimientosFiltrados.Count())</span>
-            </div>
-
-            @* ═══ BARRA DE FILTROS ═══ *@
+            @* Barra de filtros *@
             <div class="filtros-tabla">
                 <div class="filtro-busqueda">
                     <i class="bi bi-search"></i>
@@ -295,7 +288,6 @@
 
                 <div class="filtros-tabla-derecha">
 
-                    @* ═══ Dropdown Tipo ═══ *@
                     <details class="dropdown-filtro" id="dropdown-tipo-kx">
                         <summary class="dropdown-filtro-trigger">
                             <i class="bi bi-diagram-3"></i>
@@ -365,7 +357,6 @@
                         </div>
                     </details>
 
-                    @* ═══ Dropdown Fecha ═══ *@
                     <details class="dropdown-filtro" id="dropdown-fecha-kx">
                         <summary class="dropdown-filtro-trigger">
                             <i class="bi bi-calendar-range"></i>
@@ -423,8 +414,8 @@
                 <table class="kx-table">
                     <thead>
                         <tr>
-                            <th>Fecha</th>
                             <th>Tipo</th>
+                            <th>Fecha</th>
                             <th class="kx-num">Cant.</th>
                             <th class="kx-num">Costo u.</th>
                             <th class="kx-num">Valor</th>
@@ -456,12 +447,12 @@
                             @foreach (var m in _movimientosPaginados)
                             {
                                 <tr>
-                                    <td class="kx-mono">@m.FechaMovimiento?.ToString("dd/MM/yyyy")</td>
                                     <td>
                                         <span class="kx-tipo kx-tipo-@m.TipoMovimiento.ToLower()">
                                             @m.TipoMovimiento
                                         </span>
                                     </td>
+                                    <td class="kx-mono">@m.FechaMovimiento?.ToString("dd/MM/yyyy")</td>
                                     <td class="kx-num">@m.Cantidad.ToString("N2")</td>
                                     <td class="kx-num">@m.CostoUnitario.ToString("C2", CulturaCOP)</td>
                                     <td class="kx-num">@m.ValorMovimiento.ToString("C0", CulturaCOP)</td>
@@ -545,7 +536,6 @@
     private string _costoTexto = "0,00";
     private string _errorCantidad = "";
 
-    // ═══ Filtros ═══
     private DateTime? _filtroFechaDesde;
     private DateTime? _filtroFechaHasta;
     private string _filtroTipo = "";
@@ -663,7 +653,6 @@
             _inicializado = true;
             StateHasChanged();
 
-            // ═══ Inicializar Flatpickr ═══
             await InicializarFlatpickr();
         }
         catch (Exception ex)
@@ -687,8 +676,6 @@
             Console.WriteLine($"[Kardex] Error al inicializar Flatpickr: {ex.Message}");
         }
     }
-
-    // ═══ BÚSQUEDA ═══
 
     private void OnBusquedaFocus()
     {
@@ -750,8 +737,6 @@
         _mostrarDropdown = true;
     }
 
-    // ═══ SELECCIÓN ═══
-
     private async Task SeleccionarBien(BienConsumoDTO bien)
     {
         _bienIdSeleccionado = bien.Id;
@@ -789,7 +774,6 @@
 
         StateHasChanged();
 
-        // Re-inicializar Flatpickr cada vez que se cambia de bien
         await InicializarFlatpickr();
     }
 
@@ -798,8 +782,6 @@
         var lista = await KardexRepo.ObtenerKardexAsync(_bienIdSeleccionado);
         _movimientos = lista?.ToList() ?? new List<MovimientoConsumoDTO>();
     }
-
-    // ═══ FILTROS — Tipo ═══
 
     private Task SeleccionarTipoTodos() => SeleccionarTipo(null);
     private Task SeleccionarTipoEntrada() => SeleccionarTipo("ENTRADA");
@@ -821,8 +803,6 @@
 
         StateHasChanged();
     }
-
-    // ═══ FILTROS — Fecha ═══
 
     private void OnFiltroFechaDesdeChanged(ChangeEventArgs e)
     {
@@ -868,8 +848,6 @@
         StateHasChanged();
     }
 
-    // ═══ FILTROS — Documento ═══
-
     private void OnFiltroDocumentoChanged(ChangeEventArgs e)
     {
         _filtroDocumento = e.Value?.ToString() ?? "";
@@ -882,8 +860,6 @@
         _paginaMovimientos = 1;
     }
 
-    // ═══ FILTROS — Limpiar todos ═══
-
     private void LimpiarFiltros()
     {
         _filtroFechaDesde = null;
@@ -893,8 +869,6 @@
         _paginaMovimientos = 1;
     }
 
-    // ═══ FECHA ═══
-
     private void OnFechaChanged(ChangeEventArgs e)
     {
         if (DateTime.TryParse(e.Value?.ToString(), out var fecha))
@@ -902,8 +876,6 @@
             _movDTO.FechaMovimiento = fecha;
         }
     }
-
-    // ═══ CANTIDAD ═══
 
     private void OnCantidadInput(ChangeEventArgs e)
     {
@@ -938,8 +910,6 @@
         }
     }
 
-    // ═══ COSTO ═══
-
     private void OnCostoInput(ChangeEventArgs e)
     {
         _costoTexto = e.Value?.ToString() ?? "";
@@ -971,8 +941,6 @@
         }
     }
 
-    // ═══ PARSER MEJORADO ═══
-
     private static bool TryParseDecimal(string? texto, out decimal valor)
     {
         valor = 0;
@@ -1000,8 +968,6 @@
             out valor);
     }
 
-    // ═══ REGISTRAR — CON AUDITORÍA ═══
-
     private async Task RegistrarMovimiento()
     {
         if (!await Seguridad.TienePermisoAsync("kardex.movimiento"))
@@ -1028,7 +994,6 @@
             _movDTO.BienId = _bienIdSeleccionado;
             var idMovimiento = await KardexRepo.RegistrarMovimientoAsync(_movDTO);
 
-            // ═══ AUDITORÍA: CREAR movimiento de Kardex ═══
             await Auditoria.RegistrarCreacionAsync(
                 modulo: "kardex",
                 objetoTipo: "MovimientoConsumo",
@@ -1078,7 +1043,6 @@
 
             StateHasChanged();
 
-            // Re-inicializar Flatpickr con la nueva fecha
             await InicializarFlatpickr();
         }
         catch (Exception ex)
@@ -1086,8 +1050,6 @@
             Toast.Error($"Error: {ex.Message}");
         }
     }
-
-    // ═══ PAGINACIÓN ═══
 
     private void CambiarPaginaMovimientos(int nuevaPagina)
     {

@@ -20,5 +20,9 @@
         public bool EsSuperAdmin { get; set; }
 
         public string? InstitucionNombre { get; set; }   // opcional, para mostrar
+
+        // ⬇️ NUEVAS — Soporte multi-sede
+        public int? SedeId { get; set; }
+        public string? SedeNombre { get; set; }
     }
 }

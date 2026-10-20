@@ -16,6 +16,9 @@ public class TomaFisicaDTO
 
     public int InstitucionId { get; set; }
 
+    // ⬇️ NUEVO — Soporte multi-sede
+    public int? SedeId { get; set; }
+
     [Required(ErrorMessage = "La fecha de inicio es obligatoria")]
     public DateTime? FechaInicio { get; set; } = DateTime.Today;
 
@@ -43,6 +46,7 @@ public class TomaFisicaDTO
 
     // Navegación
     public string? InstitucionNombre { get; set; }
+    public string? SedeNombre { get; set; }   // ⬅️ ESTA ES LA PROPIEDAD QUE FALTABA
     public string? ResponsableNombre { get; set; }
 
     // Calculado
@@ -103,6 +107,7 @@ public class ReporteTomaFisicaDTO
     public string Codigo { get; set; } = string.Empty;
     public string Nombre { get; set; } = string.Empty;
     public string InstitucionNombre { get; set; } = string.Empty;
+    public string SedeNombre { get; set; } = string.Empty; // ⬅️ NUEVO CAMPO
     public DateTime? FechaInicio { get; set; }
     public DateTime? FechaCierre { get; set; }
     public string Estado { get; set; } = string.Empty;

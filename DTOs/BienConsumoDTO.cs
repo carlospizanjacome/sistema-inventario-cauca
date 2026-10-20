@@ -7,6 +7,9 @@ public class BienConsumoDTO
     public int Id { get; set; }
     public int InstitucionId { get; set; }
 
+    // ⬇️ NUEVO — Soporte multi-sede
+    public int? SedeId { get; set; }
+
     // El código se autogenera en el repositorio. No es requerido desde el form.
     [StringLength(30)]
     public string Codigo { get; set; } = string.Empty;
@@ -34,6 +37,7 @@ public class BienConsumoDTO
 
     // Navegación
     public string? CategoriaNombre { get; set; }
+    public string? SedeNombre { get; set; }   // ⬅️ NUEVO
 
     // Calculado
     public bool BajoStockMinimo => StockActual <= StockMinimo;

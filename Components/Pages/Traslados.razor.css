@@ -205,18 +205,17 @@
     align-items: end;
     border-top: 1px solid #f1f5f9;
 }
-
-/* ═══ FILA 3: Motivo (3/4) + Botones (1/4) ═══ */
+/* ═══ FILA 3: Sede | Motivo | Botones ═══ */
 .form-fila-3 {
     display: grid;
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1.2fr 2fr auto;
     gap: 12px;
     padding: 4px 0 0;
     align-items: end;
     border-top: 1px solid #f1f5f9;
     margin-top: 4px;
     padding-top: 8px;
-}
+}}
 
 .ff-bien,
 .ff-fecha,

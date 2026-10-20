@@ -340,3 +340,17 @@ main {
     display: flex !important;
     flex-direction: column !important;
 }
+
+/* ═══════════════════════════════════════════════════════════
+   BADGE DE SEDE — Multi-sede
+   ═══════════════════════════════════════════════════════════ */
+
+.context-sede {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(5, 150, 105, 0.08));
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    color: #065f46;
+}
+
+    .context-sede i {
+        color: #10b981;
+    }

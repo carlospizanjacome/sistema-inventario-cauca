@@ -19,11 +19,35 @@ public class PrestamoRepository : IPrestamoRepository
         _sesion = sesion;
     }
 
+    private bool DebeFiltrarPorSede() => !_sesion.VeTodasLasSedes;
+
+    private (string Sql, DynamicParameters Parametros) ConstruirFiltros(string alias)
+    {
+        var condiciones = new List<string>();
+        var parametros = new DynamicParameters();
+
+        if (!_sesion.EsSuperAdmin && _sesion.InstitucionId > 0)
+        {
+            condiciones.Add($"{alias}.institucion_id = @InstitucionId");
+            parametros.Add("InstitucionId", _sesion.InstitucionId);
+        }
+
+        if (DebeFiltrarPorSede())
+        {
+            condiciones.Add($"{alias}.sede_id = @SedeId");
+            parametros.Add("SedeId", _sesion.SedeId!.Value);
+        }
+
+        var sql = condiciones.Count > 0 ? " AND " + string.Join(" AND ", condiciones) : string.Empty;
+        return (sql, parametros);
+    }
+
     private const string BaseSelect = @"
         SELECT
             p.id,
             p.bien_id                   AS BienId,
             p.institucion_id            AS InstitucionId,
+            p.sede_id                   AS SedeId,
             p.funcionario_solicita_id   AS FuncionarioSolicitaId,
             p.funcionario_aprueba_id    AS FuncionarioApruebaId,
 
@@ -53,12 +77,15 @@ public class PrestamoRepository : IPrestamoRepository
 
             fs.nombre_completo           AS FuncionarioSolicitaNombre,
             fs.cedula                    AS FuncionarioSolicitaCedula,
-            fa.nombre_completo           AS FuncionarioApruebaNombre
+            fa.nombre_completo           AS FuncionarioApruebaNombre,
+
+            sed.nombre                   AS SedeNombre
         FROM prestamos p
         LEFT JOIN bienes b            ON b.id = p.bien_id
         LEFT JOIN categorias c        ON c.id = b.categoria_id
         LEFT JOIN funcionarios fs     ON fs.id = p.funcionario_solicita_id
-        LEFT JOIN funcionarios fa     ON fa.id = p.funcionario_aprueba_id";
+        LEFT JOIN funcionarios fa     ON fa.id = p.funcionario_aprueba_id
+        LEFT JOIN sedes sed           ON sed.id = p.sede_id";
 
     public async Task<ResultadoPaginado<PrestamoDTO>> ObtenerPaginadoAsync(
         int pagina, int tamano,
@@ -71,12 +98,9 @@ public class PrestamoRepository : IPrestamoRepository
         if (tamano < 1) tamano = 25;
         if (tamano > 200) tamano = 200;
 
-        var (filtroInst, _) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "p");
+        var (filtroSql, parametros) = ConstruirFiltros("p");
 
         var condiciones = new List<string> { "p.anulada = FALSE" };
-        var parametros = new DynamicParameters();
-        parametros.Add("InstitucionId", _sesion.InstitucionId);
 
         if (!string.IsNullOrWhiteSpace(filtroTexto))
         {
@@ -105,7 +129,7 @@ public class PrestamoRepository : IPrestamoRepository
             parametros.Add("FechaHasta", filtroFechaHasta.Value.Date);
         }
 
-        var whereExtra = string.Join(" AND ", condiciones);
+        var whereExtra = " AND " + string.Join(" AND ", condiciones);
 
         parametros.Add("Tamano", tamano);
         parametros.Add("Offset", (pagina - 1) * tamano);
@@ -113,10 +137,10 @@ public class PrestamoRepository : IPrestamoRepository
         var sqlCount = $@"SELECT COUNT(*) FROM prestamos p
                           LEFT JOIN bienes b ON b.id = p.bien_id
                           LEFT JOIN funcionarios fs ON fs.id = p.funcionario_solicita_id
-                          WHERE {whereExtra} {filtroInst};";
+                          WHERE 1=1 {filtroSql} {whereExtra};";
 
         var sqlData = $@"{BaseSelect}
-                         WHERE {whereExtra} {filtroInst}
+                         WHERE 1=1 {filtroSql} {whereExtra}
                          ORDER BY 
                             CASE p.estado 
                                 WHEN 'VENCIDO' THEN 1
@@ -147,26 +171,34 @@ public class PrestamoRepository : IPrestamoRepository
 
     public async Task<PrestamoDTO?> ObtenerPorIdAsync(int id)
     {
-        var (filtroInst, _) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "p");
+        var (filtroSql, parametros) = ConstruirFiltros("p");
+        parametros.Add("Id", id);
 
-        var sql = $"{BaseSelect} WHERE p.id = @Id AND p.anulada = FALSE {filtroInst};";
+        var sql = $"{BaseSelect} WHERE p.id = @Id AND p.anulada = FALSE {filtroSql};";
 
         using var cn = new NpgsqlConnection(_cs);
-        return await cn.QueryFirstOrDefaultAsync<PrestamoDTO>(sql,
-            new { Id = id, InstitucionId = _sesion.InstitucionId });
+        return await cn.QueryFirstOrDefaultAsync<PrestamoDTO>(sql, parametros);
     }
 
     public async Task<int> CrearAsync(PrestamoDTO dto)
     {
+        if (!_sesion.EsSuperAdmin)
+            dto.InstitucionId = _sesion.InstitucionId;
+
+        if (!_sesion.VeTodasLasSedes)
+            dto.SedeId = _sesion.SedeId;
+
+        if (dto.SedeId == null)
+            throw new InvalidOperationException("La sede es obligatoria para registrar el préstamo.");
+
         const string sql = @"
             INSERT INTO prestamos
-                (bien_id, institucion_id, funcionario_solicita_id,
+                (bien_id, institucion_id, sede_id, funcionario_solicita_id,
                  fecha_solicitud, fecha_devolucion_prevista,
                  estado, motivo,
                  created_at, updated_at)
             VALUES
-                (@BienId, @InstitucionId, @FuncionarioSolicitaId,
+                (@BienId, @InstitucionId, @SedeId, @FuncionarioSolicitaId,
                  @FechaSolicitud, @FechaDevolucionPrevista,
                  'SOLICITADO', @Motivo,
                  NOW(), NOW())
@@ -176,7 +208,8 @@ public class PrestamoRepository : IPrestamoRepository
         return await cn.ExecuteScalarAsync<int>(sql, new
         {
             dto.BienId,
-            InstitucionId = _sesion.InstitucionId,
+            dto.InstitucionId,
+            dto.SedeId,
             dto.FuncionarioSolicitaId,
             FechaSolicitud = DateTime.Today,
             dto.FechaDevolucionPrevista,
@@ -251,7 +284,6 @@ public class PrestamoRepository : IPrestamoRepository
         });
     }
 
-    /// <summary>Cambia el estado a ANULADO (flujo normal: cancelar antes de entregar).</summary>
     public async Task AnularAsync(int id)
     {
         const string sql = @"
@@ -264,7 +296,6 @@ public class PrestamoRepository : IPrestamoRepository
         await cn.ExecuteAsync(sql, new { Id = id });
     }
 
-    /// <summary>Soft-delete: marca el registro como anulado. Solo estados terminales.</summary>
     public async Task AnularRegistroAsync(int id, string motivo)
     {
         if (string.IsNullOrWhiteSpace(motivo))
@@ -279,9 +310,8 @@ public class PrestamoRepository : IPrestamoRepository
 
         try
         {
-            // Bloquear y validar
             var p = await cn.QueryFirstOrDefaultAsync<dynamic>(
-                @"SELECT id, estado, anulada, institucion_id 
+                @"SELECT id, estado, anulada, institucion_id, sede_id 
                   FROM prestamos WHERE id = @Id FOR UPDATE;",
                 new { Id = id }, tx);
 
@@ -295,6 +325,9 @@ public class PrestamoRepository : IPrestamoRepository
             if (!_sesion.EsSuperAdmin && instId != _sesion.InstitucionId)
                 throw new InvalidOperationException("No tiene permiso para anular este préstamo.");
 
+            if (DebeFiltrarPorSede() && (int)p.sede_id != _sesion.SedeId)
+                throw new InvalidOperationException("No tiene permiso para anular préstamos de otra sede.");
+
             if (anulada)
                 throw new InvalidOperationException("El préstamo ya está anulado.");
 
@@ -302,7 +335,6 @@ public class PrestamoRepository : IPrestamoRepository
                 throw new InvalidOperationException(
                     $"Solo se anulan préstamos en estados terminales. Estado actual: {estado}.");
 
-            // Soft-delete
             const string sql = @"
                 UPDATE prestamos
                 SET anulada = TRUE,
@@ -333,8 +365,7 @@ public class PrestamoRepository : IPrestamoRepository
 
     public async Task<int> ActualizarVencidosAsync()
     {
-        var (filtroInst, _) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "prestamos");
+        var (filtroSql, parametros) = ConstruirFiltros("prestamos");
 
         var sql = $@"
             UPDATE prestamos
@@ -342,16 +373,15 @@ public class PrestamoRepository : IPrestamoRepository
             WHERE estado = 'PRESTADO'
               AND fecha_devolucion_prevista < NOW()::date
               AND anulada = FALSE
-              {filtroInst};";
+              {filtroSql};";
 
         using var cn = new NpgsqlConnection(_cs);
-        return await cn.ExecuteAsync(sql, new { InstitucionId = _sesion.InstitucionId });
+        return await cn.ExecuteAsync(sql, parametros);
     }
 
     public async Task<(int Activos, int Vencidos, int Devueltos, int Total)> ObtenerMetricasAsync()
     {
-        var (filtroInst, _) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "p");
+        var (filtroSql, parametros) = ConstruirFiltros("p");
 
         var sql = $@"
         SELECT
@@ -360,10 +390,9 @@ public class PrestamoRepository : IPrestamoRepository
             COUNT(*) FILTER (WHERE p.estado = 'DEVUELTO')::int AS Devueltos,
             COUNT(*)::int AS Total
         FROM prestamos p
-        WHERE p.anulada = FALSE {filtroInst};";
+        WHERE p.anulada = FALSE {filtroSql};";
 
         using var cn = new NpgsqlConnection(_cs);
-        return await cn.QueryFirstAsync<(int Activos, int Vencidos, int Devueltos, int Total)>(
-            sql, new { InstitucionId = _sesion.InstitucionId });
+        return await cn.QueryFirstAsync<(int Activos, int Vencidos, int Devueltos, int Total)>(sql, parametros);
     }
 }

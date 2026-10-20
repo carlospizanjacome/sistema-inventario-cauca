@@ -272,16 +272,17 @@
     z-index: 5 !important;
 }
 
-/* ═══ FILA 2: Motivo + Botones ═══ */
+/* ═══ FILA 2: Sede | Motivo | Botones ═══ */
 .form-fila-2 {
     display: grid !important;
-    grid-template-columns: 1fr auto !important;
+    grid-template-columns: 1.2fr 2fr auto !important;
     gap: 12px !important;
     padding: 4px 0 0 !important;
     align-items: end !important;
     border-top: 1px solid #f1f5f9 !important;
     margin-top: 4px !important;
     padding-top: 8px !important;
+}
 }
 
 .ff-bien,
@@ -1926,3 +1927,5 @@
         flex-shrink: 0 !important;
     }
 }
+
+

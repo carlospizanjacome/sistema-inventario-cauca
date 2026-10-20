@@ -5,11 +5,6 @@ using Microsoft.AspNetCore.Http;
 
 namespace Almacen.Services;
 
-/// <summary>
-/// Servicio transversal de auditoría.
-/// Registra operaciones sensibles en la tabla auditoria.
-/// Si falla la auditoría, se loguea el error pero NO se interrumpe la operación del usuario.
-/// </summary>
 public class AuditoriaService
 {
     private readonly IAuditoriaRepository _repo;
@@ -32,10 +27,6 @@ public class AuditoriaService
         _http = http;
     }
 
-    // ─────────────────────────────────────────────────────────
-    // API pública
-    // ─────────────────────────────────────────────────────────
-
     public Task RegistrarCreacionAsync(string modulo, string objetoTipo, int? objetoId,
         string? objetoCodigo, string? objetoDescripcion, object? despues = null,
         string? motivo = null, string? docRef = null)
@@ -54,10 +45,6 @@ public class AuditoriaService
         => RegistrarAsync("ELIMINAR", modulo, objetoTipo, objetoId, objetoCodigo,
             objetoDescripcion, antes, null, motivo, docRef, "CRITICO");
 
-    /// <summary>
-    /// Registra una ANULACIÓN (soft-delete). Operación CRÍTICA.
-    /// Guarda el estado antes y después para auditoría completa.
-    /// </summary>
     public Task RegistrarAnulacionAsync(string modulo, string objetoTipo, int? objetoId,
         string? objetoCodigo, string? objetoDescripcion,
         object? antes = null, object? despues = null,
@@ -99,11 +86,6 @@ public class AuditoriaService
             _sesion.UsuarioActual?.Email, _sesion.UsuarioActual?.NombreCompleto,
             null, null, null, null, "INFO");
 
-    /// <summary>
-    /// Método genérico. Si falla, se loguea en consola pero NO se interrumpe la operación.
-    /// VALIDACIÓN CRÍTICA: si no hay institución válida en sesión, NO se registra el evento
-    /// (evita fallar la FK de auditoria.institucion_id).
-    /// </summary>
     public async Task RegistrarAsync(
         string operacion,
         string modulo,
@@ -119,9 +101,6 @@ public class AuditoriaService
     {
         try
         {
-            // ═══════════════════════════════════════════════════
-            // VALIDACIÓN: ¿Hay institución válida en sesión?
-            // ═══════════════════════════════════════════════════
             if (_sesion.InstitucionId <= 0)
             {
                 Console.WriteLine($"⚠️ AUDITORÍA: Sin institución en sesión. Evento NO registrado ({operacion} · {modulo})");
@@ -133,6 +112,7 @@ public class AuditoriaService
             var reg = new Auditoria
             {
                 InstitucionId = _sesion.InstitucionId,
+                SedeId = _sesion.SedeId, // <--- ¡AQUÍ ESTÁ LA MAGIA!
                 UsuarioId = u?.Id,
                 UsuarioEmail = u?.Email,
                 UsuarioNombre = u?.NombreCompleto,
@@ -158,9 +138,6 @@ public class AuditoriaService
         }
         catch (Exception ex)
         {
-            // ═══════════════════════════════════════════════════
-            // LOGGING: mostrar el error en consola para diagnóstico
-            // ═══════════════════════════════════════════════════
             Console.WriteLine("═══════════════════════════════════════════════════");
             Console.WriteLine($"❌ AUDITORÍA FALLÓ: {operacion} · {modulo}");
             Console.WriteLine($"   Tipo: {ex.GetType().FullName}");
@@ -170,9 +147,6 @@ public class AuditoriaService
         }
     }
 
-    // ─────────────────────────────────────────────────────────
-    // Helpers
-    // ─────────────────────────────────────────────────────────
     private static string? Serializar(object? o)
     {
         if (o is null) return null;

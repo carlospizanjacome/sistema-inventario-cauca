@@ -15,6 +15,7 @@
 @inject IUsuarioRepository UsuarioRepository
 @inject IRolRepository RolRepository
 @inject IInstitucionRepository InstRepo
+@inject ISedeRepository SedeRepo
 @inject UsuarioSesionService Sesion
 @inject ToastService Toast
 @inject ConfirmService Confirm
@@ -23,7 +24,7 @@
 
 <div class="page-container page-crud">
 
-    @* ═══════════════ PAGE HEADER (oculto si form abierto) ═══════════════ *@
+    @* ═══════════════ PAGE HEADER ═══════════════ *@
     @if (!_mostrarFormulario)
     {
         <div class="page-header">
@@ -43,7 +44,7 @@
         </div>
     }
 
-    @* ═══════════════ FORM COLAPSABLE ═══════════════ *@
+    @* ═══════════════ FORM ═══════════════ *@
     @if (_mostrarFormulario)
     {
         <div class="card-form">
@@ -144,6 +145,31 @@
                             <small class="form-hint">Solo puede crear usuarios en su institución</small>
                         }
                     </div>
+
+                    <div class="form-group">
+                        <label>Sede @(!Sesion.EsSuperAdmin ? "*" : "")</label>
+                        <div class="input-icon">
+                            <i class="bi bi-geo-alt-fill"></i>
+                            <InputSelect class="form-control" @bind-Value="usuarioDTO.SedeId">
+                                @if (Sesion.EsSuperAdmin)
+                                {
+                                    <option value="">— Sin sede (global) —</option>
+                                }
+                                else
+                                {
+                                    <option value="">— Seleccione sede —</option>
+                                }
+                                @foreach (var sede in _sedes)
+                                {
+                                    <option value="@sede.Id">@sede.Nombre</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        @if (!Sesion.EsSuperAdmin)
+                        {
+                            <small class="form-hint">La sede es obligatoria</small>
+                        }
+                    </div>
                 </div>
 
                 <div class="form-actions">
@@ -162,12 +188,11 @@
     @* ═══════════════ CARD TABLE ═══════════════ *@
     <div class="card-table">
 
-        @* Barra de búsqueda SIEMPRE visible *@
         <div class="filtros-tabla">
             <div class="filtro-busqueda">
                 <i class="bi bi-search"></i>
                 <input type="text"
-                       placeholder="Buscar por nombre, email o rol…"
+                       placeholder="Buscar por nombre, email, rol o sede…"
                        value="@_filtroTexto"
                        @oninput="OnFiltroInput" />
                 @if (!string.IsNullOrEmpty(_filtroTexto))
@@ -194,6 +219,7 @@
                         <th>Email</th>
                         <th>Rol</th>
                         <th>Institución</th>
+                        <th>Sede</th>
                         <th class="text-center">Estado</th>
                         <th class="text-center" style="width: 120px;">Acciones</th>
                     </tr>
@@ -201,15 +227,15 @@
                 <tbody>
                     @if (usuarios == null)
                     {
-                        <tr><td colspan="7" class="text-center py-3 text-muted">Cargando usuarios…</td></tr>
+                        <tr><td colspan="8" class="text-center py-3 text-muted">Cargando usuarios…</td></tr>
                     }
                     else if (!usuarios.Any())
                     {
-                        <tr><td colspan="7" class="text-center py-3 text-muted">No existen usuarios registrados.</td></tr>
+                        <tr><td colspan="8" class="text-center py-3 text-muted">No existen usuarios registrados.</td></tr>
                     }
                     else if (!_usuariosFiltrados!.Any())
                     {
-                        <tr><td colspan="7" class="text-center py-3 text-muted">Sin resultados para "@_filtroTexto".</td></tr>
+                        <tr><td colspan="8" class="text-center py-3 text-muted">Sin resultados para "@_filtroTexto".</td></tr>
                     }
                     else
                     {
@@ -248,6 +274,18 @@
                                     else
                                     {
                                         <span class="text-secondary">@(usuario.InstitucionNombre ?? "Sin institución")</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrWhiteSpace(usuario.SedeNombre))
+                                    {
+                                        <span class="badge-sede">
+                                            <i class="bi bi-geo-alt-fill"></i> @usuario.SedeNombre
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
                                     }
                                 </td>
                                 <td class="text-center">
@@ -297,6 +335,7 @@
 
     private IEnumerable<Rol>? roles;
     private List<InstitucionDTO> _instituciones = new();
+    private List<SedeDTO> _sedes = new();
 
     private string _filtroTexto = string.Empty;
     private IEnumerable<Usuario>? _usuariosFiltrados;
@@ -332,6 +371,8 @@
             var inst = await InstRepo.ObtenerPorIdAsync(Sesion.InstitucionId);
             if (inst != null) _instituciones = new List<InstitucionDTO> { inst };
         }
+
+        _sedes = (await SedeRepo.ObtenerTodasAsync()).ToList();
     }
 
     // ═══════════ CARGA ═══════════
@@ -360,7 +401,8 @@
                 (u.NombreCompleto?.ToLower().Contains(f) ?? false) ||
                 (u.Email?.ToLower().Contains(f) ?? false) ||
                 (u.NombreRol?.ToLower().Contains(f) ?? false) ||
-                (u.InstitucionNombre?.ToLower().Contains(f) ?? false)
+                (u.InstitucionNombre?.ToLower().Contains(f) ?? false) ||
+                (u.SedeNombre?.ToLower().Contains(f) ?? false)
             );
         }
     }
@@ -383,13 +425,13 @@
         usuarioDTO = new UsuarioDTO
         {
             Activo = true,
-            InstitucionId = Sesion.EsSuperAdmin ? 0 : Sesion.InstitucionId
+            InstitucionId = Sesion.EsSuperAdmin ? 0 : Sesion.InstitucionId,
+            SedeId = Sesion.EsSuperAdmin ? null : Sesion.SedeId
         };
         editando = false;
         usuarioEditandoId = 0;
         _mostrarFormulario = true;
 
-        // Limpiar filtro
         _filtroTexto = string.Empty;
         AplicarFiltro();
     }
@@ -411,9 +453,24 @@
         if (!editando && !puedeCrear) return;
         if (editando && !puedeEditar) return;
 
+        // Validación 1: contraseña obligatoria en creación
         if (!editando && string.IsNullOrWhiteSpace(usuarioDTO.Password))
         {
             Toast.Error("La contraseña es requerida para nuevos usuarios.");
+            return;
+        }
+
+        // Validación 2: sede obligatoria (excepto Super-Admin)
+        if (!Sesion.EsSuperAdmin && usuarioDTO.SedeId == null)
+        {
+            Toast.Error("La sede es obligatoria. Seleccione una sede para el usuario.");
+            return;
+        }
+
+        // Validación 3: institución obligatoria (excepto Super-Admin)
+        if (!Sesion.EsSuperAdmin && usuarioDTO.InstitucionId <= 0)
+        {
+            Toast.Error("La institución es obligatoria.");
             return;
         }
 
@@ -421,17 +478,17 @@
         {
             if (editando)
             {
-                // ── EDICIÓN: guardar y MANTENER ABIERTO con los datos ──
                 var usuarioActualizar = new Usuario
                 {
                     Id = usuarioEditandoId,
                     NombreCompleto = usuarioDTO.NombreCompleto,
-                   Email = usuarioDTO.Email!,
-                    PasswordHash = usuarioDTO.Password,
+                    Email = usuarioDTO.Email ?? string.Empty,
+                    PasswordHash = usuarioDTO.Password ?? string.Empty,
                     Activo = usuarioDTO.Activo,
                     RolId = usuarioDTO.RolId,
                     InstitucionId = usuarioDTO.InstitucionId,
-                    EsSuperAdmin = false
+                    EsSuperAdmin = false,
+                    SedeId = usuarioDTO.SedeId
                 };
 
                 await UsuarioRepository.ActualizarAsync(usuarioActualizar);
@@ -439,39 +496,39 @@
             }
             else
             {
-                // ── CREACIÓN: guardar y MANTENER ABIERTO, limpiar form ──
                 var usuario = new Usuario
                 {
                     NombreCompleto = usuarioDTO.NombreCompleto,
-                   Email = usuarioDTO.Email!,
-                    PasswordHash = usuarioDTO.Password,
+                    Email = usuarioDTO.Email ?? string.Empty,
+                    PasswordHash = usuarioDTO.Password ?? string.Empty,
                     Activo = usuarioDTO.Activo,
                     RolId = usuarioDTO.RolId,
                     InstitucionId = usuarioDTO.InstitucionId,
-                    EsSuperAdmin = false
+                    EsSuperAdmin = false,
+                    SedeId = usuarioDTO.SedeId
                 };
 
                 await UsuarioRepository.CrearAsync(usuario);
                 Toast.Exito($"Usuario '{usuarioDTO.NombreCompleto}' creado. Puede continuar registrando.");
 
-                // Mantener institución y rol para registros masivos
                 var institucionActual = usuarioDTO.InstitucionId;
                 var rolActual = usuarioDTO.RolId;
+                var sedeActual = usuarioDTO.SedeId;
 
                 usuarioDTO = new UsuarioDTO
                 {
                     Activo = true,
                     InstitucionId = institucionActual,
-                    RolId = rolActual
+                    RolId = rolActual,
+                    SedeId = sedeActual
                 };
 
-                // Enfocar el primer campo (Nombre)
                 try
                 {
                     await JS.InvokeVoidAsync("eval",
                         "setTimeout(() => { const el = document.querySelector('.card-form input'); if (el) el.focus(); }, 100);");
                 }
-                catch { /* silencioso */ }
+                catch { }
             }
 
             _filtroTexto = string.Empty;
@@ -501,7 +558,8 @@
             Activo = usuario.Activo,
             RolId = usuario.RolId,
             Password = string.Empty,
-            InstitucionId = usuario.InstitucionId
+            InstitucionId = usuario.InstitucionId,
+            SedeId = usuario.SedeId
         };
 
         _filtroTexto = string.Empty;

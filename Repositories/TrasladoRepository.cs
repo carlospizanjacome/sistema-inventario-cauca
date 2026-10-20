@@ -19,6 +19,29 @@ public class TrasladoRepository : ITrasladoRepository
         _sesion = sesion;
     }
 
+    private bool DebeFiltrarPorSede() => !_sesion.VeTodasLasSedes;
+
+    private (string Sql, DynamicParameters Parametros) ConstruirFiltros(string alias)
+    {
+        var condiciones = new List<string>();
+        var parametros = new DynamicParameters();
+
+        if (!_sesion.EsSuperAdmin && _sesion.InstitucionId > 0)
+        {
+            condiciones.Add($"{alias}.institucion_id = @InstitucionId");
+            parametros.Add("InstitucionId", _sesion.InstitucionId);
+        }
+
+        if (DebeFiltrarPorSede())
+        {
+            condiciones.Add($"{alias}.sede_id = @SedeId");
+            parametros.Add("SedeId", _sesion.SedeId!.Value);
+        }
+
+        var sql = condiciones.Count > 0 ? " AND " + string.Join(" AND ", condiciones) : string.Empty;
+        return (sql, parametros);
+    }
+
     private const string BaseSelect = @"
         SELECT
             t.id,
@@ -30,6 +53,7 @@ public class TrasladoRepository : ITrasladoRepository
             t.fecha_traslado::timestamp AS FechaTraslado,
             t.motivo,
             t.institucion_id            AS InstitucionId,
+            t.sede_id                   AS SedeId,
             t.anulada,
             t.anulada_por               AS AnuladaPor,
             t.anulada_fecha::timestamp  AS AnuladaFecha,
@@ -39,19 +63,19 @@ public class TrasladoRepository : ITrasladoRepository
             ao.nombre                   AS AulaOrigenNombre,
             ad.nombre                   AS AulaDestinoNombre,
             fa.nombre_completo          AS FuncionarioAnteriorNombre,
-            fn.nombre_completo          AS FuncionarioNuevoNombre
+            fn.nombre_completo          AS FuncionarioNuevoNombre,
+            sed.nombre                  AS SedeNombre
         FROM traslados t
         LEFT JOIN bienes b        ON b.id = t.bien_id
         LEFT JOIN aulas ao        ON ao.id = t.aula_origen_id
         LEFT JOIN aulas ad        ON ad.id = t.aula_destino_id
         LEFT JOIN funcionarios fa ON fa.id = t.funcionario_anterior_id
-        LEFT JOIN funcionarios fn ON fn.id = t.funcionario_nuevo_id";
+        LEFT JOIN funcionarios fn ON fn.id = t.funcionario_nuevo_id
+        LEFT JOIN sedes sed       ON sed.id = t.sede_id";
 
     public async Task<IEnumerable<TrasladoDTO>> ObtenerTodosAsync()
     {
-        var (filtro, param) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "t");
-
+        var (filtro, param) = ConstruirFiltros("t");
         var sql = $"{BaseSelect} WHERE t.anulada = FALSE {filtro} ORDER BY t.fecha_traslado DESC, t.id DESC;";
 
         using var cn = new NpgsqlConnection(_cs);
@@ -60,47 +84,41 @@ public class TrasladoRepository : ITrasladoRepository
 
     public async Task<TrasladoDTO?> ObtenerPorIdAsync(int id)
     {
-        var (filtro, param) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "t");
+        var (filtro, param) = ConstruirFiltros("t");
+        param.Add("Id", id);
 
         var sql = $"{BaseSelect} WHERE t.id = @Id {filtro};";
 
         using var cn = new NpgsqlConnection(_cs);
-        return await cn.QueryFirstOrDefaultAsync<TrasladoDTO>(sql,
-            new { Id = id, InstitucionId = _sesion.InstitucionId });
+        return await cn.QueryFirstOrDefaultAsync<TrasladoDTO>(sql, param);
     }
 
     public async Task<int> CrearAsync(TrasladoDTO dto)
     {
+        if (!_sesion.EsSuperAdmin)
+            dto.InstitucionId = _sesion.InstitucionId;
+
+        if (!_sesion.VeTodasLasSedes)
+            dto.SedeId = _sesion.SedeId;
+
+        if (dto.SedeId == null)
+            throw new InvalidOperationException("La sede es obligatoria para registrar el traslado.");
+
         const string sql = @"
             INSERT INTO traslados
                 (bien_id, aula_origen_id, aula_destino_id,
                  funcionario_anterior_id, funcionario_nuevo_id,
-                 fecha_traslado, motivo, institucion_id, anulada)
+                 fecha_traslado, motivo, institucion_id, sede_id, anulada)
             VALUES
                 (@BienId, @AulaOrigenId, @AulaDestinoId,
                  @FuncionarioAnteriorId, @FuncionarioNuevoId,
-                 @FechaTraslado, @Motivo, @InstitucionId, FALSE)
+                 @FechaTraslado, @Motivo, @InstitucionId, @SedeId, FALSE)
             RETURNING id;";
 
         using var cn = new NpgsqlConnection(_cs);
-        return await cn.ExecuteScalarAsync<int>(sql, new
-        {
-            dto.BienId,
-            dto.AulaOrigenId,
-            dto.AulaDestinoId,
-            dto.FuncionarioAnteriorId,
-            dto.FuncionarioNuevoId,
-            dto.FechaTraslado,
-            dto.Motivo,
-            InstitucionId = _sesion.InstitucionId
-        });
+        return await cn.ExecuteScalarAsync<int>(sql, dto);
     }
 
-    /// <summary>
-    /// Anula lógicamente un traslado (soft-delete).
-    /// REGLA DE NEGOCIO: solo se puede anular si es el ÚLTIMO traslado del bien.
-    /// </summary>
     public async Task AnularAsync(int id, string motivo)
     {
         using var cn = new NpgsqlConnection(_cs);
@@ -109,7 +127,6 @@ public class TrasladoRepository : ITrasladoRepository
 
         try
         {
-            // 1. Obtener el bien_id del traslado a anular
             var bienId = await cn.ExecuteScalarAsync<int?>(
                 "SELECT bien_id FROM traslados WHERE id = @Id AND anulada = FALSE",
                 new { Id = id }, tx);
@@ -117,7 +134,6 @@ public class TrasladoRepository : ITrasladoRepository
             if (bienId is null)
                 throw new InvalidOperationException("El traslado no existe o ya está anulado.");
 
-            // 2. Verificar que sea el último traslado del bien
             var esUltimo = await cn.ExecuteScalarAsync<bool>(@"
                 SELECT NOT EXISTS (
                     SELECT 1 FROM traslados
@@ -133,7 +149,6 @@ public class TrasladoRepository : ITrasladoRepository
                 throw new InvalidOperationException(
                     "No se puede anular: hay traslados posteriores que dependen de este. Anule primero los posteriores.");
 
-            // 3. Marcar como anulado
             await cn.ExecuteAsync(@"
                 UPDATE traslados
                 SET anulada = TRUE,
@@ -142,12 +157,7 @@ public class TrasladoRepository : ITrasladoRepository
                     anulada_motivo = @Motivo,
                     updated_at = NOW()
                 WHERE id = @Id;",
-                new
-                {
-                    Id = id,
-                    UsuarioId = _sesion.UsuarioActual?.Id,
-                    Motivo = motivo
-                }, tx);
+                new { Id = id, UsuarioId = _sesion.UsuarioActual?.Id, Motivo = motivo }, tx);
 
             await tx.CommitAsync();
         }
@@ -160,13 +170,9 @@ public class TrasladoRepository : ITrasladoRepository
 
     public async Task<(int? AulaId, int? FuncionarioId)> ObtenerUbicacionActualAsync(int bienId)
     {
-        const string sql = @"
-            SELECT aula_id AS AulaId, funcionario_id AS FuncionarioId
-            FROM bienes WHERE id = @Id;";
-
+        const string sql = @"SELECT aula_id AS AulaId, funcionario_id AS FuncionarioId FROM bienes WHERE id = @Id;";
         using var cn = new NpgsqlConnection(_cs);
-        var r = await cn.QueryFirstOrDefaultAsync<(int?, int?)>(sql, new { Id = bienId });
-        return r;
+        return await cn.QueryFirstOrDefaultAsync<(int?, int?)>(sql, new { Id = bienId });
     }
 
     public async Task ActualizarUbicacionBienAsync(int bienId, int aulaId, int? funcionarioId)
@@ -179,54 +185,33 @@ public class TrasladoRepository : ITrasladoRepository
             WHERE id = @BienId;";
 
         using var cn = new NpgsqlConnection(_cs);
-        await cn.ExecuteAsync(sql, new
-        {
-            BienId = bienId,
-            AulaId = aulaId,
-            FuncionarioId = funcionarioId
-        });
+        await cn.ExecuteAsync(sql, new { BienId = bienId, AulaId = aulaId, FuncionarioId = funcionarioId });
     }
 
     public async Task<ResultadoPaginado<TrasladoDTO>> ObtenerPaginadoAsync(
-        int pagina = 1,
-        int tamano = 25,
-        string? filtroTexto = null)
+        int pagina = 1, int tamano = 25, string? filtroTexto = null)
     {
         if (pagina < 1) pagina = 1;
         if (tamano < 1) tamano = 25;
         if (tamano > 200) tamano = 200;
 
-        var (filtroInst, _) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "t");
+        var (filtroInst, parametros) = ConstruirFiltros("t");
+        var condiciones = new List<string> { "t.anulada = FALSE" };
 
-        var filtroBusqueda = string.Empty;
         if (!string.IsNullOrWhiteSpace(filtroTexto))
         {
-            filtroBusqueda = @" AND (b.codigo ILIKE @Buscar 
-                                 OR b.nombre ILIKE @Buscar 
-                                 OR t.motivo ILIKE @Buscar)";
+            condiciones.Add(@"(b.codigo ILIKE @Buscar OR b.nombre ILIKE @Buscar OR t.motivo ILIKE @Buscar)");
+            parametros.Add("Buscar", $"%{filtroTexto}%");
         }
 
-        var sqlCount = $@"
-            SELECT COUNT(*) FROM traslados t
-            LEFT JOIN bienes b ON b.id = t.bien_id
-            WHERE t.anulada = FALSE {filtroInst} {filtroBusqueda};";
+        var whereExtra = " AND " + string.Join(" AND ", condiciones);
+        parametros.Add("Tamano", tamano);
+        parametros.Add("Offset", (pagina - 1) * tamano);
 
-        var sqlData = $@"
-            {BaseSelect}
-            WHERE t.anulada = FALSE {filtroInst} {filtroBusqueda}
-            ORDER BY t.fecha_traslado DESC, t.id DESC
-            LIMIT @Tamano OFFSET @Offset;";
+        var sqlCount = $@"SELECT COUNT(*) FROM traslados t LEFT JOIN bienes b ON b.id = t.bien_id WHERE 1=1 {filtroInst} {whereExtra};";
+        var sqlData = $@"{BaseSelect} WHERE 1=1 {filtroInst} {whereExtra} ORDER BY t.fecha_traslado DESC, t.id DESC LIMIT @Tamano OFFSET @Offset;";
 
         using var cn = new NpgsqlConnection(_cs);
-        var parametros = new
-        {
-            InstitucionId = _sesion.InstitucionId,
-            Buscar = $"%{filtroTexto}%",
-            Tamano = tamano,
-            Offset = (pagina - 1) * tamano
-        };
-
         var total = await cn.ExecuteScalarAsync<int>(sqlCount, parametros);
         var items = (await cn.QueryAsync<TrasladoDTO>(sqlData, parametros)).ToList();
 
@@ -240,25 +225,18 @@ public class TrasladoRepository : ITrasladoRepository
     }
 
     public async Task<ResultadoPaginado<TrasladoDTO>> ObtenerPaginadoConFiltrosAsync(
-        FiltroMovimientoDTO filtro,
-        int pagina = 1,
-        int tamano = 25)
+        FiltroMovimientoDTO filtro, int pagina = 1, int tamano = 25)
     {
         if (pagina < 1) pagina = 1;
         if (tamano < 1) tamano = 25;
         if (tamano > 200) tamano = 200;
 
-        var (filtroInst, _) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "t");
-
+        var (filtroInst, parametros) = ConstruirFiltros("t");
         var condiciones = new List<string> { "t.anulada = FALSE" };
-        var parametros = new DynamicParameters();
-        parametros.Add("InstitucionId", _sesion.InstitucionId);
 
         if (!string.IsNullOrWhiteSpace(filtro.Texto))
         {
-            condiciones.Add(@"(b.codigo ILIKE @Texto OR b.nombre ILIKE @Texto 
-                              OR t.motivo ILIKE @Texto)");
+            condiciones.Add(@"(b.codigo ILIKE @Texto OR b.nombre ILIKE @Texto OR t.motivo ILIKE @Texto)");
             parametros.Add("Texto", $"%{filtro.Texto}%");
         }
 
@@ -274,21 +252,12 @@ public class TrasladoRepository : ITrasladoRepository
             parametros.Add("FechaHasta", filtro.FechaHasta.Value);
         }
 
-        var whereExtra = string.Join(" AND ", condiciones);
-
+        var whereExtra = " AND " + string.Join(" AND ", condiciones);
         parametros.Add("Tamano", tamano);
         parametros.Add("Offset", (pagina - 1) * tamano);
 
-        var sqlCount = $@"
-            SELECT COUNT(*) FROM traslados t
-            LEFT JOIN bienes b ON b.id = t.bien_id
-            WHERE {whereExtra} {filtroInst};";
-
-        var sqlData = $@"
-            {BaseSelect}
-            WHERE {whereExtra} {filtroInst}
-            ORDER BY t.fecha_traslado DESC, t.id DESC
-            LIMIT @Tamano OFFSET @Offset;";
+        var sqlCount = $@"SELECT COUNT(*) FROM traslados t LEFT JOIN bienes b ON b.id = t.bien_id WHERE 1=1 {filtroInst} {whereExtra};";
+        var sqlData = $@"{BaseSelect} WHERE 1=1 {filtroInst} {whereExtra} ORDER BY t.fecha_traslado DESC, t.id DESC LIMIT @Tamano OFFSET @Offset;";
 
         using var cn = new NpgsqlConnection(_cs);
         var total = await cn.ExecuteScalarAsync<int>(sqlCount, parametros);

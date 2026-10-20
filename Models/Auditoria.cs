@@ -27,4 +27,9 @@ public class Auditoria
     public string? DocumentoReferencia { get; set; }
     public string? Ip { get; set; }
     public string? UserAgent { get; set; }
+
+   
+    public int? SedeId { get; set; } // <--- AGREGAR ESTA LÍNEA
+
+   
 }

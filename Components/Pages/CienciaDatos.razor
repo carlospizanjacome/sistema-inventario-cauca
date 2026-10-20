@@ -52,10 +52,6 @@
                 </button>
                 <button class="cd-tab @(_tab == 2 ? "active" : "")" @onclick="() => CambiarTab(2)">
                     <i class="bi bi-exclamation-triangle"></i> Anomalias
-                    @if (_anomalias.Any(a => a.Clasificacion == "ANOMALO"))
-                    {
-                        <span class="cd-tab-badge">@_anomalias.Count(a => a.Clasificacion == "ANOMALO")</span>
-                    }
                 </button>
                 <button class="cd-tab @(_tab == 3 ? "active" : "")" @onclick="() => CambiarTab(3)">
                     <i class="bi bi-graph-up"></i> Tendencias
@@ -164,18 +160,6 @@
                                 }
                             </tbody>
                         </table>
-
-                        <div class="cd-info-box">
-                            <i class="bi bi-lightbulb"></i>
-                            <div>
-                                <strong>Interpretacion del Coeficiente de Variacion:</strong>
-                                <ul>
-                                    <li><strong>Menor a 25%:</strong> Baja dispersion</li>
-                                    <li><strong>25% a 50%:</strong> Dispersion moderada</li>
-                                    <li><strong>Mayor a 50%:</strong> Alta dispersion</li>
-                                </ul>
-                            </div>
-                        </div>
                     </div>
                 }
 
@@ -228,12 +212,6 @@
                 {
                     <div class="cd-content">
                         <h3 class="cd-section-title"><i class="bi bi-exclamation-triangle"></i> Deteccion de Anomalias por Z-Score</h3>
-                        <p class="cd-help">
-                            El <strong>Z-Score</strong> mide que tan lejos esta un valor del promedio.
-                            <span class="badge badge-warn">REVISAR</span> = Z entre 1.5 y 2.
-                            <span class="badge badge-danger">ANOMALO</span> = Z mayor a 2.
-                        </p>
-
                         <table class="table modern-table">
                             <thead>
                                 <tr>
@@ -275,39 +253,6 @@
                                 <canvas id="chart-tendencias"></canvas>
                             </div>
                         </div>
-
-                        @if (!_tendencias.Any())
-                        {
-                            <div class="cd-empty">
-                                <i class="bi bi-inbox"></i>
-                                <p>No hay datos de entradas suficientes para mostrar tendencias.</p>
-                            </div>
-                        }
-                        else
-                        {
-                            <h3 class="cd-section-title"><i class="bi bi-table"></i> Detalle por Mes</h3>
-                            <table class="table modern-table">
-                                <thead>
-                                    <tr>
-                                        <th>Mes</th>
-                                        <th class="text-center">Total Entradas</th>
-                                        <th class="text-center">Bienes Distintos</th>
-                                        <th class="text-end">Valor Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var t in _tendencias)
-                                    {
-                                        <tr>
-                                            <td><strong>@t.Mes.ToString("MMMM yyyy")</strong></td>
-                                            <td class="text-center">@t.TotalEntradas</td>
-                                            <td class="text-center">@t.BienesDistintos</td>
-                                            <td class="text-end">@FormatearMoneda(t.ValorEntradas)</td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        }
                     </div>
                 }
 
@@ -320,8 +265,6 @@
                                 <canvas id="chart-ranking"></canvas>
                             </div>
                         </div>
-
-                        <h3 class="cd-section-title"><i class="bi bi-table"></i> Detalle del Ranking</h3>
                         <table class="table modern-table">
                             <thead>
                                 <tr>
@@ -330,28 +273,17 @@
                                     <th>Cargo</th>
                                     <th class="text-center">Bienes</th>
                                     <th class="text-end">Valor Total</th>
-                                    <th class="text-end">Valor Promedio</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach (var item in _ranking.Select((r, idx) => new { R = r, Idx = idx + 1 }))
                                 {
                                     <tr>
-                                        <td class="text-center">
-                                            @if (item.Idx <= 3)
-                                            {
-                                                <span class="badge badge-warn">Top @item.Idx</span>
-                                            }
-                                            else
-                                            {
-                                                <span>@item.Idx</span>
-                                            }
-                                        </td>
+                                        <td class="text-center">@item.Idx</td>
                                         <td><strong>@item.R.Funcionario</strong></td>
                                         <td>@item.R.Cargo</td>
                                         <td class="text-center"><span class="badge badge-info">@item.R.TotalBienes</span></td>
                                         <td class="text-end">@FormatearMoneda(item.R.ValorTotal)</td>
-                                        <td class="text-end">@FormatearMoneda(item.R.ValorPromedio)</td>
                                     </tr>
                                 }
                             </tbody>
@@ -368,14 +300,6 @@
                                 <canvas id="chart-proyecciones"></canvas>
                             </div>
                         </div>
-
-                        <h3 class="cd-section-title"><i class="bi bi-table"></i> Detalle de Proyecciones</h3>
-                        <p class="cd-help">
-                            Basado en el consumo promedio de los ultimos 6 meses.
-                            <span class="badge badge-danger">CRITICO</span> = stock bajo minimo.
-                            <span class="badge badge-warn">ALERTA</span> = menos de 2 meses.
-                        </p>
-
                         <table class="table modern-table">
                             <thead>
                                 <tr>
@@ -383,9 +307,6 @@
                                     <th>Bien</th>
                                     <th class="text-center">Stock</th>
                                     <th class="text-center">Minimo</th>
-                                    <th class="text-end">CPP</th>
-                                    <th class="text-end">Valor Stock</th>
-                                    <th class="text-center">Consumo/mes</th>
                                     <th class="text-center">Meses restantes</th>
                                     <th class="text-center">Estado</th>
                                 </tr>
@@ -398,9 +319,6 @@
                                         <td><strong>@p.Nombre</strong></td>
                                         <td class="text-center">@p.StockActual.ToString("N0")</td>
                                         <td class="text-center">@p.StockMinimo.ToString("N0")</td>
-                                        <td class="text-end">@FormatearMoneda(p.Cpp)</td>
-                                        <td class="text-end">@FormatearMoneda(p.ValorStock)</td>
-                                        <td class="text-center">@p.ConsumoPromedio.ToString("N1")</td>
                                         <td class="text-center">
                                             @if (p.MesesRestantes.HasValue)
                                             {
@@ -492,13 +410,12 @@
 
         try
         {
-            var institucionId = Sesion.InstitucionId;
-            var t1 = CDService.ObtenerStatsAsync(institucionId);
-            var t2 = CDService.ObtenerDistribucionAsync(institucionId);
-            var t3 = CDService.ObtenerAnomaliasAsync(institucionId);
-            var t4 = CDService.ObtenerTendenciasAsync(institucionId);
-            var t5 = CDService.ObtenerRankingResponsablesAsync(institucionId);
-            var t6 = CDService.ObtenerProyeccionesAsync(institucionId);
+            var t1 = CDService.ObtenerStatsAsync();
+            var t2 = CDService.ObtenerDistribucionAsync();
+            var t3 = CDService.ObtenerAnomaliasAsync();
+            var t4 = CDService.ObtenerTendenciasAsync();
+            var t5 = CDService.ObtenerRankingResponsablesAsync();
+            var t6 = CDService.ObtenerProyeccionesAsync();
             await Task.WhenAll(t1, t2, t3, t4, t5, t6);
 
             var stats = await t1;

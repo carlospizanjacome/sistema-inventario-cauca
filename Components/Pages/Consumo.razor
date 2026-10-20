@@ -12,6 +12,8 @@
 
 @inject IKardexRepository KardexRepo
 @inject ICategoriaRepository CategoriaRepo
+@inject ISedeRepository SedeRepo
+@inject UsuarioSesionService Sesion
 @inject IJSRuntime JS
 @inject SeguridadService Seguridad
 @inject NavigationManager Navigation
@@ -138,6 +140,7 @@
                     </div>
                 </div>
 
+                @* ⬇️ FILA con Sede *@
                 <div class="form-fila-2">
 
                     <div class="ff-descripcion">
@@ -148,6 +151,34 @@
                                        placeholder="Descripción del consumible" />
                         </div>
                     </div>
+
+                    @if (Sesion.VeTodasLasSedes)
+                    {
+                        <div class="ff-sede">
+                            <label>Sede *</label>
+                            <div class="input-icon">
+                                <i class="bi bi-geo-alt-fill"></i>
+                                <InputSelect class="form-select" @bind-Value="bienDTO.SedeId">
+                                    <option value="">— Seleccione sede —</option>
+                                    @foreach (var s in _sedes)
+                                    {
+                                        <option value="@s.Id">@s.Nombre</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="ff-sede">
+                            <label>Sede</label>
+                            <div class="input-icon input-readonly">
+                                <i class="bi bi-geo-alt-fill"></i>
+                                <input type="text" class="form-control"
+                                       value="@(Sesion.SedeNombre ?? "Sin sede")" disabled />
+                            </div>
+                        </div>
+                    }
 
                     <div class="ff-activo">
                         <label>&nbsp;</label>
@@ -334,6 +365,7 @@
                         <th>Código</th>
                         <th>Nombre</th>
                         <th>Unidad</th>
+                      
                         <th class="text-end">Stock actual</th>
                         <th class="text-end">Stock mínimo</th>
                         <th class="text-end">CPP</th>
@@ -345,12 +377,12 @@
                 <tbody>
                     @if (_pagina is null)
                     {
-                        <tr><td colspan="9" class="text-center py-3 text-muted">Cargando bienes de consumo…</td></tr>
+                        <tr><td colspan="10" class="text-center py-3 text-muted">Cargando bienes de consumo…</td></tr>
                     }
                     else if (!_pagina.Items.Any())
                     {
                         <tr>
-                            <td colspan="9" class="text-center py-3 text-muted">
+                            <td colspan="10" class="text-center py-3 text-muted">
                                 @(HayFiltrosActivos
                                     ? "Sin resultados para los filtros aplicados."
                                     : "Sin bienes de consumo registrados.")
@@ -375,6 +407,7 @@
                                 <td>
                                     <span class="badge badge-neutral">@b.UnidadMedida</span>
                                 </td>
+                                
                                 <td class="text-end num"><strong>@b.StockActual.ToString("N2")</strong></td>
                                 <td class="text-end num text-muted">@b.StockMinimo.ToString("N2")</td>
                                 <td class="text-end num">@b.CppActual.ToString("C2", System.Globalization.CultureInfo.GetCultureInfo("es-CO"))</td>
@@ -445,6 +478,7 @@
     private ResultadoPaginado<BienConsumoDTO>? _pagina;
     private IEnumerable<Categoria> categorias = [];
     private List<BienConsumoDTO> _bajoStock = new();
+    private List<SedeDTO> _sedes = new();
 
     private BienConsumoDTO bienDTO = new();
     private bool editando = false;
@@ -491,7 +525,14 @@
         puedeEditar = await Seguridad.TienePermisoAsync("consumo.editar");
         puedeEliminar = await Seguridad.TienePermisoAsync("consumo.eliminar");
 
-        categorias = await CategoriaRepo.ObtenerTodosAsync();
+        var t1 = CategoriaRepo.ObtenerTodosAsync();
+        var t2 = SedeRepo.ObtenerTodasAsync();
+
+        await Task.WhenAll(t1, t2);
+
+        categorias = await t1;
+        _sedes = (await t2).ToList();
+
         await Cargar();
         await CargarBajoStock();
     }
@@ -618,7 +659,8 @@
         {
             Activo = true,
             UnidadMedida = "Unidad",
-            StockMinimo = 0
+            StockMinimo = 0,
+            SedeId = Sesion.VeTodasLasSedes ? null : Sesion.SedeId
         };
         editando = false;
         bienEditandoId = 0;
@@ -640,6 +682,13 @@
             return;
         }
 
+        // Validación: sede obligatoria (excepto Super-Admin)
+        if (!Sesion.EsSuperAdmin && bienDTO.SedeId == null)
+        {
+            Toast.Error("La sede es obligatoria. Seleccione una sede.");
+            return;
+        }
+
         if (!string.IsNullOrWhiteSpace(bienDTO.Codigo)
             && await KardexRepo.ExisteCodigoConsumoAsync(bienDTO.Codigo, editando ? bienEditandoId : null))
         {
@@ -656,7 +705,6 @@
                 await KardexRepo.ActualizarBienConsumoAsync(bienDTO);
                 Toast.Exito($"Bien '{bienDTO.Nombre}' actualizado.");
 
-                // ═══ AUDITORÍA: edición ═══
                 await Auditoria.RegistrarEdicionAsync(
                     modulo: "consumo",
                     objetoTipo: "BienConsumo",
@@ -670,6 +718,7 @@
                         CategoriaId = anterior.CategoriaId,
                         UnidadMedida = anterior.UnidadMedida,
                         StockMinimo = anterior.StockMinimo,
+                        SedeId = anterior.SedeId,
                         Activo = anterior.Activo
                     },
                     despues: new
@@ -679,6 +728,7 @@
                         CategoriaId = bienDTO.CategoriaId,
                         UnidadMedida = bienDTO.UnidadMedida,
                         StockMinimo = bienDTO.StockMinimo,
+                        SedeId = bienDTO.SedeId,
                         Activo = bienDTO.Activo
                     });
             }
@@ -687,7 +737,6 @@
                 var nuevoBienId = await KardexRepo.CrearBienConsumoAsync(bienDTO);
                 Toast.Exito($"Bien '{bienDTO.Nombre}' creado con código {bienDTO.Codigo}.");
 
-                // ═══ AUDITORÍA: creación (con ID real) ═══
                 await Auditoria.RegistrarCreacionAsync(
                     modulo: "consumo",
                     objetoTipo: "BienConsumo",
@@ -702,18 +751,21 @@
                         CategoriaId = bienDTO.CategoriaId,
                         UnidadMedida = bienDTO.UnidadMedida,
                         StockMinimo = bienDTO.StockMinimo,
+                        SedeId = bienDTO.SedeId,
                         Activo = bienDTO.Activo
                     });
 
                 var unidadActual = bienDTO.UnidadMedida;
                 var categoriaActual = bienDTO.CategoriaId;
+                var sedeActual = bienDTO.SedeId;
 
                 bienDTO = new BienConsumoDTO
                 {
                     Activo = true,
                     UnidadMedida = unidadActual,
                     CategoriaId = categoriaActual,
-                    StockMinimo = 0
+                    StockMinimo = 0,
+                    SedeId = sedeActual
                 };
 
                 try
@@ -751,6 +803,7 @@
         bienDTO.CategoriaId = b.CategoriaId;
         bienDTO.UnidadMedida = b.UnidadMedida;
         bienDTO.StockMinimo = b.StockMinimo;
+        bienDTO.SedeId = b.SedeId;
         bienDTO.Activo = b.Activo;
 
         _filtroTexto = string.Empty;
@@ -779,7 +832,6 @@
             await KardexRepo.EliminarBienConsumoAsync(b.Id);
             Toast.Exito("Bien eliminado");
 
-            // ═══ AUDITORÍA: eliminación ═══
             await Auditoria.RegistrarEliminacionAsync(
                 modulo: "consumo",
                 objetoTipo: "BienConsumo",
@@ -795,6 +847,7 @@
                     UnidadMedida = b.UnidadMedida,
                     StockMinimo = b.StockMinimo,
                     StockActual = b.StockActual,
+                    SedeId = b.SedeId,
                     Activo = b.Activo
                 });
 

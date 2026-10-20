@@ -12,6 +12,8 @@
 
 @inject ITomaFisicaRepository TomaRepo
 @inject IFuncionarioRepository FuncRepo
+@inject ISedeRepository SedeRepo
+@inject UsuarioSesionService Sesion
 @inject IJSRuntime JS
 @inject SeguridadService Seguridad
 @inject NavigationManager Navigation
@@ -87,6 +89,30 @@
                 </div>
 
                 <div class="form-fila-2">
+                    @* ⬇️ SELECTOR DE SEDE *@
+                    <div class="form-group">
+                        <label>Sede @(!Sesion.VeTodasLasSedes ? "" : "*")</label>
+                        <div class="input-icon">
+                            <i class="bi bi-geo-alt-fill"></i>
+                            <InputSelect class="form-control"
+                                         @bind-Value="_model.SedeId"
+                                         disabled="@(!Sesion.VeTodasLasSedes)">
+                                @if (!Sesion.VeTodasLasSedes)
+                                {
+                                    <option value="@Sesion.SedeId">@Sesion.SedeNombre</option>
+                                }
+                                else
+                                {
+                                    <option value="">— Seleccione sede —</option>
+                                    @foreach (var s in _sedes)
+                                    {
+                                        <option value="@s.Id">@s.Nombre</option>
+                                    }
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+
                     <div class="form-group">
                         <label>Fecha Inicio *</label>
                         <div class="input-icon">
@@ -228,8 +254,7 @@
                 <thead>
                     <tr>
                         <th style="width: 120px;">Código</th>
-                        <th style="width: 260px;">Nombre</th>
-                        <th style="width: 150px;">Institución</th>
+                        <th style="width: 320px;">Nombre</th>
                         <th style="width: 110px;">Inicio</th>
                         <th class="text-center" style="width: 110px;">Estado</th>
                         <th class="text-end" style="width: 80px;">Bienes</th>
@@ -242,12 +267,12 @@
                 <tbody>
                     @if (_pagina is null)
                     {
-                        <tr><td colspan="10" class="text-center py-3 text-muted">Cargando…</td></tr>
+                        <tr><td colspan="9" class="text-center py-3 text-muted">Cargando…</td></tr>
                     }
                     else if (!_pagina.Items.Any())
                     {
                         <tr>
-                            <td colspan="10" class="text-center py-3 text-muted">
+                            <td colspan="9" class="text-center py-3 text-muted">
                                 @(string.IsNullOrEmpty(_filtroTexto) && string.IsNullOrEmpty(_filtroEstado)
                                     ? "No hay tomas físicas registradas."
                                     : "Sin resultados para los filtros aplicados.")
@@ -265,16 +290,7 @@
                                 <td>
                                     <div class="celda-nombre">
                                         <span class="nombre-principal">@t.Nombre</span>
-                                        @if (!string.IsNullOrWhiteSpace(t.ResponsableNombre))
-                                        {
-                                            <span class="nombre-secundario">
-                                                <i class="bi bi-person-fill"></i> @t.ResponsableNombre
-                                            </span>
-                                        }
                                     </div>
-                                </td>
-                                <td>
-                                    <span class="celda-inst">@t.InstitucionNombre</span>
                                 </td>
                                 <td>
                                     <span class="celda-fecha">@(t.FechaInicio?.ToString("dd/MM/yyyy") ?? "—")</span>
@@ -437,6 +453,7 @@
 @code {
     private ResultadoPaginado<TomaFisicaDTO>? _pagina;
     private IEnumerable<FuncionarioDTO> _funcionarios = [];
+    private List<SedeDTO> _sedes = new();
     private TomaFisicaDTO _model = new();
     private bool _mostrarFormulario = false;
     private bool editando = false;
@@ -472,6 +489,8 @@
         puedeAnular = await Seguridad.TienePermisoAsync("toma_fisica.anular");
 
         _funcionarios = await FuncRepo.ObtenerTodosAsync();
+        _sedes = (await SedeRepo.ObtenerTodasAsync()).ToList();
+
         await Cargar();
     }
 
@@ -548,17 +567,31 @@
 
     private void AbrirFormulario()
     {
-        _model = new TomaFisicaDTO { FechaInicio = DateTime.Today };
+        _model = new TomaFisicaDTO
+        {
+            FechaInicio = DateTime.Today,
+            SedeId = Sesion.VeTodasLasSedes ? null : Sesion.SedeId
+        };
         editando = false;
         editandoId = 0;
         _mostrarFormulario = true;
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // GUARDAR — Con auditoría (CREAR / EDITAR)
-    // ═══════════════════════════════════════════════════════════
     private async Task Guardar()
     {
+        // FIX: Forzar sede si el usuario solo ve una
+        if (!Sesion.VeTodasLasSedes)
+        {
+            _model.SedeId = Sesion.SedeId;
+        }
+
+        // Validación
+        if (_model.SedeId == null)
+        {
+            Toast.Error("Debe seleccionar una Sede para la toma física.");
+            return;
+        }
+
         if (await TomaRepo.ExisteCodigoAsync(_model.Codigo, editando ? _model.Id : null))
         {
             Toast.Error($"El código '{_model.Codigo}' ya existe.");
@@ -571,7 +604,6 @@
             {
                 await TomaRepo.ActualizarAsync(_model);
 
-                // ═══ AUDITORÍA: EDITAR ═══
                 await Auditoria.RegistrarEdicionAsync(
                     modulo: "toma_fisica",
                     objetoTipo: "TomaFisica",
@@ -584,6 +616,7 @@
                         _model.Codigo,
                         _model.Nombre,
                         _model.FechaInicio,
+                        _model.SedeId,
                         _model.ResponsableId,
                         _model.Observaciones
                     },
@@ -596,7 +629,6 @@
             {
                 var nuevoId = await TomaRepo.CrearAsync(_model);
 
-                // ═══ AUDITORÍA: CREAR ═══
                 await Auditoria.RegistrarCreacionAsync(
                     modulo: "toma_fisica",
                     objetoTipo: "TomaFisica",
@@ -608,6 +640,7 @@
                         _model.Codigo,
                         _model.Nombre,
                         _model.FechaInicio,
+                        _model.SedeId,
                         _model.ResponsableId,
                         _model.Observaciones
                     }
@@ -624,9 +657,6 @@
         }
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // ABRIR — Con auditoría CRÍTICA
-    // ═══════════════════════════════════════════════════════════
     private async Task Abrir(TomaFisicaDTO t)
     {
         if (!puedeAbrir) return;
@@ -634,7 +664,7 @@
         var ok = await Confirm.Preguntar(new ConfirmOpciones
         {
             Titulo = "Abrir Toma Física",
-            Mensaje = "Se congelará el inventario actual de la institución. Se crearán los registros pendientes para el barrido QR. ¿Continuar?",
+            Mensaje = "Se congelará el inventario actual de la sede. Se crearán los registros pendientes para el barrido QR. ¿Continuar?",
             Icono = "bi-lock-fill",
             ColorBoton = "#0891b2",
             TextoConfirmar = "Sí, abrir toma"
@@ -645,7 +675,6 @@
         {
             var count = await TomaRepo.AbrirAsync(t.Id);
 
-            // ═══ AUDITORÍA: ABRIR (CRÍTICO) ═══
             await Auditoria.RegistrarAsync(
                 operacion: "ABRIR",
                 modulo: "toma_fisica",
@@ -671,9 +700,6 @@
         }
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // CERRAR — Con auditoría CRÍTICA
-    // ═══════════════════════════════════════════════════════════
     private async Task Cerrar(TomaFisicaDTO t)
     {
         if (!puedeCerrar) return;
@@ -693,7 +719,6 @@
         {
             await TomaRepo.CerrarAsync(t.Id);
 
-            // ═══ AUDITORÍA: CERRAR (CRÍTICO) ═══
             await Auditoria.RegistrarAsync(
                 operacion: "CERRAR",
                 modulo: "toma_fisica",
@@ -732,6 +757,7 @@
             Codigo = t.Codigo,
             Nombre = t.Nombre,
             FechaInicio = t.FechaInicio,
+            SedeId = t.SedeId,
             ResponsableId = t.ResponsableId,
             Observaciones = t.Observaciones,
             InstitucionId = t.InstitucionId
@@ -739,9 +765,6 @@
         _mostrarFormulario = true;
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // ELIMINAR — Con auditoría
-    // ═══════════════════════════════════════════════════════════
     private async Task Eliminar(TomaFisicaDTO t)
     {
         var ok = await Confirm.Peligroso($"¿Eliminar la toma '{t.Nombre}'? Solo se permite en estado Borrador sin conteos.");
@@ -756,7 +779,6 @@
                 return;
             }
 
-            // ═══ AUDITORÍA: ELIMINAR ═══
             await Auditoria.RegistrarEliminacionAsync(
                 modulo: "toma_fisica",
                 objetoTipo: "TomaFisica",
@@ -815,9 +837,6 @@
         _procesandoAnulacion = false;
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // ANULAR — Con auditoría
-    // ═══════════════════════════════════════════════════════════
     private async Task ConfirmarAnulacion()
     {
         if (_tomaAAnular is null) return;
@@ -842,7 +861,6 @@
             var toma = _tomaAAnular;
             await TomaRepo.AnularAsync(toma.Id, _motivoAnulacion.Trim());
 
-            // ═══ AUDITORÍA: ANULAR ═══
             await Auditoria.RegistrarAnulacionAsync(
                 modulo: "toma_fisica",
                 objetoTipo: "TomaFisica",

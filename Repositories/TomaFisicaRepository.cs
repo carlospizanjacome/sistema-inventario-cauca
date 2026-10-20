@@ -20,11 +20,51 @@ public class TomaFisicaRepository : ITomaFisicaRepository
     }
 
     // ═══════════════════════════════════════════════════════
-    // TOMAS FÍSICAS
+    // REGLA DE NEGOCIO: MULTI-SEDE
+    // ═══════════════════════════════════════════════════════
+    private bool DebeFiltrarPorSede() => !_sesion.VeTodasLasSedes;
+
+    private void AsignarSedeObligatoria(TomaFisicaDTO dto)
+    {
+        if (!_sesion.VeTodasLasSedes)
+        {
+            dto.SedeId = _sesion.SedeId;
+        }
+
+        if (dto.SedeId == null)
+        {
+            throw new InvalidOperationException(
+                "La sede es obligatoria. Seleccione una sede para la toma física.");
+        }
+    }
+
+    private (string Sql, DynamicParameters Parametros) ConstruirFiltros(string alias)
+    {
+        var condiciones = new List<string>();
+        var parametros = new DynamicParameters();
+
+        if (!_sesion.EsSuperAdmin && _sesion.InstitucionId > 0)
+        {
+            condiciones.Add($"{alias}.institucion_id = @InstitucionId");
+            parametros.Add("InstitucionId", _sesion.InstitucionId);
+        }
+
+        if (DebeFiltrarPorSede())
+        {
+            condiciones.Add($"{alias}.sede_id = @SedeId");
+            parametros.Add("SedeId", _sesion.SedeId!.Value);
+        }
+
+        var sql = condiciones.Count > 0 ? " AND " + string.Join(" AND ", condiciones) : string.Empty;
+        return (sql, parametros);
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // TOMAS FÍSICAS (Cabecera)
     // ═══════════════════════════════════════════════════════
 
     private const string BaseToma = @"
-        SELECT t.id, t.codigo, t.nombre, t.institucion_id AS InstitucionId,
+        SELECT t.id, t.codigo, t.nombre, t.institucion_id AS InstitucionId, t.sede_id AS SedeId,
                t.fecha_inicio::timestamp AS FechaInicio,
                t.fecha_cierre::timestamp AS FechaCierre,
                t.estado, t.responsable_id AS ResponsableId,
@@ -39,25 +79,22 @@ public class TomaFisicaRepository : ITomaFisicaRepository
                t.anulada_fecha AS AnuladaFecha,
                t.anulada_motivo AS AnuladaMotivo,
                i.nombre AS InstitucionNombre,
+               s.nombre AS SedeNombre,
                f.nombre_completo AS ResponsableNombre
         FROM tomas_fisicas t
         LEFT JOIN instituciones i ON i.id = t.institucion_id
+        LEFT JOIN sedes s ON s.id = t.sede_id
         LEFT JOIN funcionarios f ON f.id = t.responsable_id";
 
     public async Task<IEnumerable<TomaFisicaDTO>> ObtenerTodasAsync()
     {
-        var (filtro, param) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "t");
-
+        var (filtro, parametros) = ConstruirFiltros("t");
         var sql = $"{BaseToma} WHERE t.anulada = FALSE {filtro} ORDER BY t.created_at DESC;";
 
         using var cn = new NpgsqlConnection(_cs);
-        return await cn.QueryAsync<TomaFisicaDTO>(sql, param);
+        return await cn.QueryAsync<TomaFisicaDTO>(sql, parametros);
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // PAGINADO CON FILTROS
-    // ═══════════════════════════════════════════════════════════
     public async Task<ResultadoPaginado<TomaFisicaDTO>> ObtenerPaginadoAsync(
         int pagina = 1,
         int tamano = 25,
@@ -68,12 +105,9 @@ public class TomaFisicaRepository : ITomaFisicaRepository
         if (tamano < 1) tamano = 25;
         if (tamano > 200) tamano = 200;
 
-        var (filtroInst, _) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "t");
+        var (filtroBase, parametros) = ConstruirFiltros("t");
 
         var condiciones = new List<string> { "t.anulada = FALSE" };
-        var parametros = new DynamicParameters();
-        parametros.Add("InstitucionId", _sesion.InstitucionId);
 
         if (!string.IsNullOrWhiteSpace(filtroTexto))
         {
@@ -95,10 +129,10 @@ public class TomaFisicaRepository : ITomaFisicaRepository
         var sqlCount = $@"
             SELECT COUNT(*)
             FROM tomas_fisicas t
-            WHERE 1=1 {filtroInst} {whereExtra};";
+            WHERE 1=1 {filtroBase} {whereExtra};";
 
         var sqlData = $@"{BaseToma}
-            WHERE 1=1 {filtroInst} {whereExtra}
+            WHERE 1=1 {filtroBase} {whereExtra}
             ORDER BY t.created_at DESC
             LIMIT @Tamano OFFSET @Offset;";
 
@@ -118,38 +152,64 @@ public class TomaFisicaRepository : ITomaFisicaRepository
 
     public async Task<TomaFisicaDTO?> ObtenerPorIdAsync(int id)
     {
-        var (filtro, _) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "t");
+        var (filtro, parametros) = ConstruirFiltros("t");
+        parametros.Add("Id", id);
 
+        // ⬇️ AQUÍ ESTABA EL ERROR: Había un SELECT diferente que no traía la Sede.
+        // Lo cambiamos para que use la misma consulta base (BaseToma) que sí la trae.
         var sql = $"{BaseToma} WHERE t.id = @Id {filtro};";
 
         using var cn = new NpgsqlConnection(_cs);
-        return await cn.QueryFirstOrDefaultAsync<TomaFisicaDTO>(sql,
-            new { Id = id, InstitucionId = _sesion.InstitucionId });
+        return await cn.QueryFirstOrDefaultAsync<TomaFisicaDTO>(sql, parametros);
     }
 
     public async Task<int> CrearAsync(TomaFisicaDTO dto)
     {
+        if (!_sesion.EsSuperAdmin)
+        {
+            dto.InstitucionId = _sesion.InstitucionId;
+        }
+
+        AsignarSedeObligatoria(dto);
+
+        if (dto.SedeId == null)
+        {
+            throw new InvalidOperationException(
+                "No se pudo determinar la sede. Verifique la sesión.");
+        }
+
         const string sql = @"
             INSERT INTO tomas_fisicas
-                (codigo, nombre, institucion_id, fecha_inicio, estado,
+                (codigo, nombre, institucion_id, sede_id, fecha_inicio, estado,
                  responsable_id, observaciones)
             VALUES
-                (@Codigo, @Nombre, @InstitucionId, @FechaInicio, 'BORRADOR',
+                (@Codigo, @Nombre, @InstitucionId, @SedeId, @FechaInicio, 'BORRADOR',
                  @ResponsableId, @Observaciones)
             RETURNING id;";
 
-        dto.InstitucionId = _sesion.InstitucionId;
-
         using var cn = new NpgsqlConnection(_cs);
-        return await cn.ExecuteScalarAsync<int>(sql, dto);
+        try
+        {
+            return await cn.ExecuteScalarAsync<int>(sql, dto);
+        }
+        catch (PostgresException ex)
+        {
+            throw new InvalidOperationException(
+                $"Error al crear toma: {ex.Message} " +
+                $"| Detalle: {ex.Detail ?? "—"} " +
+                $"| Hint: {ex.Hint ?? "—"} " +
+                $"| Constraint: {ex.ConstraintName ?? "—"}", ex);
+        }
     }
 
     public async Task<bool> ActualizarAsync(TomaFisicaDTO dto)
     {
+        AsignarSedeObligatoria(dto);
+
         const string sql = @"
             UPDATE tomas_fisicas
             SET nombre = @Nombre,
+                sede_id = @SedeId,
                 fecha_inicio = @FechaInicio,
                 responsable_id = @ResponsableId,
                 observaciones = @Observaciones
@@ -191,7 +251,7 @@ public class TomaFisicaRepository : ITomaFisicaRepository
         try
         {
             var toma = await cn.QueryFirstOrDefaultAsync<dynamic>(
-                @"SELECT id, estado, anulada, institucion_id
+                @"SELECT id, estado, anulada, institucion_id, sede_id
                   FROM tomas_fisicas
                   WHERE id = @Id
                   FOR UPDATE;",
@@ -201,11 +261,15 @@ public class TomaFisicaRepository : ITomaFisicaRepository
                 throw new InvalidOperationException("La toma física no existe.");
 
             int instId = (int)toma.institucion_id;
+            int sedeId = (int)toma.sede_id;
             string estado = (string)toma.estado;
             bool anulada = (bool)toma.anulada;
 
             if (!_sesion.EsSuperAdmin && instId != _sesion.InstitucionId)
                 throw new InvalidOperationException("No tiene permiso para anular esta toma física.");
+
+            if (DebeFiltrarPorSede() && sedeId != _sesion.SedeId)
+                throw new InvalidOperationException("No tiene permiso para anular tomas de otra sede.");
 
             if (estado != "CERRADA")
                 throw new InvalidOperationException(
@@ -241,20 +305,19 @@ public class TomaFisicaRepository : ITomaFisicaRepository
 
     public async Task<bool> ExisteCodigoAsync(string codigo, int? excluirId = null)
     {
-        var sql = @"
-            SELECT COUNT(*) FROM tomas_fisicas
-            WHERE codigo = @Codigo
-              AND institucion_id = @InstitucionId
-              AND anulada = FALSE
-              AND (@ExcluirId IS NULL OR id <> @ExcluirId);";
+        var (filtro, parametros) = ConstruirFiltros("t");
+        parametros.Add("Codigo", codigo);
+        parametros.Add("ExcluirId", excluirId, System.Data.DbType.Int32);
+
+        var sql = $@"
+            SELECT COUNT(*) FROM tomas_fisicas t
+            WHERE t.codigo = @Codigo
+              {filtro}
+              AND t.anulada = FALSE
+              AND (@ExcluirId IS NULL OR t.id <> @ExcluirId);";
 
         using var cn = new NpgsqlConnection(_cs);
-        var n = await cn.ExecuteScalarAsync<int>(sql, new
-        {
-            Codigo = codigo,
-            InstitucionId = _sesion.InstitucionId,
-            ExcluirId = excluirId
-        });
+        var n = await cn.ExecuteScalarAsync<int>(sql, parametros);
         return n > 0;
     }
 
@@ -270,18 +333,32 @@ public class TomaFisicaRepository : ITomaFisicaRepository
 
         try
         {
-            var estado = await cn.ExecuteScalarAsync<string>(
-                "SELECT estado FROM tomas_fisicas WHERE id = @Id AND anulada = FALSE FOR UPDATE;",
+            var toma = await cn.QueryFirstOrDefaultAsync<dynamic>(
+                @"SELECT estado, anulada, institucion_id, sede_id
+                  FROM tomas_fisicas
+                  WHERE id = @Id
+                  FOR UPDATE;",
                 new { Id = tomaId }, tx);
 
-            if (estado is null)
-                throw new InvalidOperationException("La toma no existe o está anulada.");
+            if (toma is null)
+                throw new InvalidOperationException("La toma no existe.");
+
+            string estado = (string)toma.estado;
+            bool anulada = (bool)toma.anulada;
+            int instId = (int)toma.institucion_id;
+            int sedeId = (int)toma.sede_id;
+
+            if (anulada)
+                throw new InvalidOperationException("La toma está anulada.");
+
             if (estado != "BORRADOR")
                 throw new InvalidOperationException($"La toma ya está en estado '{estado}'.");
 
-            var instId = await cn.ExecuteScalarAsync<int>(
-                "SELECT institucion_id FROM tomas_fisicas WHERE id = @Id;",
-                new { Id = tomaId }, tx);
+            if (!_sesion.EsSuperAdmin && instId != _sesion.InstitucionId)
+                throw new InvalidOperationException("No tiene permiso para abrir esta toma.");
+
+            if (DebeFiltrarPorSede() && sedeId != _sesion.SedeId)
+                throw new InvalidOperationException("No tiene permiso para abrir tomas de otra sede.");
 
             const string sqlSnapshot = @"
                 INSERT INTO toma_fisica_detalle
@@ -300,11 +377,12 @@ public class TomaFisicaRepository : ITomaFisicaRepository
                 LEFT JOIN aulas a ON a.id = b.aula_id
                 LEFT JOIN funcionarios f ON f.id = b.funcionario_id
                 WHERE b.institucion_id = @InstId
+                  AND b.sede_id = @SedeId
                   AND b.activo = TRUE
                   AND b.tipo_bien = 'devolutivo';";
 
             var count = await cn.ExecuteAsync(sqlSnapshot,
-                new { TomaId = tomaId, InstId = instId }, tx);
+                new { TomaId = tomaId, InstId = instId, SedeId = sedeId }, tx);
 
             const string sqlUpdate = @"
                 UPDATE tomas_fisicas
@@ -418,7 +496,6 @@ public class TomaFisicaRepository : ITomaFisicaRepository
     public async Task<IEnumerable<TomaFisicaDetalleDTO>> ObtenerDetalleAsync(int tomaId)
     {
         var sql = $"{BaseDetalle} WHERE d.toma_fisica_id = @TomaId ORDER BY d.nombre_snapshot;";
-
         using var cn = new NpgsqlConnection(_cs);
         return await cn.QueryAsync<TomaFisicaDetalleDTO>(sql, new { TomaId = tomaId });
     }
@@ -426,7 +503,6 @@ public class TomaFisicaRepository : ITomaFisicaRepository
     public async Task<TomaFisicaDetalleDTO?> ObtenerDetallePorIdAsync(int detalleId)
     {
         var sql = $"{BaseDetalle} WHERE d.id = @Id;";
-
         using var cn = new NpgsqlConnection(_cs);
         return await cn.QueryFirstOrDefaultAsync<TomaFisicaDetalleDTO>(sql, new { Id = detalleId });
     }
@@ -434,14 +510,13 @@ public class TomaFisicaRepository : ITomaFisicaRepository
     public async Task<TomaFisicaDetalleDTO?> BuscarPorCodigoAsync(int tomaId, string codigo)
     {
         var sql = $"{BaseDetalle} WHERE d.toma_fisica_id = @TomaId AND d.codigo_snapshot = @Codigo;";
-
         using var cn = new NpgsqlConnection(_cs);
         return await cn.QueryFirstOrDefaultAsync<TomaFisicaDetalleDTO>(sql,
             new { TomaId = tomaId, Codigo = codigo });
     }
 
     // ═══════════════════════════════════════════════════════
-    // ESCANEO
+    // ESCANEO (¡AQUÍ ESTÁ LA MAGIA MULTI-SEDE!)
     // ═══════════════════════════════════════════════════════
 
     public async Task<(bool Ok, string Mensaje, string Tipo)> EscanearAsync(
@@ -507,14 +582,27 @@ public class TomaFisicaRepository : ITomaFisicaRepository
             return (true, $"✓ '{codigo}' conciliado correctamente.", "CONCILIADO");
         }
 
+        // ═══════════════════════════════════════════════════════════════════
+        // VALIDACIÓN MULTI-SEDE: Si el bien no está en el snapshot, 
+        // verificamos que pertenezca a la MISMA SEDE de la toma.
+        // ═══════════════════════════════════════════════════════════════════
+
+        var sedeToma = await cn.ExecuteScalarAsync<int>(
+            "SELECT sede_id FROM tomas_fisicas WHERE id = @Id;",
+            new { Id = tomaId });
+
         var bienExistente = await cn.QueryFirstOrDefaultAsync<(int Id, string Codigo, string Nombre)>(
             @"SELECT id AS Id, codigo AS Codigo, nombre AS Nombre
               FROM bienes
-              WHERE codigo = @Codigo AND institucion_id = @InstId AND activo = TRUE;",
+              WHERE codigo = @Codigo 
+                AND institucion_id = @InstId 
+                AND sede_id = @SedeId
+                AND activo = TRUE;",
             new
             {
                 Codigo = codigo,
-                InstId = _sesion.InstitucionId
+                InstId = _sesion.InstitucionId,
+                SedeId = sedeToma // <--- AQUÍ OBLIGAMOS A QUE SEA DE LA SEDE DE LA TOMA
             });
 
         if (bienExistente.Id > 0)
@@ -633,6 +721,7 @@ public class TomaFisicaRepository : ITomaFisicaRepository
             Codigo = toma.Codigo,
             Nombre = toma.Nombre,
             InstitucionNombre = toma.InstitucionNombre ?? "",
+            SedeNombre = toma.SedeNombre ?? "",
             FechaInicio = toma.FechaInicio,
             FechaCierre = toma.FechaCierre,
             Estado = toma.Estado,

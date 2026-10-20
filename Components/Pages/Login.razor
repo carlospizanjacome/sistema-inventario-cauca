@@ -226,7 +226,10 @@
                 NombreRol = usuario.NombreRol,
                 InstitucionId = usuario.InstitucionId,
                 EsSuperAdmin = usuario.EsSuperAdmin,
-                InstitucionNombre = usuario.InstitucionNombre
+                InstitucionNombre = usuario.InstitucionNombre,
+                // ⬇️ NUEVAS — Soporte multi-sede
+                SedeId = usuario.SedeId,
+                SedeNombre = usuario.SedeNombre
             };
 
             Sesion.IniciarSesion(usuarioSesion, Array.Empty<string>());

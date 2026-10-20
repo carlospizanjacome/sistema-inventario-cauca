@@ -6,20 +6,21 @@ using Npgsql;
 
 namespace Almacen.Services;
 
-/// <summary>
-/// Servicio de Alertas IA - Fase 2 (100% C#)
-/// Consulta vistas materializadas de alertas.
-/// </summary>
 public class AlertasIAService
 {
     private readonly string _connectionString;
     private readonly ILogger<AlertasIAService> _logger;
+    private readonly UsuarioSesionService _sesion;
 
-    public AlertasIAService(IConfiguration configuration, ILogger<AlertasIAService> logger)
+    public AlertasIAService(
+        IConfiguration configuration,
+        ILogger<AlertasIAService> logger,
+        UsuarioSesionService sesion)
     {
         _connectionString = configuration.GetConnectionString("DefaultConnection")
             ?? throw new InvalidOperationException("Cadena de conexión 'DefaultConnection' no configurada.");
         _logger = logger;
+        _sesion = sesion;
     }
 
     private async Task<NpgsqlConnection> CrearConexionAsync()
@@ -29,12 +30,30 @@ public class AlertasIAService
         return connection;
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // 1. ALERTAS DE STOCK CRÍTICO
-    // ═══════════════════════════════════════════════════════════
-    public async Task<List<AlertaStockDTO>> ObtenerAlertasStockAsync(int institucionId)
+    private (string Sql, DynamicParameters Parametros) GenerarFiltro(int? sedeIdFiltro)
     {
-        const string sql = @"
+        var sql = "";
+        var p = new DynamicParameters();
+        p.Add("InstitucionId", _sesion.InstitucionId);
+
+        if (sedeIdFiltro.HasValue && sedeIdFiltro > 0)
+        {
+            sql = " AND sede_id = @SedeFiltro";
+            p.Add("SedeFiltro", sedeIdFiltro.Value);
+        }
+        else if (!_sesion.VeTodasLasSedes && _sesion.SedeId.HasValue)
+        {
+            sql = " AND sede_id = @SedeFiltro";
+            p.Add("SedeFiltro", _sesion.SedeId.Value);
+        }
+
+        return (sql, p);
+    }
+
+    public async Task<List<AlertaStockDTO>> ObtenerAlertasStockAsync(int? sedeIdFiltro = null)
+    {
+        var (filtro, parametros) = GenerarFiltro(sedeIdFiltro);
+        var sql = $@"
             SELECT 
                 bien_id AS BienId,
                 codigo AS Codigo,
@@ -45,22 +64,20 @@ public class AlertasIAService
                 cpp_actual AS Cpp,
                 severidad AS Severidad
             FROM v_alertas_stock
-            WHERE institucion_id = @InstitucionId
+            WHERE institucion_id = @InstitucionId {filtro}
             ORDER BY 
                 CASE severidad WHEN 'CRITICO' THEN 1 WHEN 'ALTO' THEN 2 ELSE 3 END,
                 faltante DESC";
 
         await using var db = await CrearConexionAsync();
-        var result = await db.QueryAsync<AlertaStockDTO>(sql, new { InstitucionId = institucionId });
+        var result = await db.QueryAsync<AlertaStockDTO>(sql, parametros);
         return result.ToList();
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // 2. PRÉSTAMOS VENCIDOS
-    // ═══════════════════════════════════════════════════════════
-    public async Task<List<AlertaPrestamoDTO>> ObtenerAlertasPrestamosAsync(int institucionId)
+    public async Task<List<AlertaPrestamoDTO>> ObtenerAlertasPrestamosAsync(int? sedeIdFiltro = null)
     {
-        const string sql = @"
+        var (filtro, parametros) = GenerarFiltro(sedeIdFiltro);
+        var sql = $@"
             SELECT 
                 prestamo_id AS PrestamoId,
                 bien_id AS BienId,
@@ -72,20 +89,18 @@ public class AlertasIAService
                 dias_retraso AS DiasRetraso,
                 severidad AS Severidad
             FROM v_alertas_prestamos
-            WHERE institucion_id = @InstitucionId
+            WHERE institucion_id = @InstitucionId {filtro}
             ORDER BY dias_retraso DESC";
 
         await using var db = await CrearConexionAsync();
-        var result = await db.QueryAsync<AlertaPrestamoDTO>(sql, new { InstitucionId = institucionId });
+        var result = await db.QueryAsync<AlertaPrestamoDTO>(sql, parametros);
         return result.ToList();
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // 3. SIN RESPONSABLE
-    // ═══════════════════════════════════════════════════════════
-    public async Task<List<AlertaSinResponsableDTO>> ObtenerAlertasSinResponsableAsync(int institucionId)
+    public async Task<List<AlertaSinResponsableDTO>> ObtenerAlertasSinResponsableAsync(int? sedeIdFiltro = null)
     {
-        const string sql = @"
+        var (filtro, parametros) = GenerarFiltro(sedeIdFiltro);
+        var sql = $@"
             SELECT 
                 bien_id AS BienId,
                 codigo AS Codigo,
@@ -94,20 +109,18 @@ public class AlertasIAService
                 categoria AS Categoria,
                 aula AS Aula
             FROM v_alertas_sin_responsable
-            WHERE institucion_id = @InstitucionId
+            WHERE institucion_id = @InstitucionId {filtro}
             ORDER BY valor_adquisicion DESC";
 
         await using var db = await CrearConexionAsync();
-        var result = await db.QueryAsync<AlertaSinResponsableDTO>(sql, new { InstitucionId = institucionId });
+        var result = await db.QueryAsync<AlertaSinResponsableDTO>(sql, parametros);
         return result.ToList();
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // 4. SIN UBICACIÓN
-    // ═══════════════════════════════════════════════════════════
-    public async Task<List<AlertaSinUbicacionDTO>> ObtenerAlertasSinUbicacionAsync(int institucionId)
+    public async Task<List<AlertaSinUbicacionDTO>> ObtenerAlertasSinUbicacionAsync(int? sedeIdFiltro = null)
     {
-        const string sql = @"
+        var (filtro, parametros) = GenerarFiltro(sedeIdFiltro);
+        var sql = $@"
             SELECT 
                 bien_id AS BienId,
                 codigo AS Codigo,
@@ -116,17 +129,14 @@ public class AlertasIAService
                 categoria AS Categoria,
                 responsable AS Responsable
             FROM v_alertas_sin_ubicacion
-            WHERE institucion_id = @InstitucionId
+            WHERE institucion_id = @InstitucionId {filtro}
             ORDER BY valor_adquisicion DESC";
 
         await using var db = await CrearConexionAsync();
-        var result = await db.QueryAsync<AlertaSinUbicacionDTO>(sql, new { InstitucionId = institucionId });
+        var result = await db.QueryAsync<AlertaSinUbicacionDTO>(sql, parametros);
         return result.ToList();
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // 5. REFRESCAR VISTAS
-    // ═══════════════════════════════════════════════════════════
     public async Task RefrescarVistasAsync()
     {
         const string sql = @"

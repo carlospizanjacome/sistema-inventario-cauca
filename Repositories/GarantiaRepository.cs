@@ -19,11 +19,35 @@ public class GarantiaRepository : IGarantiaRepository
         _sesion = sesion;
     }
 
+    private bool DebeFiltrarPorSede() => !_sesion.VeTodasLasSedes;
+
+    private (string Sql, DynamicParameters Parametros) ConstruirFiltros(string alias)
+    {
+        var condiciones = new List<string>();
+        var parametros = new DynamicParameters();
+
+        if (!_sesion.EsSuperAdmin && _sesion.InstitucionId > 0)
+        {
+            condiciones.Add($"{alias}.institucion_id = @InstitucionId");
+            parametros.Add("InstitucionId", _sesion.InstitucionId);
+        }
+
+        if (DebeFiltrarPorSede())
+        {
+            condiciones.Add($"{alias}.sede_id = @SedeId");
+            parametros.Add("SedeId", _sesion.SedeId!.Value);
+        }
+
+        var sql = condiciones.Count > 0 ? " AND " + string.Join(" AND ", condiciones) : string.Empty;
+        return (sql, parametros);
+    }
+
     private const string BaseSelect = @"
         SELECT
             g.id,
             g.bien_id                 AS BienId,
             g.institucion_id          AS InstitucionId,
+            g.sede_id                 AS SedeId,
             g.proveedor_id            AS ProveedorId,
             g.numero_garantia         AS NumeroGarantia,
             g.tipo,
@@ -42,11 +66,13 @@ public class GarantiaRepository : IGarantiaRepository
             b.nombre                  AS BienNombre,
             c.nombre                  AS BienCategoriaNombre,
             p.nombre                  AS ProveedorNombre,
-            p.nit                     AS ProveedorNit
+            p.nit                     AS ProveedorNit,
+            sed.nombre                AS SedeNombre
         FROM garantias g
         LEFT JOIN bienes b       ON b.id = g.bien_id
         LEFT JOIN categorias c   ON c.id = b.categoria_id
-        LEFT JOIN proveedores p  ON p.id = g.proveedor_id";
+        LEFT JOIN proveedores p  ON p.id = g.proveedor_id
+        LEFT JOIN sedes sed      ON sed.id = g.sede_id";
 
     public async Task<ResultadoPaginado<GarantiaDTO>> ObtenerPaginadoAsync(
         int pagina, int tamano,
@@ -58,13 +84,9 @@ public class GarantiaRepository : IGarantiaRepository
         if (tamano < 1) tamano = 25;
         if (tamano > 200) tamano = 200;
 
-        var (filtroInst, _) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "g");
+        var (filtroSql, parametros) = ConstruirFiltros("g");
 
-        // Regla: las vistas operativas solo muestran garantías vigentes (no anuladas)
         var condiciones = new List<string> { "g.anulada = FALSE" };
-        var parametros = new DynamicParameters();
-        parametros.Add("InstitucionId", _sesion.InstitucionId);
 
         if (!string.IsNullOrWhiteSpace(filtroTexto))
         {
@@ -98,17 +120,17 @@ public class GarantiaRepository : IGarantiaRepository
             parametros.Add("Tipo", filtroTipo);
         }
 
-        var whereExtra = string.Join(" AND ", condiciones);
+        var whereExtra = " AND " + string.Join(" AND ", condiciones);
 
         parametros.Add("Tamano", tamano);
         parametros.Add("Offset", (pagina - 1) * tamano);
 
         var sqlCount = $@"SELECT COUNT(*) FROM garantias g
                           LEFT JOIN bienes b ON b.id = g.bien_id
-                          WHERE {whereExtra} {filtroInst};";
+                          WHERE 1=1 {filtroSql} {whereExtra};";
 
         var sqlData = $@"{BaseSelect}
-                         WHERE {whereExtra} {filtroInst}
+                         WHERE 1=1 {filtroSql} {whereExtra}
                          ORDER BY g.fecha_vencimiento ASC, g.id DESC
                          LIMIT @Tamano OFFSET @Offset;";
 
@@ -127,41 +149,46 @@ public class GarantiaRepository : IGarantiaRepository
 
     public async Task<GarantiaDTO?> ObtenerPorIdAsync(int id)
     {
-        var (filtroInst, _) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "g");
+        var (filtroSql, parametros) = ConstruirFiltros("g");
+        parametros.Add("Id", id);
 
-        // El expediente del bien muestra TODO el historial, incluidas anuladas
-        var sql = $"{BaseSelect} WHERE g.id = @Id {filtroInst};";
+        var sql = $"{BaseSelect} WHERE g.id = @Id {filtroSql};";
 
         using var cn = new NpgsqlConnection(_cs);
-        return await cn.QueryFirstOrDefaultAsync<GarantiaDTO>(sql,
-            new { Id = id, InstitucionId = _sesion.InstitucionId });
+        return await cn.QueryFirstOrDefaultAsync<GarantiaDTO>(sql, parametros);
     }
 
     public async Task<IEnumerable<GarantiaDTO>> ObtenerPorBienAsync(int bienId)
     {
-        var (filtroInst, _) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "g");
+        var (filtroSql, parametros) = ConstruirFiltros("g");
+        parametros.Add("BienId", bienId);
 
-        // El expediente del bien muestra TODO el historial, incluidas anuladas
         var sql = $@"{BaseSelect}
-                     WHERE g.bien_id = @BienId {filtroInst}
+                     WHERE g.bien_id = @BienId {filtroSql}
                      ORDER BY g.fecha_vencimiento DESC;";
 
         using var cn = new NpgsqlConnection(_cs);
-        return await cn.QueryAsync<GarantiaDTO>(sql,
-            new { BienId = bienId, InstitucionId = _sesion.InstitucionId });
+        return await cn.QueryAsync<GarantiaDTO>(sql, parametros);
     }
 
     public async Task<int> CrearAsync(GarantiaDTO dto)
     {
+        if (!_sesion.EsSuperAdmin)
+            dto.InstitucionId = _sesion.InstitucionId;
+
+        if (!_sesion.VeTodasLasSedes)
+            dto.SedeId = _sesion.SedeId;
+
+        if (dto.SedeId == null)
+            throw new InvalidOperationException("La sede es obligatoria para registrar la garantía.");
+
         const string sql = @"
             INSERT INTO garantias
-                (bien_id, institucion_id, proveedor_id, numero_garantia, tipo,
+                (bien_id, institucion_id, sede_id, proveedor_id, numero_garantia, tipo,
                  fecha_inicio, fecha_vencimiento, condiciones, contacto_proveedor,
                  observaciones, anulada, created_at, updated_at)
             VALUES
-                (@BienId, @InstitucionId, @ProveedorId, @NumeroGarantia, @Tipo,
+                (@BienId, @InstitucionId, @SedeId, @ProveedorId, @NumeroGarantia, @Tipo,
                  @FechaInicio, @FechaVencimiento, @Condiciones, @ContactoProveedor,
                  @Observaciones, FALSE, NOW(), NOW())
             RETURNING id;";
@@ -170,7 +197,8 @@ public class GarantiaRepository : IGarantiaRepository
         return await cn.ExecuteScalarAsync<int>(sql, new
         {
             dto.BienId,
-            InstitucionId = _sesion.InstitucionId,
+            dto.InstitucionId,
+            dto.SedeId,
             dto.ProveedorId,
             dto.NumeroGarantia,
             dto.Tipo,
@@ -212,11 +240,6 @@ public class GarantiaRepository : IGarantiaRepository
         });
     }
 
-    /// <summary>
-    /// Anula lógicamente una garantía (soft-delete).
-    /// REGLA DE NEGOCIO: solo se pueden anular garantías VENCIDAS.
-    /// El registro se preserva para auditoría.
-    /// </summary>
     public async Task AnularAsync(int id, string motivo)
     {
         const string sql = @"
@@ -241,8 +264,7 @@ public class GarantiaRepository : IGarantiaRepository
 
     public async Task<(int Vigentes, int PorVencer, int Vencidas, int Total)> ObtenerMetricasAsync()
     {
-        var (filtroInst, _) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "g");
+        var (filtroSql, parametros) = ConstruirFiltros("g");
 
         var sql = $@"
             SELECT
@@ -252,10 +274,9 @@ public class GarantiaRepository : IGarantiaRepository
                 COUNT(*) FILTER (WHERE g.fecha_vencimiento < NOW()::date)::int AS Vencidas,
                 COUNT(*)::int AS Total
             FROM garantias g
-            WHERE g.anulada = FALSE {filtroInst};";
+            WHERE g.anulada = FALSE {filtroSql};";
 
         using var cn = new NpgsqlConnection(_cs);
-        return await cn.QueryFirstAsync<(int Vigentes, int PorVencer, int Vencidas, int Total)>(
-            sql, new { InstitucionId = _sesion.InstitucionId });
+        return await cn.QueryFirstAsync<(int Vigentes, int PorVencer, int Vencidas, int Total)>(sql, parametros);
     }
 }

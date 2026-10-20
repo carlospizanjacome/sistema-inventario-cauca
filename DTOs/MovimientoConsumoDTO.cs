@@ -11,6 +11,9 @@ public class MovimientoConsumoDTO
 
     public int InstitucionId { get; set; }
 
+    // ⬇️ NUEVO — Soporte multi-sede
+    public int? SedeId { get; set; }
+
     [Required(ErrorMessage = "El tipo de movimiento es obligatorio")]
     [StringLength(20, ErrorMessage = "El tipo no puede superar 20 caracteres")]
     public string TipoMovimiento { get; set; } = "ENTRADA";
@@ -45,6 +48,7 @@ public class MovimientoConsumoDTO
     public string? UnidadMedida { get; set; }
     public string? ProveedorNombre { get; set; }
     public string? FuncionarioNombre { get; set; }
+    public string? SedeNombre { get; set; }   // ⬅️ NUEVO
 
     /// <summary>
     /// DTO ligero con datos de la entrada + el bien asociado.

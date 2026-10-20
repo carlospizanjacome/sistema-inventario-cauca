@@ -46,4 +46,7 @@ public class EntradaDTO
     public string? ProveedorNombre { get; set; }
 
     public int InstitucionId { get; set; }
+
+    public int? SedeId { get; set; }
+    public string? SedeNombre { get; set; }
 }

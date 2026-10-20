@@ -149,15 +149,15 @@
                 color: #dc2626 !important;
             }
 
-/* ═══ FILA 1: Bien | Tipo Fuente | Fecha ═══ */
+/* ═══ FILA 1: Bien | Tipo Fuente | Fecha | Sede ═══ */
 .form-fila-1 {
     display: grid;
-    grid-template-columns: 2fr 1.2fr 1fr;
+    /* Ajustamos las proporciones para que la Sede quepa bien */
+    grid-template-columns: 2fr 1.2fr 1fr 1.2fr;
     gap: 10px;
     padding: 4px 0;
     align-items: end;
 }
-
 /* ═══ FILA 2: Factura | Proveedor | Valor | Recibe ═══ */
 .form-fila-2 {
     display: grid;
@@ -1076,3 +1076,13 @@
         background: #4f46e5;
         color: #fff;
     }
+
+/* ═══ FILA 1: Bien | Tipo Fuente | Fecha | Sede ═══ */
+.form-fila-1 {
+    display: grid;
+    /* Ajustamos las proporciones */
+    grid-template-columns: 2fr 1.2fr 1fr 1.2fr;
+    gap: 10px;
+    padding: 4px 0;
+    align-items: end;
+}

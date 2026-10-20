@@ -31,6 +31,10 @@ public class PrestamoDTO
 
     public int InstitucionId { get; set; }
 
+    // ⬇️ NUEVO — Soporte multi-sede
+    public int? SedeId { get; set; }
+    public string? SedeNombre { get; set; }
+
     // ── Estado y fechas ──
     public string Estado { get; set; } = "SOLICITADO";
     public DateTime FechaSolicitud { get; set; }

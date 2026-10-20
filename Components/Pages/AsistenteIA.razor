@@ -3,9 +3,11 @@
 
 @using Almacen.DTOs
 @using Almacen.Services
+@using Almacen.Interfaces
 @using Microsoft.JSInterop
 
 @inject AsistenteIAService AsistenteService
+@inject ISedeRepository SedeRepo
 @inject UsuarioSesionService Sesion
 @inject SeguridadService Seguridad
 @inject NavigationManager Navigation
@@ -22,7 +24,22 @@
             <h1><i class="bi bi-chat-dots-fill"></i> Asistente IA</h1>
             <p class="subtitle">Preguntas en lenguaje natural sobre el inventario</p>
         </div>
-        <div class="header-actions">
+
+        <div class="header-actions d-flex align-items-center gap-2">
+            @if (Sesion.VeTodasLasSedes)
+            {
+                <div class="conc-selector-compact" style="margin: 0;">
+                    <i class="bi bi-geo-alt-fill"></i>
+                    <select @bind="_sedeSeleccionada" @bind:after="LimpiarChat">
+                        <option value="-1">🌟 Todas las sedes</option>
+                        @foreach (var s in _sedes)
+                        {
+                            <option value="@s.Id">@s.Nombre</option>
+                        }
+                    </select>
+                </div>
+            }
+
             <button class="btn-clear-chat" @onclick="LimpiarChat" disabled="@(!_mensajes.Any())">
                 <i class="bi bi-arrow-counterclockwise"></i>
                 <span>Limpiar chat</span>
@@ -169,6 +186,8 @@
     private bool _cargando = false;
     private List<PreguntaFrecuenteDTO> _preguntasFrecuentes = new();
     private List<MensajeChatDTO> _mensajes = new();
+    private List<SedeDTO> _sedes = new();
+    private int _sedeSeleccionada = -1;
 
     protected override async Task OnInitializedAsync()
     {
@@ -179,6 +198,12 @@
         }
 
         _preguntasFrecuentes = AsistenteIAService.ObtenerPreguntasFrecuentes();
+
+        if (Sesion.VeTodasLasSedes)
+        {
+            _sedes = (await SedeRepo.ObtenerTodasAsync()).ToList();
+            _sedeSeleccionada = -1;
+        }
     }
 
     private async Task Preguntar(string idPregunta)
@@ -200,7 +225,8 @@
 
         try
         {
-            var respuesta = await AsistenteService.ResolverAsync(idPregunta, Sesion.InstitucionId);
+            // 👇 LE PASAMOS LA SEDE SELECCIONADA 👇
+            var respuesta = await AsistenteService.ResolverAsync(idPregunta, _sedeSeleccionada);
 
             await Task.Delay(400);
 
@@ -215,7 +241,7 @@
 
             await Auditoria.RegistrarExportacionAsync(
                 "asistente_ia",
-                $"Pregunta: {pregunta.Titulo}"
+                $"Pregunta: {pregunta.Titulo} (Sede: {_sedeSeleccionada})"
             );
         }
         catch (Exception ex)

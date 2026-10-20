@@ -25,6 +25,9 @@ public class TrasladoDTO
 
     public int InstitucionId { get; set; }
 
+    // ⬇️ NUEVO — Soporte multi-sede
+    public int? SedeId { get; set; }
+
     // ═══════════════════════════════════════════════════════════
     // PROPIEDADES DE SOFT-DELETE (ANULACIÓN)
     // ═══════════════════════════════════════════════════════════
@@ -41,4 +44,5 @@ public class TrasladoDTO
     public string? AulaDestinoNombre { get; set; }
     public string? FuncionarioAnteriorNombre { get; set; }
     public string? FuncionarioNuevoNombre { get; set; }
+    public string? SedeNombre { get; set; } // ⬅️ NUEVO
 }

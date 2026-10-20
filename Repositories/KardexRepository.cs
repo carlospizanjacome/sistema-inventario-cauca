@@ -4,6 +4,7 @@ using Almacen.Interfaces;
 using Almacen.Services;
 using Dapper;
 using Npgsql;
+using System.Data;
 
 namespace Almacen.Repositories;
 
@@ -19,168 +20,81 @@ public class KardexRepository : IKardexRepository
         _sesion = sesion;
     }
 
-    // ═══════════════════════════════════════════════════════
-    // BIENES DE CONSUMO
-    // ═══════════════════════════════════════════════════════
+    private bool DebeFiltrarPorSede() => !_sesion.VeTodasLasSedes;
 
-    private const string BaseBienConsumo = @"
-        SELECT b.id, b.institucion_id AS InstitucionId, b.codigo, b.nombre,
-               b.descripcion, b.categoria_id AS CategoriaId,
-               b.unidad_medida AS UnidadMedida,
-               b.stock_minimo AS StockMinimo,
-               b.stock_actual AS StockActual,
-               b.cpp_actual AS CppActual,
-               b.valor_stock AS ValorStock,
-               b.activo,
-               c.nombre AS CategoriaNombre
-        FROM bienes b
-        LEFT JOIN categorias c ON c.id = b.categoria_id
-        WHERE b.tipo_bien = 'consumo'";
-
-    public async Task<IEnumerable<BienConsumoDTO>> ObtenerBienesConsumoAsync()
+    private (string Sql, DynamicParameters Parametros) ConstruirFiltros(string alias)
     {
-        var (filtro, param) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "b");
-
-        var sql = $"{BaseBienConsumo} {filtro} ORDER BY b.codigo;";
-
-        using var cn = new NpgsqlConnection(_cs);
-        return await cn.QueryAsync<BienConsumoDTO>(sql, param);
-    }
-
-    public async Task<BienConsumoDTO?> ObtenerBienConsumoPorIdAsync(int id)
-    {
-        var (filtro, _) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "b");
-
-        var sql = $"{BaseBienConsumo} AND b.id = @Id {filtro};";
-
-        using var cn = new NpgsqlConnection(_cs);
-        return await cn.QueryFirstOrDefaultAsync<BienConsumoDTO>(sql,
-            new { Id = id, InstitucionId = _sesion.InstitucionId });
-    }
-
-    // ═══════════════════════════════════════════════════════════
-    // PAGINADO CON FILTROS
-    // ═══════════════════════════════════════════════════════════
-    public async Task<ResultadoPaginado<BienConsumoDTO>> ObtenerBienesConsumoPaginadoAsync(
-        int pagina = 1,
-        int tamano = 25,
-        string? filtroTexto = null,
-        int? categoriaId = null,
-        bool? soloBajoStock = null)
-    {
-        if (pagina < 1) pagina = 1;
-        if (tamano < 1) tamano = 25;
-        if (tamano > 200) tamano = 200;
-
-        var (filtroInst, _) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "b");
-
-        var condiciones = new List<string> { "b.tipo_bien = 'consumo'" };
+        var condiciones = new List<string>();
         var parametros = new DynamicParameters();
-        parametros.Add("InstitucionId", _sesion.InstitucionId);
 
-        if (!string.IsNullOrWhiteSpace(filtroTexto))
+        if (!_sesion.EsSuperAdmin && _sesion.InstitucionId > 0)
         {
-            condiciones.Add("(b.codigo ILIKE @Buscar OR b.nombre ILIKE @Buscar)");
-            parametros.Add("Buscar", $"%{filtroTexto}%");
+            condiciones.Add($"{alias}.institucion_id = @InstitucionId");
+            parametros.Add("InstitucionId", _sesion.InstitucionId);
         }
 
-        if (categoriaId.HasValue && categoriaId.Value > 0)
+        if (DebeFiltrarPorSede())
         {
-            condiciones.Add("b.categoria_id = @CategoriaId");
-            parametros.Add("CategoriaId", categoriaId.Value);
+            condiciones.Add($"{alias}.sede_id = @SedeId");
+            parametros.Add("SedeId", _sesion.SedeId!.Value);
         }
 
-        if (soloBajoStock == true)
-        {
-            condiciones.Add("b.stock_actual <= b.stock_minimo");
-        }
-
-        var whereExtra = " AND " + string.Join(" AND ", condiciones);
-
-        parametros.Add("Tamano", tamano);
-        parametros.Add("Offset", (pagina - 1) * tamano);
-
-        var sqlCount = $@"
-            SELECT COUNT(*)
-            FROM bienes b
-            WHERE 1=1 {filtroInst} {whereExtra};";
-
-        var sqlData = $@"
-            SELECT b.id, b.institucion_id AS InstitucionId, b.codigo, b.nombre,
-                   b.descripcion, b.categoria_id AS CategoriaId,
-                   b.unidad_medida AS UnidadMedida,
-                   b.stock_minimo AS StockMinimo,
-                   b.stock_actual AS StockActual,
-                   b.cpp_actual AS CppActual,
-                   b.valor_stock AS ValorStock,
-                   b.activo,
-                   c.nombre AS CategoriaNombre
-            FROM bienes b
-            LEFT JOIN categorias c ON c.id = b.categoria_id
-            WHERE 1=1 {filtroInst} {whereExtra}
-            ORDER BY b.codigo
-            LIMIT @Tamano OFFSET @Offset;";
-
-        using var cn = new NpgsqlConnection(_cs);
-
-        var total = await cn.ExecuteScalarAsync<int>(sqlCount, parametros);
-        var items = (await cn.QueryAsync<BienConsumoDTO>(sqlData, parametros)).ToList();
-
-        return new ResultadoPaginado<BienConsumoDTO>
-        {
-            Items = items,
-            TotalRegistros = total,
-            PaginaActual = pagina,
-            TamanoPagina = tamano
-        };
+        var sql = condiciones.Count > 0 ? " AND " + string.Join(" AND ", condiciones) : string.Empty;
+        return (sql, parametros);
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // CREAR BIEN DE CONSUMO — con autogeneración de código
-    // ═══════════════════════════════════════════════════════════
     public async Task<int> CrearBienConsumoAsync(BienConsumoDTO dto)
     {
-        dto.InstitucionId = _sesion.InstitucionId;
+        if (!_sesion.EsSuperAdmin) dto.InstitucionId = _sesion.InstitucionId;
+        if (!_sesion.VeTodasLasSedes) dto.SedeId = _sesion.SedeId;
+
+        if (dto.SedeId == null) throw new InvalidOperationException("La sede es obligatoria.");
 
         const string sql = @"
             INSERT INTO bienes
-                (institucion_id, codigo, nombre, descripcion, categoria_id,
-                 tipo_bien, unidad_medida, stock_minimo, stock_actual,
-                 cpp_actual, valor_stock, activo, cantidad, created_at, updated_at)
+                (codigo, nombre, categoria_id, tipo_bien, unidad_medida, stock_actual,
+                 stock_minimo, cpp_actual, valor_stock, institucion_id, sede_id, activo, 
+                 created_at, updated_at)
             VALUES
-                (@InstitucionId, @Codigo, @Nombre, @Descripcion, @CategoriaId,
-                 'consumo', @UnidadMedida, @StockMinimo, 0,
-                 0, 0, @Activo, 1, NOW(), NOW())
+                (@Codigo, @Nombre, @CategoriaId, 'consumo', @UnidadMedida, @StockActual,
+                 @StockMinimo, @CppActual, (@StockActual * @CppActual), @InstitucionId, @SedeId, TRUE,
+                 NOW(), NOW())
             RETURNING id;";
 
-        const int maxIntentos = 3;
-        for (int intento = 1; intento <= maxIntentos; intento++)
+        using var cn = new NpgsqlConnection(_cs);
+
+        // ── NUEVO: Generar código automático si viene vacío ──
+        if (string.IsNullOrWhiteSpace(dto.Codigo))
         {
-            try
+            const int maxIntentos = 3;
+            for (int intento = 1; intento <= maxIntentos; intento++)
             {
-                if (string.IsNullOrWhiteSpace(dto.Codigo))
+                try
                 {
                     dto.Codigo = await GenerarSiguienteCodigoConsumoAsync();
+                    return await cn.ExecuteScalarAsync<int>(sql, dto);
                 }
-
-                using var cn = new NpgsqlConnection(_cs);
-                return await cn.ExecuteScalarAsync<int>(sql, dto);
+                catch (PostgresException ex) when (ex.SqlState == "23505" && intento < maxIntentos)
+                {
+                    dto.Codigo = string.Empty;
+                    await Task.Delay(50);
+                }
             }
-            catch (PostgresException ex)
-                when (ex.SqlState == "23505" && intento < maxIntentos)
-            {
-                dto.Codigo = string.Empty;
-                await Task.Delay(50);
-            }
+            throw new InvalidOperationException("No se pudo generar un código único después de 3 intentos.");
         }
 
-        throw new InvalidOperationException(
-            "No se pudo generar un código único. Intente nuevamente.");
+        // Si viene código manual
+        try
+        {
+            return await cn.ExecuteScalarAsync<int>(sql, dto);
+        }
+        catch (PostgresException ex) when (ex.SqlState == "23505")
+        {
+            throw new InvalidOperationException($"El código '{dto.Codigo}' ya existe en el sistema.");
+        }
     }
 
+    // ── NUEVO: Función para calcular el código perfecto ──
     private async Task<string> GenerarSiguienteCodigoConsumoAsync()
     {
         var prefijo = "CONS";
@@ -211,15 +125,12 @@ public class KardexRepository : IKardexRepository
     {
         const string sql = @"
             UPDATE bienes
-            SET codigo = @Codigo,
-                nombre = @Nombre,
-                descripcion = @Descripcion,
+            SET nombre = @Nombre,
                 categoria_id = @CategoriaId,
                 unidad_medida = @UnidadMedida,
                 stock_minimo = @StockMinimo,
-                activo = @Activo,
                 updated_at = NOW()
-            WHERE id = @Id AND tipo_bien = 'consumo';";
+            WHERE id = @Id AND tipo_bien = 'consumo' AND activo = TRUE;";
 
         using var cn = new NpgsqlConnection(_cs);
         return await cn.ExecuteAsync(sql, dto) > 0;
@@ -227,266 +138,238 @@ public class KardexRepository : IKardexRepository
 
     public async Task<bool> EliminarBienConsumoAsync(int id)
     {
-        const string sql = @"
-            DELETE FROM bienes
-            WHERE id = @Id AND tipo_bien = 'consumo';";
-
+        const string sql = "UPDATE bienes SET activo = FALSE, updated_at = NOW() WHERE id = @Id AND tipo_bien = 'consumo';";
         using var cn = new NpgsqlConnection(_cs);
         return await cn.ExecuteAsync(sql, new { Id = id }) > 0;
     }
 
     public async Task<bool> ExisteCodigoConsumoAsync(string codigo, int? excluirId = null)
     {
-        if (string.IsNullOrWhiteSpace(codigo)) return false;
-
-        var (filtro, _) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "b");
+        var (filtro, parametros) = ConstruirFiltros("b");
+        parametros.Add("Codigo", codigo);
+        parametros.Add("ExcluirId", excluirId, DbType.Int32);
 
         var sql = $@"
             SELECT COUNT(*) FROM bienes b
-            WHERE b.tipo_bien = 'consumo'
-              AND b.codigo = @Codigo
-              AND (@ExcluirId IS NULL OR b.id <> @ExcluirId)
-              {filtro};";
+            WHERE b.codigo = @Codigo AND b.activo = TRUE
+              {filtro}
+              AND (@ExcluirId IS NULL OR b.id <> @ExcluirId);";
 
         using var cn = new NpgsqlConnection(_cs);
-        var n = await cn.ExecuteScalarAsync<int>(sql,
-            new { Codigo = codigo, ExcluirId = excluirId, InstitucionId = _sesion.InstitucionId });
-        return n > 0;
+        return await cn.ExecuteScalarAsync<int>(sql, parametros) > 0;
     }
 
-    // ═══════════════════════════════════════════════════════
-    // KARDEX — MOVIMIENTOS
-    // ═══════════════════════════════════════════════════════
+    public async Task<ResultadoPaginado<BienConsumoDTO>> ObtenerBienesConsumoPaginadoAsync(
+        int pagina, int tamano, string? filtroTexto, int? categoriaId, bool? bajoStock)
+    {
+        if (pagina < 1) pagina = 1;
+        if (tamano < 1) tamano = 25;
 
-    private const string BaseMovimiento = @"
-        SELECT m.id, m.bien_id AS BienId, m.institucion_id AS InstitucionId,
-               m.tipo_movimiento AS TipoMovimiento,
-               m.fecha_movimiento::timestamp AS FechaMovimiento,
-               m.cantidad, m.costo_unitario AS CostoUnitario,
-               m.valor_movimiento AS ValorMovimiento,
-               m.saldo_cantidad AS SaldoCantidad,
-               m.saldo_valor AS SaldoValor,
-               m.cpp, m.documento_referencia AS DocumentoReferencia,
-               m.proveedor_id AS ProveedorId,
-               m.funcionario_recibe_id AS FuncionarioRecibeId,
-               m.observaciones,
-               b.codigo AS BienCodigo,
-               b.nombre AS BienNombre,
-               b.unidad_medida AS UnidadMedida,
-               p.nombre AS ProveedorNombre,
-               f.nombre_completo AS FuncionarioNombre
-        FROM movimientos_consumo m
-        LEFT JOIN bienes b       ON b.id = m.bien_id
-        LEFT JOIN proveedores p  ON p.id = m.proveedor_id
-        LEFT JOIN funcionarios f ON f.id = m.funcionario_recibe_id";
+        var (filtroSql, parametros) = ConstruirFiltros("b");
+        var condiciones = new List<string> { "b.tipo_bien = 'consumo'", "b.activo = TRUE" };
+
+        if (!string.IsNullOrWhiteSpace(filtroTexto))
+        {
+            condiciones.Add("(b.codigo ILIKE @Buscar OR b.nombre ILIKE @Buscar)");
+            parametros.Add("Buscar", $"%{filtroTexto}%");
+        }
+        if (categoriaId.HasValue && categoriaId > 0)
+        {
+            condiciones.Add("b.categoria_id = @CatId");
+            parametros.Add("CatId", categoriaId.Value);
+        }
+        if (bajoStock == true) condiciones.Add("b.stock_actual <= b.stock_minimo");
+
+        var whereExtra = " AND " + string.Join(" AND ", condiciones);
+        parametros.Add("Tamano", tamano);
+        parametros.Add("Offset", (pagina - 1) * tamano);
+
+        var sqlCount = $"SELECT COUNT(*) FROM bienes b WHERE 1=1 {filtroSql} {whereExtra};";
+        var sqlData = $@"
+            SELECT b.id AS Id, b.codigo AS Codigo, b.nombre AS Nombre, b.categoria_id AS CategoriaId,
+                   b.unidad_medida AS UnidadMedida, b.stock_actual AS StockActual, b.stock_minimo AS StockMinimo,
+                   b.cpp_actual AS CppActual, b.valor_stock AS ValorStock,
+                   (b.stock_actual <= b.stock_minimo) AS BajoStockMinimo
+            FROM bienes b
+            WHERE 1=1 {filtroSql} {whereExtra}
+            ORDER BY b.nombre LIMIT @Tamano OFFSET @Offset;";
+
+        using var cn = new NpgsqlConnection(_cs);
+        var total = await cn.ExecuteScalarAsync<int>(sqlCount, parametros);
+        var items = (await cn.QueryAsync<BienConsumoDTO>(sqlData, parametros)).ToList();
+
+        return new ResultadoPaginado<BienConsumoDTO>
+        {
+            Items = items,
+            TotalRegistros = total,
+            PaginaActual = pagina,
+            TamanoPagina = tamano
+        };
+    }
+
+    public async Task<IEnumerable<BienConsumoDTO>> ObtenerBienesConsumoAsync()
+    {
+        var (filtroSql, parametros) = ConstruirFiltros("b");
+        var sql = $@"
+            SELECT b.id AS Id, b.codigo AS Codigo, b.nombre AS Nombre, b.unidad_medida AS UnidadMedida,
+                   b.stock_actual AS StockActual, b.stock_minimo AS StockMinimo, b.cpp_actual AS CppActual,
+                   b.valor_stock AS ValorStock, (b.stock_actual <= b.stock_minimo) AS BajoStockMinimo
+            FROM bienes b
+            WHERE b.tipo_bien = 'consumo' AND b.activo = TRUE {filtroSql}
+            ORDER BY b.nombre;";
+        using var cn = new NpgsqlConnection(_cs);
+        return await cn.QueryAsync<BienConsumoDTO>(sql, parametros);
+    }
+
+    public async Task<BienConsumoDTO?> ObtenerBienConsumoPorIdAsync(int id)
+    {
+        var (filtroSql, parametros) = ConstruirFiltros("b");
+        parametros.Add("Id", id);
+        var sql = $@"
+            SELECT b.id AS Id, b.codigo AS Codigo, b.nombre AS Nombre, b.unidad_medida AS UnidadMedida,
+                   b.stock_actual AS StockActual, b.stock_minimo AS StockMinimo, b.cpp_actual AS CppActual,
+                   b.valor_stock AS ValorStock, (b.stock_actual <= b.stock_minimo) AS BajoStockMinimo,
+                   b.institucion_id AS InstitucionId
+            FROM bienes b
+            WHERE b.id = @Id AND b.tipo_bien = 'consumo' {filtroSql};";
+        using var cn = new NpgsqlConnection(_cs);
+        return await cn.QueryFirstOrDefaultAsync<BienConsumoDTO>(sql, parametros);
+    }
+
+    public async Task<IEnumerable<BienConsumoDTO>> ObtenerBajoStockMinimoAsync()
+    {
+        var (filtroSql, parametros) = ConstruirFiltros("b");
+        var sql = $@"
+            SELECT b.id AS Id, b.codigo AS Codigo, b.nombre AS Nombre, b.unidad_medida AS UnidadMedida,
+                   b.stock_actual AS StockActual, b.stock_minimo AS StockMinimo, b.cpp_actual AS CppActual,
+                   b.valor_stock AS ValorStock, (b.stock_actual <= b.stock_minimo) AS BajoStockMinimo
+            FROM bienes b
+            WHERE b.tipo_bien = 'consumo' AND b.activo = TRUE AND b.stock_actual <= b.stock_minimo {filtroSql}
+            ORDER BY b.stock_actual;";
+        using var cn = new NpgsqlConnection(_cs);
+        return await cn.QueryAsync<BienConsumoDTO>(sql, parametros);
+    }
 
     public async Task<IEnumerable<MovimientoConsumoDTO>> ObtenerMovimientosAsync(int? bienId = null)
     {
-        var (filtro, _) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "m");
+        var (filtroSql, parametros) = ConstruirFiltros("m");
 
-        var sql = $"{BaseMovimiento} WHERE 1=1 {filtro}";
+        var condBien = bienId.HasValue ? " AND m.bien_id = @BienId" : "";
+        if (bienId.HasValue) parametros.Add("BienId", bienId.Value);
 
-        if (bienId.HasValue)
-            sql += " AND m.bien_id = @BienId";
-
-        sql += " ORDER BY m.fecha_movimiento DESC, m.id DESC LIMIT 500;";
+        var sql = $@"
+            SELECT m.id AS Id, m.bien_id AS BienId, m.tipo_movimiento AS TipoMovimiento,
+                   m.fecha_movimiento::timestamp AS FechaMovimiento, m.cantidad AS Cantidad,
+                   m.costo_unitario AS CostoUnitario, m.valor_movimiento AS ValorMovimiento,
+                   m.saldo_cantidad AS SaldoCantidad, m.saldo_valor AS SaldoValor, m.cpp AS Cpp,
+                   m.documento_referencia AS DocumentoReferencia, m.observaciones AS Observaciones,
+                   m.funcionario_recibe_id AS FuncionarioRecibeId, f.nombre_completo AS FuncionarioRecibeNombre
+            FROM movimientos_consumo m
+            LEFT JOIN funcionarios f ON f.id = m.funcionario_recibe_id
+            WHERE 1=1 {filtroSql} {condBien}
+            ORDER BY m.fecha_movimiento DESC, m.id DESC;";
 
         using var cn = new NpgsqlConnection(_cs);
-        return await cn.QueryAsync<MovimientoConsumoDTO>(sql,
-            new { BienId = bienId, InstitucionId = _sesion.InstitucionId });
+        return await cn.QueryAsync<MovimientoConsumoDTO>(sql, parametros);
     }
 
     public async Task<IEnumerable<MovimientoConsumoDTO>> ObtenerKardexAsync(int bienId)
     {
-        var (filtro, _) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "m");
+        return await ObtenerMovimientosAsync(bienId);
+    }
 
-        var sql = $@"
-            {BaseMovimiento}
-            WHERE m.bien_id = @BienId {filtro}
-            ORDER BY m.fecha_movimiento ASC, m.id ASC;";
-
-        using var cn = new NpgsqlConnection(_cs);
-        return await cn.QueryAsync<MovimientoConsumoDTO>(sql,
-            new { BienId = bienId, InstitucionId = _sesion.InstitucionId });
+    public async Task<CompromisoDTO> VerificarCompromisoConsumoAsync(int bienId)
+    {
+        return await Task.FromResult(new CompromisoDTO());
     }
 
     public async Task<int> RegistrarMovimientoAsync(MovimientoConsumoDTO dto)
     {
+        var bien = await ObtenerBienConsumoPorIdAsync(dto.BienId);
+        if (bien is null) throw new InvalidOperationException("El bien no existe o no pertenece a su sede.");
+
         using var cn = new NpgsqlConnection(_cs);
         await cn.OpenAsync();
         using var tx = await cn.BeginTransactionAsync();
 
         try
         {
-            const string sqlGet = @"
-            SELECT stock_actual AS StockActual,
-                   cpp_actual AS CppActual,
-                   valor_stock AS ValorStock
-            FROM bienes
-            WHERE id = @BienId AND tipo_bien = 'consumo'
-            FOR UPDATE;";
+            int sedeId = _sesion.VeTodasLasSedes ? (dto.SedeId ?? _sesion.SedeId ?? 0) : _sesion.SedeId.Value;
+            if (sedeId == 0) throw new InvalidOperationException("No se pudo determinar la sede.");
 
-            var estado = await cn.QueryFirstOrDefaultAsync<EstadoBienConsumo>(
-                sqlGet, new { dto.BienId }, tx);
+            var ultimoSaldo = await cn.QueryFirstOrDefaultAsync<dynamic>(
+                @"SELECT saldo_cantidad, saldo_valor, cpp FROM movimientos_consumo 
+                  WHERE bien_id = @BienId ORDER BY fecha_movimiento DESC, id DESC LIMIT 1;",
+                new { BienId = dto.BienId }, tx);
 
-            if (estado is null)
-                throw new InvalidOperationException("El bien no existe o no es de consumo.");
+            decimal saldoCantAnterior = (decimal)(ultimoSaldo?.saldo_cantidad ?? bien.StockActual);
+            decimal saldoValAnterior = (decimal)(ultimoSaldo?.saldo_valor ?? bien.ValorStock);
+            decimal cppAnterior = (decimal)(ultimoSaldo?.cpp ?? bien.CppActual);
 
-            var saldoCant = estado.StockActual;
-            var saldoValor = estado.ValorStock;
-            var cpp = estado.CppActual;
+            decimal nuevoCosto = (dto.TipoMovimiento == "ENTRADA" || dto.TipoMovimiento == "AJUSTE_POS") ? dto.CostoUnitario : cppAnterior;
 
-            decimal nuevoSaldoCant;
-            decimal nuevoSaldoValor;
-            decimal nuevoCpp;
-            decimal valorMovimiento;
-            decimal costoUnitarioUsado;
+            decimal saldoCantNuevo = 0, saldoValNuevo = 0, cppNuevo = 0;
 
-            switch (dto.TipoMovimiento)
+            if (dto.TipoMovimiento == "ENTRADA" || dto.TipoMovimiento == "AJUSTE_POS")
             {
-                case "ENTRADA":
-                case "AJUSTE_POS":
-                    if (dto.CostoUnitario <= 0)
-                        throw new InvalidOperationException("El costo unitario debe ser mayor a 0.");
-
-                    valorMovimiento = dto.Cantidad * dto.CostoUnitario;
-                    nuevoSaldoCant = saldoCant + dto.Cantidad;
-                    nuevoSaldoValor = saldoValor + valorMovimiento;
-
-                    nuevoCpp = nuevoSaldoCant > 0
-                        ? Math.Round(nuevoSaldoValor / nuevoSaldoCant, 4)
-                        : 0;
-
-                    costoUnitarioUsado = dto.CostoUnitario;
-                    break;
-
-                case "SALIDA":
-                case "AJUSTE_NEG":
-                    if (dto.Cantidad > saldoCant)
-                        throw new InvalidOperationException(
-                            $"No hay suficiente stock. Disponible: {saldoCant:N2}.");
-
-                    costoUnitarioUsado = cpp;
-                    valorMovimiento = Math.Round(dto.Cantidad * cpp, 2);
-                    nuevoSaldoCant = saldoCant - dto.Cantidad;
-                    nuevoSaldoValor = Math.Round(saldoValor - valorMovimiento, 2);
-                    nuevoCpp = cpp;
-                    break;
-
-                default:
-                    throw new InvalidOperationException("Tipo de movimiento no válido.");
+                saldoCantNuevo = saldoCantAnterior + dto.Cantidad;
+                saldoValNuevo = saldoValAnterior + (dto.Cantidad * nuevoCosto);
+                cppNuevo = saldoCantNuevo > 0 ? (saldoValNuevo / saldoCantNuevo) : 0;
+            }
+            else
+            {
+                saldoCantNuevo = saldoCantAnterior - dto.Cantidad;
+                saldoValNuevo = saldoCantNuevo * cppAnterior;
+                cppNuevo = cppAnterior;
             }
 
-            const string sqlInsert = @"
-            INSERT INTO movimientos_consumo
-                (bien_id, institucion_id, tipo_movimiento, fecha_movimiento,
-                 cantidad, costo_unitario, valor_movimiento,
-                 saldo_cantidad, saldo_valor, cpp,
-                 documento_referencia, proveedor_id, funcionario_recibe_id,
-                 observaciones)
-            VALUES
-                (@BienId, @InstitucionId, @TipoMovimiento, @FechaMovimiento,
-                 @Cantidad, @CostoUnitario, @ValorMovimiento,
-                 @SaldoCantidad, @SaldoValor, @Cpp,
-                 @DocumentoReferencia, @ProveedorId, @FuncionarioRecibeId,
-                 @Observaciones)
-            RETURNING id;";
+            decimal valorMovimiento = dto.Cantidad * nuevoCosto;
 
-            var idMovimiento = await cn.ExecuteScalarAsync<int>(sqlInsert, new
+            const string sqlInsert = @"
+                INSERT INTO movimientos_consumo
+                    (bien_id, institucion_id, sede_id, tipo_movimiento, fecha_movimiento, cantidad, costo_unitario,
+                     valor_movimiento, saldo_cantidad, saldo_valor, cpp, documento_referencia,
+                     observaciones, funcionario_recibe_id)
+                VALUES
+                    (@BienId, @InstitucionId, @SedeId, @TipoMovimiento, @FechaMovimiento, @Cantidad, @CostoUnitario,
+                     @ValorMovimiento, @SaldoCantidad, @SaldoValor, @Cpp, @DocumentoReferencia,
+                     @Observaciones, @FuncionarioRecibeId)
+                RETURNING id;";
+
+            var idMov = await cn.ExecuteScalarAsync<int>(sqlInsert, new
             {
                 dto.BienId,
-                InstitucionId = _sesion.InstitucionId,
+                InstitucionId = bien.InstitucionId,
+                SedeId = sedeId,
                 dto.TipoMovimiento,
-                dto.FechaMovimiento,
+                FechaMovimiento = dto.FechaMovimiento ?? DateTime.Today,
                 dto.Cantidad,
-                CostoUnitario = costoUnitarioUsado,
+                CostoUnitario = nuevoCosto,
                 ValorMovimiento = valorMovimiento,
-                SaldoCantidad = nuevoSaldoCant,
-                SaldoValor = nuevoSaldoValor,
-                Cpp = nuevoCpp,
+                SaldoCantidad = saldoCantNuevo,
+                SaldoValor = saldoValNuevo,
+                Cpp = cppNuevo,
                 dto.DocumentoReferencia,
-                dto.ProveedorId,
-                dto.FuncionarioRecibeId,
-                dto.Observaciones
+                dto.Observaciones,
+                dto.FuncionarioRecibeId
             }, tx);
 
-            const string sqlUpdate = @"
-            UPDATE bienes
-            SET stock_actual = @StockActual,
-                cpp_actual   = @CppActual,
-                valor_stock  = @ValorStock,
-                updated_at   = NOW()
-            WHERE id = @BienId;";
-
-            await cn.ExecuteAsync(sqlUpdate, new
-            {
-                BienId = dto.BienId,
-                StockActual = nuevoSaldoCant,
-                CppActual = nuevoCpp,
-                ValorStock = nuevoSaldoValor
-            }, tx);
+            await cn.ExecuteAsync(@"
+                UPDATE bienes 
+                SET stock_actual = @SaldoCantidad,
+                    cpp_actual = @Cpp,
+                    valor_stock = @SaldoValor,
+                    updated_at = NOW()
+                WHERE id = @BienId;",
+                new { SaldoCantidad = saldoCantNuevo, Cpp = cppNuevo, SaldoValor = saldoValNuevo, BienId = dto.BienId }, tx);
 
             await tx.CommitAsync();
-            return idMovimiento;
+            return idMov;
         }
         catch
         {
             await tx.RollbackAsync();
             throw;
         }
-    }
-
-    private class EstadoBienConsumo
-    {
-        public decimal StockActual { get; set; }
-        public decimal CppActual { get; set; }
-        public decimal ValorStock { get; set; }
-    }
-
-    public async Task<IEnumerable<BienConsumoDTO>> ObtenerBajoStockMinimoAsync()
-    {
-        var (filtro, param) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "b");
-
-        var sql = $@"
-            {BaseBienConsumo}
-            AND b.activo = TRUE
-            AND b.stock_actual <= b.stock_minimo
-            {filtro}
-            ORDER BY b.codigo;";
-
-        using var cn = new NpgsqlConnection(_cs);
-        return await cn.QueryAsync<BienConsumoDTO>(sql, param);
-    }
-
-    // ═══════════════════════════════════════════════════════
-    // VERIFICAR COMPROMISO — bien comprometido (no eliminar)
-    // ═══════════════════════════════════════════════════════
-    public async Task<CompromisoDTO> VerificarCompromisoConsumoAsync(int bienId)
-    {
-        const string sql = @"
-            SELECT 'Movimiento de kárdex' AS Tipo, COUNT(*)::int AS Cantidad, NULL AS Referencia
-            FROM movimientos_consumo WHERE bien_id = @BienId
-            HAVING COUNT(*) > 0;";
-
-        using var cn = new NpgsqlConnection(_cs);
-        var rows = (await cn.QueryAsync<(string Tipo, int Cantidad, string? Referencia)>(
-            sql, new { BienId = bienId })).ToList();
-
-        var dto = new CompromisoDTO();
-        foreach (var r in rows)
-        {
-            dto.Detalles.Add(new DetalleCompromiso
-            {
-                Tipo = r.Tipo,
-                Cantidad = r.Cantidad,
-                Referencia = r.Referencia,
-                Icono = "bi-journal-text"
-            });
-        }
-        return dto;
     }
 }

@@ -26,14 +26,14 @@ public class GarantiaDTO
     public string? ContactoProveedor { get; set; }
     public string? Observaciones { get; set; }
 
-    // ═══════════════════════════════════════════════════════════
-    // PROPIEDADES DE SOFT-DELETE (ANULACIÓN)
-    // ═══════════════════════════════════════════════════════════
+    public int InstitucionId { get; set; }
+    public int? SedeId { get; set; } // ⬅️ NUEVO
+
+    // ═══ SOFT-DELETE (ANULACIÓN) ═══
     public bool Anulada { get; set; }
     public int? AnuladaPor { get; set; }
     public DateTime? AnuladaFecha { get; set; }
     public string? AnuladaMotivo { get; set; }
-    // ═══════════════════════════════════════════════════════════
 
     // ── Navegación ──
     public string? BienCodigo { get; set; }
@@ -41,6 +41,7 @@ public class GarantiaDTO
     public string? BienCategoriaNombre { get; set; }
     public string? ProveedorNombre { get; set; }
     public string? ProveedorNit { get; set; }
+    public string? SedeNombre { get; set; } // ⬅️ NUEVO
 
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }

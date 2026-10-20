@@ -19,6 +19,29 @@ public class SalidaRepository : ISalidaRepository
         _sesion = sesion;
     }
 
+    private bool DebeFiltrarPorSede() => !_sesion.VeTodasLasSedes;
+
+    private (string Sql, DynamicParameters Parametros) ConstruirFiltros(string alias)
+    {
+        var condiciones = new List<string>();
+        var parametros = new DynamicParameters();
+
+        if (!_sesion.EsSuperAdmin && _sesion.InstitucionId > 0)
+        {
+            condiciones.Add($"{alias}.institucion_id = @InstitucionId");
+            parametros.Add("InstitucionId", _sesion.InstitucionId);
+        }
+
+        if (DebeFiltrarPorSede())
+        {
+            condiciones.Add($"{alias}.sede_id = @SedeId");
+            parametros.Add("SedeId", _sesion.SedeId!.Value);
+        }
+
+        var sql = condiciones.Count > 0 ? " AND " + string.Join(" AND ", condiciones) : string.Empty;
+        return (sql, parametros);
+    }
+
     private const string BaseSelect = @"
         SELECT
             s.id,
@@ -32,22 +55,23 @@ public class SalidaRepository : ISalidaRepository
             s.funcionario_aprueba_id AS FuncionarioApruebaId,
             s.observaciones,
             s.institucion_id       AS InstitucionId,
+            s.sede_id              AS SedeId,
             s.anulada,
             s.anulada_por          AS AnuladaPor,
             s.anulada_fecha::timestamp AS AnuladaFecha,
             s.anulada_motivo       AS AnuladaMotivo,
             b.codigo               AS BienCodigo,
             b.nombre               AS BienNombre,
-            f.nombre_completo      AS FuncionarioNombre
+            f.nombre_completo      AS FuncionarioNombre,
+            sed.nombre             AS SedeNombre
         FROM salidas s
         LEFT JOIN bienes b       ON b.id = s.bien_id
-        LEFT JOIN funcionarios f ON f.id = s.funcionario_aprueba_id";
+        LEFT JOIN funcionarios f ON f.id = s.funcionario_aprueba_id
+        LEFT JOIN sedes sed      ON sed.id = s.sede_id";
 
     public async Task<IEnumerable<SalidaDTO>> ObtenerTodasAsync()
     {
-        var (filtro, param) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "s");
-
+        var (filtro, param) = ConstruirFiltros("s");
         var sql = $"{BaseSelect} WHERE s.anulada = FALSE {filtro} ORDER BY s.fecha_salida DESC, s.id DESC;";
 
         using var cn = new NpgsqlConnection(_cs);
@@ -56,43 +80,39 @@ public class SalidaRepository : ISalidaRepository
 
     public async Task<SalidaDTO?> ObtenerPorIdAsync(int id)
     {
-        var (filtro, param) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "s");
+        var (filtro, param) = ConstruirFiltros("s");
+        param.Add("Id", id);
 
         var sql = $"{BaseSelect} WHERE s.id = @Id {filtro};";
 
         using var cn = new NpgsqlConnection(_cs);
-        return await cn.QueryFirstOrDefaultAsync<SalidaDTO>(sql,
-            new { Id = id, InstitucionId = _sesion.InstitucionId });
+        return await cn.QueryFirstOrDefaultAsync<SalidaDTO>(sql, param);
     }
 
     public async Task<int> CrearAsync(SalidaDTO dto)
     {
+        if (!_sesion.EsSuperAdmin)
+            dto.InstitucionId = _sesion.InstitucionId;
+
+        if (!_sesion.VeTodasLasSedes)
+            dto.SedeId = _sesion.SedeId;
+
+        if (dto.SedeId == null)
+            throw new InvalidOperationException("La sede es obligatoria para registrar la salida.");
+
         const string sql = @"
             INSERT INTO salidas
                 (bien_id, tipo_baja, motivo, fecha_salida, numero_acta_comite,
                  numero_denuncia, valor_salida, funcionario_aprueba_id, observaciones,
-                 institucion_id, anulada)
+                 institucion_id, sede_id, anulada)
             VALUES
                 (@BienId, @TipoBaja, @Motivo, @FechaSalida, @NumeroActaComite,
                  @NumeroDenuncia, @ValorSalida, @FuncionarioApruebaId, @Observaciones,
-                 @InstitucionId, FALSE)
+                 @InstitucionId, @SedeId, FALSE)
             RETURNING id;";
 
         using var cn = new NpgsqlConnection(_cs);
-        return await cn.ExecuteScalarAsync<int>(sql, new
-        {
-            dto.BienId,
-            dto.TipoBaja,
-            dto.Motivo,
-            dto.FechaSalida,
-            dto.NumeroActaComite,
-            dto.NumeroDenuncia,
-            dto.ValorSalida,
-            dto.FuncionarioApruebaId,
-            dto.Observaciones,
-            InstitucionId = _sesion.InstitucionId
-        });
+        return await cn.ExecuteScalarAsync<int>(sql, dto);
     }
 
     public async Task<bool> ActualizarAsync(SalidaDTO dto)
@@ -122,6 +142,9 @@ public class SalidaRepository : ISalidaRepository
             }) > 0;
         }
 
+        if (!_sesion.VeTodasLasSedes)
+            dto.SedeId = _sesion.SedeId;
+
         const string sql = @"
             UPDATE salidas
             SET bien_id = @BienId,
@@ -132,7 +155,8 @@ public class SalidaRepository : ISalidaRepository
                 numero_denuncia = @NumeroDenuncia,
                 valor_salida = @ValorSalida,
                 funcionario_aprueba_id = @FuncionarioApruebaId,
-                observaciones = @Observaciones
+                observaciones = @Observaciones,
+                sede_id = @SedeId
             WHERE id = @Id AND anulada = FALSE;";
 
         using var cnFull = new NpgsqlConnection(_cs);
@@ -235,46 +259,30 @@ public class SalidaRepository : ISalidaRepository
     }
 
     public async Task<ResultadoPaginado<SalidaDTO>> ObtenerPaginadoAsync(
-        int pagina = 1,
-        int tamano = 25,
-        string? filtroTexto = null)
+        int pagina = 1, int tamano = 25, string? filtroTexto = null)
     {
         if (pagina < 1) pagina = 1;
         if (tamano < 1) tamano = 25;
         if (tamano > 200) tamano = 200;
 
-        var (filtroInst, _) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "s");
+        var (filtroInst, parametros) = ConstruirFiltros("s");
+        var condiciones = new List<string> { "s.anulada = FALSE" };
 
-        var filtroBusqueda = string.Empty;
         if (!string.IsNullOrWhiteSpace(filtroTexto))
         {
-            filtroBusqueda = @" AND (b.codigo ILIKE @Buscar 
-                                 OR b.nombre ILIKE @Buscar 
-                                 OR s.motivo ILIKE @Buscar 
-                                 OR s.numero_acta_comite ILIKE @Buscar)";
+            condiciones.Add(@"(b.codigo ILIKE @Buscar OR b.nombre ILIKE @Buscar 
+                               OR s.motivo ILIKE @Buscar OR s.numero_acta_comite ILIKE @Buscar)");
+            parametros.Add("Buscar", $"%{filtroTexto}%");
         }
 
-        var sqlCount = $@"
-            SELECT COUNT(*) FROM salidas s
-            LEFT JOIN bienes b ON b.id = s.bien_id
-            WHERE s.anulada = FALSE {filtroInst} {filtroBusqueda};";
+        var whereExtra = " AND " + string.Join(" AND ", condiciones);
+        parametros.Add("Tamano", tamano);
+        parametros.Add("Offset", (pagina - 1) * tamano);
 
-        var sqlData = $@"
-            {BaseSelect}
-            WHERE s.anulada = FALSE {filtroInst} {filtroBusqueda}
-            ORDER BY s.fecha_salida DESC, s.id DESC
-            LIMIT @Tamano OFFSET @Offset;";
+        var sqlCount = $@"SELECT COUNT(*) FROM salidas s LEFT JOIN bienes b ON b.id = s.bien_id WHERE 1=1 {filtroInst} {whereExtra};";
+        var sqlData = $@"{BaseSelect} WHERE 1=1 {filtroInst} {whereExtra} ORDER BY s.fecha_salida DESC, s.id DESC LIMIT @Tamano OFFSET @Offset;";
 
         using var cn = new NpgsqlConnection(_cs);
-        var parametros = new
-        {
-            InstitucionId = _sesion.InstitucionId,
-            Buscar = $"%{filtroTexto}%",
-            Tamano = tamano,
-            Offset = (pagina - 1) * tamano
-        };
-
         var total = await cn.ExecuteScalarAsync<int>(sqlCount, parametros);
         var items = (await cn.QueryAsync<SalidaDTO>(sqlData, parametros)).ToList();
 
@@ -288,20 +296,14 @@ public class SalidaRepository : ISalidaRepository
     }
 
     public async Task<ResultadoPaginado<SalidaDTO>> ObtenerPaginadoConFiltrosAsync(
-        FiltroMovimientoDTO filtro,
-        int pagina = 1,
-        int tamano = 25)
+        FiltroMovimientoDTO filtro, int pagina = 1, int tamano = 25)
     {
         if (pagina < 1) pagina = 1;
         if (tamano < 1) tamano = 25;
         if (tamano > 200) tamano = 200;
 
-        var (filtroInst, _) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "s");
-
+        var (filtroInst, parametros) = ConstruirFiltros("s");
         var condiciones = new List<string> { "s.anulada = FALSE" };
-        var parametros = new DynamicParameters();
-        parametros.Add("InstitucionId", _sesion.InstitucionId);
 
         if (!string.IsNullOrWhiteSpace(filtro.Texto))
         {
@@ -328,21 +330,12 @@ public class SalidaRepository : ISalidaRepository
             parametros.Add("Tipo", filtro.Tipo);
         }
 
-        var whereExtra = string.Join(" AND ", condiciones);
-
+        var whereExtra = " AND " + string.Join(" AND ", condiciones);
         parametros.Add("Tamano", tamano);
         parametros.Add("Offset", (pagina - 1) * tamano);
 
-        var sqlCount = $@"
-            SELECT COUNT(*) FROM salidas s
-            LEFT JOIN bienes b ON b.id = s.bien_id
-            WHERE {whereExtra} {filtroInst};";
-
-        var sqlData = $@"
-            {BaseSelect}
-            WHERE {whereExtra} {filtroInst}
-            ORDER BY s.fecha_salida DESC, s.id DESC
-            LIMIT @Tamano OFFSET @Offset;";
+        var sqlCount = $@"SELECT COUNT(*) FROM salidas s LEFT JOIN bienes b ON b.id = s.bien_id WHERE 1=1 {filtroInst} {whereExtra};";
+        var sqlData = $@"{BaseSelect} WHERE 1=1 {filtroInst} {whereExtra} ORDER BY s.fecha_salida DESC, s.id DESC LIMIT @Tamano OFFSET @Offset;";
 
         using var cn = new NpgsqlConnection(_cs);
         var total = await cn.ExecuteScalarAsync<int>(sqlCount, parametros);

@@ -2,21 +2,19 @@
    Reportes.razor — Estilos aislados
    ═══════════════════════════════════════════════════════ */
 
-/* ═══ CONTENEDOR — evitar overflow horizontal ═══ */
 ::deep .page-container {
     max-width: 100%;
     overflow-x: hidden;
     box-sizing: border-box;
 }
 
-/* ═══ GRID DE KPIs — responsive real ═══ */
 ::deep .kpi-grid {
     display: grid !important;
     grid-template-columns: repeat(auto-fit, minmax(0, 1fr)) !important;
-    gap: 14px;
+    gap: 10px;
     width: 100%;
     box-sizing: border-box;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
 }
 
     ::deep .kpi-grid > .kpi-card {
@@ -24,43 +22,32 @@
         overflow: hidden;
     }
 
-::deep .kpi-card .kpi-label,
-::deep .kpi-card .kpi-value {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-::deep .kpi-card .kpi-label {
-    font-size: 0.72rem;
-}
-
-/* ═══ KPI HERO — Total activo en libros ═══ */
+/* ═══ KPI HERO — Más compacto ═══ */
 .kpi-hero {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 20px;
+    gap: 12px;
     background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%) !important;
     color: #ffffff !important;
-    border-radius: 14px;
-    padding: 20px 24px;
-    margin: 20px 0;
-    box-shadow: 0 8px 24px rgba(79, 70, 229, 0.25);
+    border-radius: 10px;
+    padding: 10px 16px; /* Reducido */
+    margin: 12px 0;
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);
     flex-wrap: wrap;
     width: 100%;
     box-sizing: border-box;
 }
 
 .kpi-hero-icon {
-    width: 52px;
-    height: 52px;
-    border-radius: 12px;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
     background: rgba(255, 255, 255, 0.18) !important;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.5rem;
+    font-size: 1.1rem;
     color: #ffffff !important;
     flex-shrink: 0;
 }
@@ -70,25 +57,25 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
 }
 
 .kpi-hero-label {
-    font-size: 0.78rem;
-    letter-spacing: 1.2px;
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
     font-weight: 700;
     color: #ffffff !important;
     opacity: 0.95;
 }
 
 .kpi-hero-formula {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     color: #ffffff !important;
     opacity: 0.75;
 }
 
 .kpi-hero-value {
-    font-size: 1.9rem;
+    font-size: 1.4rem; /* Reducido */
     font-weight: 800;
     letter-spacing: -0.5px;
     color: #ffffff !important;
@@ -96,57 +83,40 @@
     flex-shrink: 0;
 }
 
-/* ═══ CARD TABLE — contenida, con scroll interno ═══ */
+/* ═══ CARD TABLE ═══ */
 ::deep .card-table {
     max-width: 100%;
     overflow: hidden;
     box-sizing: border-box;
+    margin-top: 10px;
 }
 
     ::deep .card-table .filtros-tabla {
         flex-wrap: wrap;
         gap: 10px;
         max-width: 100%;
-    }
-
-    ::deep .card-table .filtro-info {
-        flex-wrap: wrap;
-        gap: 8px;
-    }
-
-    ::deep .card-table .btn-export-cgn {
-        white-space: nowrap;
-        flex-shrink: 0;
+        padding: 10px 16px;
     }
 
     ::deep .card-table .table-responsive {
         overflow-x: auto;
         max-width: 100%;
         display: block;
+        max-height: 500px; /* Scroll vertical para que no empuje la página */
+        overflow-y: auto;
+    }
+
+    /* Hacer el thead sticky para que no se pierda al hacer scroll */
+    ::deep .card-table .modern-table thead th {
+        position: sticky;
+        top: 0;
+        background: #f8fafc;
+        z-index: 10;
     }
 
     ::deep .card-table .modern-table th,
     ::deep .card-table .modern-table td {
-        padding: 10px 12px;
-        font-size: 0.85rem;
+        padding: 8px 10px;
+        font-size: 0.82rem;
         white-space: nowrap;
     }
-
-/* ═══ RESPONSIVE ═══ */
-@media (max-width: 1100px) {
-    .kpi-hero-value {
-        font-size: 1.5rem;
-    }
-}
-
-@media (max-width: 768px) {
-    .kpi-hero {
-        flex-direction: column;
-        text-align: center;
-    }
-
-    .kpi-hero-value {
-        font-size: 1.4rem;
-        text-align: center;
-    }
-}

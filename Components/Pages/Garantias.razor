@@ -8,10 +8,12 @@
 @using Almacen.Helpers
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.JSInterop
+@using System.Globalization
 
 @inject IGarantiaRepository GarantiaRepo
 @inject IBienRepository BienRepo
 @inject IProveedorRepository ProveedorRepo
+@inject ISedeRepository SedeRepo
 @inject IJSRuntime JS
 @inject SeguridadService Seguridad
 @inject NavigationManager Navigation
@@ -72,29 +74,6 @@
                 </div>
             </div>
         </section>
-
-        <div class="pills-filter">
-            <button type="button"
-                    class="pill-btn @(_pillActivo is null ? "active-indigo" : "inactive")"
-                    @onclick="FiltrarTodas">
-                <i class="bi bi-list-ul"></i> Todas
-            </button>
-            <button type="button"
-                    class="pill-btn @(_pillActivo == "vigentes" ? "active-green" : "inactive")"
-                    @onclick="FiltrarVigentes">
-                <i class="bi bi-shield-fill-check"></i> Vigentes
-            </button>
-            <button type="button"
-                    class="pill-btn @(_pillActivo == "por_vencer" ? "active-orange" : "inactive")"
-                    @onclick="FiltrarPorVencer">
-                <i class="bi bi-clock-history"></i> Por vencer
-            </button>
-            <button type="button"
-                    class="pill-btn @(_pillActivo == "vencidas" ? "active-red" : "inactive")"
-                    @onclick="FiltrarVencidas">
-                <i class="bi bi-shield-slash"></i> Vencidas
-            </button>
-        </div>
     }
 
     @if (_mostrarFormulario)
@@ -120,8 +99,9 @@
             <EditForm Model="dto" OnValidSubmit="Guardar">
                 <DataAnnotationsValidator />
 
-                <div class="form-grid-3">
-                    <div class="form-group" style="grid-column: span 2;">
+                @* ═══ FILA 1: Bien | Tipo | N° Garantía | Sede ═══ *@
+                <div class="form-row-4">
+                    <div class="form-group">
                         <label>Bien *</label>
                         <div class="input-icon">
                             <i class="bi bi-box-seam"></i>
@@ -153,11 +133,36 @@
                         <label>N° Garantía / Póliza</label>
                         <div class="input-icon">
                             <i class="bi bi-hash"></i>
-                            <InputText class="form-control" @bind-Value="dto.NumeroGarantia"
-                                       placeholder="Ej: GAR-2026-001" />
+                            <InputText class="form-control" @bind-Value="dto.NumeroGarantia" placeholder="Ej: GAR-2026-001" />
                         </div>
                     </div>
 
+                    <div class="form-group">
+                        <label>Sede @(!Sesion.VeTodasLasSedes ? "" : "*")</label>
+                        <div class="input-icon">
+                            <i class="bi bi-geo-alt-fill"></i>
+                            <InputSelect TValue="int?" class="form-select" 
+                                         @bind-Value="dto.SedeId"
+                                         disabled="@(!Sesion.VeTodasLasSedes)">
+                                @if (!Sesion.VeTodasLasSedes)
+                                {
+                                    <option value="@Sesion.SedeId">@Sesion.SedeNombre</option>
+                                }
+                                else
+                                {
+                                    <option value="">— Seleccione sede —</option>
+                                    @foreach (var s in _sedes)
+                                    {
+                                        <option value="@s.Id">@s.Nombre</option>
+                                    }
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+                </div>
+
+                @* ═══ FILA 2: Proveedor | Contacto | F. Inicio | F. Vencimiento ═══ *@
+                <div class="form-row-4">
                     <div class="form-group">
                         <label>Proveedor</label>
                         <div class="input-icon">
@@ -169,6 +174,14 @@
                                     <option value="@p.Id">@p.Nombre</option>
                                 }
                             </InputSelect>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Contacto del proveedor</label>
+                        <div class="input-icon">
+                            <i class="bi bi-telephone"></i>
+                            <InputText class="form-control" @bind-Value="dto.ContactoProveedor" placeholder="Teléfono o email" />
                         </div>
                     </div>
 
@@ -187,42 +200,35 @@
                             <InputDate TValue="DateTime" class="form-control" @bind-Value="dto.FechaVencimiento" />
                         </div>
                     </div>
+                </div>
 
+                @* ═══ FILA 3: Condiciones | Observaciones | Botones ═══ *@
+                <div class="form-row-bottom">
                     <div class="form-group">
-                        <label>Contacto del proveedor</label>
-                        <div class="input-icon">
-                            <i class="bi bi-telephone"></i>
-                            <InputText class="form-control" @bind-Value="dto.ContactoProveedor"
-                                       placeholder="Teléfono o email" />
-                        </div>
-                    </div>
-
-                    <div class="form-group form-group-full">
                         <label>Condiciones</label>
                         <div class="input-icon">
                             <i class="bi bi-file-text"></i>
-                            <InputTextArea class="form-control" rows="2" @bind-Value="dto.Condiciones"
-                                           placeholder="Condiciones de la garantía" />
+                            <InputTextArea class="form-control compact-textarea" @bind-Value="dto.Condiciones" placeholder="Condiciones de la garantía..." />
                         </div>
                     </div>
 
-                    <div class="form-group form-group-full">
+                    <div class="form-group">
                         <label>Observaciones</label>
                         <div class="input-icon">
                             <i class="bi bi-chat-left-text"></i>
-                            <InputTextArea class="form-control" rows="2" @bind-Value="dto.Observaciones" />
+                            <InputTextArea class="form-control compact-textarea" @bind-Value="dto.Observaciones" placeholder="Notas adicionales..." />
                         </div>
                     </div>
-                </div>
 
-                <div class="form-actions">
-                    <button type="button" class="btn btn-cancel" @onclick="Cancelar">
-                        <i class="bi bi-x-lg"></i> Cerrar
-                    </button>
-                    <button type="submit" class="btn btn-save">
-                        <i class="bi @(_editando ? "bi-check-circle-fill" : "bi-save-fill")"></i>
-                        @(_editando ? "Actualizar" : "Guardar")
-                    </button>
+                    <div class="form-actions-inline">
+                        <button type="button" class="btn btn-cancel" @onclick="Cancelar">
+                            <i class="bi bi-x-lg"></i> Cerrar
+                        </button>
+                        <button type="submit" class="btn btn-save">
+                            <i class="bi @(_editando ? "bi-check-circle-fill" : "bi-save-fill")"></i>
+                            @(_editando ? "Actualizar" : "Guardar")
+                        </button>
+                    </div>
                 </div>
             </EditForm>
         </div>
@@ -230,7 +236,9 @@
 
     <div class="card-table">
 
+        @* ═══ BARRA SUPERIOR UNIFICADA: Buscador | Pills | Filtros ═══ *@
         <div class="filtros-toolbar">
+            
             <div class="filtro-busqueda-principal">
                 <i class="bi bi-search"></i>
                 <input type="text"
@@ -245,14 +253,29 @@
                     </button>
                 }
             </div>
+
+            <div class="pills-filter-inline">
+                <button type="button" class="pill-btn @(_pillActivo is null ? "active-indigo" : "inactive")" @onclick="FiltrarTodas">
+                    <i class="bi bi-list-ul"></i> Todas
+                </button>
+                <button type="button" class="pill-btn @(_pillActivo == "vigentes" ? "active-green" : "inactive")" @onclick="FiltrarVigentes">
+                    <i class="bi bi-shield-fill-check"></i> Vigentes
+                </button>
+                <button type="button" class="pill-btn @(_pillActivo == "por_vencer" ? "active-orange" : "inactive")" @onclick="FiltrarPorVencer">
+                    <i class="bi bi-clock-history"></i> Por vencer
+                </button>
+                <button type="button" class="pill-btn @(_pillActivo == "vencidas" ? "active-red" : "inactive")" @onclick="FiltrarVencidas">
+                    <i class="bi bi-shield-slash"></i> Vencidas
+                </button>
+            </div>
         </div>
 
         <div class="table-responsive">
-            <table class="table modern-table">
+                        <table class="table modern-table">
                 <thead>
                     <tr>
-                        <th>Bien</th>
                         <th>N° Garantía</th>
+                        <th>Bien</th>
                         <th class="text-center">Tipo</th>
                         <th>Proveedor</th>
                         <th>Vence</th>
@@ -273,17 +296,16 @@
                     {
                         @foreach (var g in _pagina.Items)
                         {
-                            // ═══ REGLA DE NEGOCIO: solo se anulan VENCIDAS ═══
                             var esAnulable = g.EstadoCalculado == "VENCIDA" && !g.Anulada;
 
                             <tr class="table-row-hover @(g.EstaVencida ? "row-danger" : g.PorVencer ? "row-warning" : "")" @key="g.Id">
+                                <td class="text-mono">@(g.NumeroGarantia ?? "—")</td>
                                 <td>
                                     <div class="table-cell-primary">
                                         <strong>@g.BienNombre</strong>
                                         <small><code>@g.BienCodigo</code></small>
                                     </div>
                                 </td>
-                                <td class="text-mono">@(g.NumeroGarantia ?? "—")</td>
                                 <td class="text-center">
                                     <span class="badge @GetClaseBadgeTipo(g.Tipo)">@g.Tipo</span>
                                 </td>
@@ -315,25 +337,20 @@
                                 </td>
                                 <td class="text-center">
                                     <div class="action-buttons">
-                                        <button class="btn-action btn-action-view"
-                                                @onclick="() => VerDetalle(g)" title="Ver detalle">
+                                        <button class="btn-action btn-action-view" @onclick="() => VerDetalle(g)" title="Ver detalle">
                                             <i class="bi bi-eye-fill"></i>
                                         </button>
 
                                         @if (puedeEditar && !g.Anulada)
                                         {
-                                            <button class="btn-action btn-action-edit"
-                                                    @onclick="() => Editar(g)" title="Editar">
+                                            <button class="btn-action btn-action-edit" @onclick="() => Editar(g)" title="Editar">
                                                 <i class="bi bi-pencil-fill"></i>
                                             </button>
                                         }
 
-                                        @* ═══ BOTÓN DE ANULAR (reemplaza al de eliminar) ═══ *@
                                         @if (esAnulable && puedeAnular)
                                         {
-                                            <button class="btn-action btn-action-delete"
-                                                    @onclick="() => IntentarAnular(g)"
-                                                    title="Anular garantía (soft-delete)">
+                                            <button class="btn-action btn-action-delete" @onclick="() => IntentarAnular(g)" title="Anular garantía">
                                                 <i class="bi bi-slash-circle-fill"></i>
                                             </button>
                                         }
@@ -348,10 +365,7 @@
 
         @if (_pagina is not null && _pagina.TotalRegistros > 0)
         {
-            <Paginador T="GarantiaDTO"
-                       Resultado="_pagina"
-                       OnCambioPagina="CambioPagina"
-                       OnCambioTamano="CambioTamano" />
+            <Paginador T="GarantiaDTO" Resultado="_pagina" OnCambioPagina="CambioPagina" OnCambioTamano="CambioTamano" />
         }
     </div>
 </div>
@@ -360,70 +374,47 @@
 @if (_detalleAbierto && _detalle is not null)
 {
     var g = _detalle;
-
     <div class="modal-backdrop-det" @onclick="CerrarDetalle">
         <div class="modal-det" @onclick:stopPropagation="true">
             <div class="modal-det-header">
                 <div class="modal-det-header-left">
-                    @if (g.Anulada)
-                    {
-                        <span class="badge badge-off">ANULADA</span>
-                    }
-                    else
-                    {
-                        <span class="badge @GetClaseBadgeEstado(g.EstadoCalculado)">@g.EstadoCalculado</span>
-                    }
+                    @if (g.Anulada) { <span class="badge badge-off">ANULADA</span> }
+                    else { <span class="badge @GetClaseBadgeEstado(g.EstadoCalculado)">@g.EstadoCalculado</span> }
                     <h3>Garantía #@g.Id</h3>
                 </div>
-                <button class="modal-det-close" @onclick="CerrarDetalle">
-                    <i class="bi bi-x-lg"></i>
-                </button>
+                <button class="modal-det-close" @onclick="CerrarDetalle"><i class="bi bi-x-lg"></i></button>
             </div>
-
             <div class="modal-det-body">
                 @if (g.Anulada)
                 {
                     <div class="det-section" style="background: #fef2f2; border-left: 4px solid #dc2626;">
                         <h4><i class="bi bi-exclamation-triangle-fill"></i> Garantía Anulada</h4>
                         <dl class="det-dl">
-                            <dt>Motivo</dt>
-                            <dd>@(g.AnuladaMotivo ?? "—")</dd>
-                            <dt>Fecha</dt>
-                            <dd>@(g.AnuladaFecha?.ToString("dd/MM/yyyy HH:mm") ?? "—")</dd>
+                            <dt>Motivo</dt><dd>@(g.AnuladaMotivo ?? "—")</dd>
+                            <dt>Fecha</dt><dd>@(g.AnuladaFecha?.ToString("dd/MM/yyyy HH:mm") ?? "—")</dd>
                         </dl>
                     </div>
                 }
-
                 <div class="det-section">
                     <h4><i class="bi bi-box-seam"></i> Bien</h4>
                     <dl class="det-dl">
-                        <dt>Código</dt>
-                        <dd><code>@g.BienCodigo</code></dd>
-                        <dt>Nombre</dt>
-                        <dd><strong>@g.BienNombre</strong></dd>
-                        <dt>Categoría</dt>
-                        <dd>@(g.BienCategoriaNombre ?? "—")</dd>
+                        <dt>Código</dt><dd><code>@g.BienCodigo</code></dd>
+                        <dt>Nombre</dt><dd><strong>@g.BienNombre</strong></dd>
+                        <dt>Categoría</dt><dd>@(g.BienCategoriaNombre ?? "—")</dd>
+                        <dt>Sede</dt><dd>@g.SedeNombre</dd>
                     </dl>
                 </div>
-
                 <div class="det-section">
                     <h4><i class="bi bi-shield-check"></i> Garantía</h4>
                     <dl class="det-dl">
-                        <dt>Tipo</dt>
-                        <dd>@g.Tipo</dd>
-                        <dt>N°</dt>
-                        <dd>@(g.NumeroGarantia ?? "—")</dd>
-                        <dt>Proveedor</dt>
-                        <dd>@(g.ProveedorNombre ?? "—")</dd>
-                        <dt>Contacto</dt>
-                        <dd>@(g.ContactoProveedor ?? "—")</dd>
-                        <dt>Inicio</dt>
-                        <dd>@g.FechaInicio.ToString("dd/MM/yyyy")</dd>
-                        <dt>Vence</dt>
-                        <dd>@g.FechaVencimiento.ToString("dd/MM/yyyy")</dd>
+                        <dt>Tipo</dt><dd>@g.Tipo</dd>
+                        <dt>N°</dt><dd>@(g.NumeroGarantia ?? "—")</dd>
+                        <dt>Proveedor</dt><dd>@(g.ProveedorNombre ?? "—")</dd>
+                        <dt>Contacto</dt><dd>@(g.ContactoProveedor ?? "—")</dd>
+                        <dt>Inicio</dt><dd>@g.FechaInicio.ToString("dd/MM/yyyy")</dd>
+                        <dt>Vence</dt><dd>@g.FechaVencimiento.ToString("dd/MM/yyyy")</dd>
                     </dl>
                 </div>
-
                 @if (!string.IsNullOrWhiteSpace(g.Condiciones))
                 {
                     <div class="det-section">
@@ -431,7 +422,6 @@
                         <div class="det-note"><p>@g.Condiciones</p></div>
                     </div>
                 }
-
                 @if (!string.IsNullOrWhiteSpace(g.Observaciones))
                 {
                     <div class="det-section">
@@ -440,11 +430,8 @@
                     </div>
                 }
             </div>
-
             <div class="modal-det-footer">
-                <button class="btn-det-cerrar" @onclick="CerrarDetalle">
-                    <i class="bi bi-x-lg"></i> Cerrar
-                </button>
+                <button class="btn-det-cerrar" @onclick="CerrarDetalle"><i class="bi bi-x-lg"></i> Cerrar</button>
             </div>
         </div>
     </div>
@@ -454,74 +441,56 @@
 @if (_modalAnulacionAbierto && _itemAAnular is not null)
 {
     var g = _itemAAnular;
-
     <div class="modal-backdrop-det" @onclick="CancelarAnulacion">
         <div class="modal-det" @onclick:stopPropagation="true">
-
             <div class="modal-det-header">
                 <div class="modal-det-header-left">
                     <span class="badge badge-off">Anular garantía</span>
                     <h3>@g.BienNombre</h3>
                 </div>
-                <button class="modal-det-close" @onclick="CancelarAnulacion" title="Cerrar">
-                    <i class="bi bi-x-lg"></i>
-                </button>
+                <button class="modal-det-close" @onclick="CancelarAnulacion"><i class="bi bi-x-lg"></i></button>
             </div>
-
             <div class="modal-det-body">
                 <div class="det-section" style="background: #fffbeb; border-left: 4px solid #f59e0b;">
                     <h4><i class="bi bi-exclamation-triangle-fill"></i> ¿Qué es anular?</h4>
-                    <p style="margin: 0;">
-                        El registro <strong>NO se elimina de la base de datos</strong>. Se marca como "Anulada" y se excluye de los reportes operativos.
-                        El historial completo queda disponible para auditoría y para el expediente del bien.
-                    </p>
+                    <p style="margin: 0;">El registro <strong>NO se elimina de la base de datos</strong>. Se marca como "Anulada" y se excluye de los reportes operativos. El historial queda para auditoría.</p>
                 </div>
-
                 <div class="det-section">
                     <h4><i class="bi bi-info-circle"></i> Garantía a anular</h4>
                     <dl class="det-dl">
-                        <dt>Garantía</dt>
-                        <dd>#@g.Id</dd>
-                        <dt>Bien</dt>
-                        <dd><code>@g.BienCodigo</code> — @g.BienNombre</dd>
-                        <dt>Tipo</dt>
-                        <dd><span class="badge @GetClaseBadgeTipo(g.Tipo)">@g.Tipo</span></dd>
-                        <dt>Estado</dt>
-                        <dd><span class="badge badge-danger">VENCIDA</span></dd>
-                        <dt>Venció el</dt>
-                        <dd>@g.FechaVencimiento.ToString("dd/MM/yyyy")</dd>
+                        <dt>Garantía</dt><dd>#@g.Id</dd>
+                        <dt>Bien</dt><dd><code>@g.BienCodigo</code> — @g.BienNombre</dd>
+                        <dt>Tipo</dt><dd><span class="badge @GetClaseBadgeTipo(g.Tipo)">@g.Tipo</span></dd>
+                        <dt>Estado</dt><dd><span class="badge badge-danger">VENCIDA</span></dd>
+                        <dt>Venció el</dt><dd>@g.FechaVencimiento.ToString("dd/MM/yyyy")</dd>
                     </dl>
                 </div>
-
                 <div class="form-group form-group-full">
                     <label>Motivo de la anulación *</label>
                     <div class="input-icon">
                         <i class="bi bi-pencil-square"></i>
-                        <InputTextArea class="form-control" rows="3"
-                                       @bind-Value="_motivoAnulacion"
-                                       placeholder="Ej: Garantía vencida, limpieza de registros..." />
+                        <InputTextArea class="form-control" rows="3" @bind-Value="_motivoAnulacion" placeholder="Ej: Garantía vencida, limpieza de registros..." />
                     </div>
                     <small class="text-muted">Este motivo quedará registrado en la bitácora de auditoría.</small>
                 </div>
             </div>
-
             <div class="modal-det-footer">
-                <button class="btn-det-cerrar" @onclick="CancelarAnulacion">
-                    <i class="bi bi-x-lg"></i> Cancelar
-                </button>
+                <button class="btn-det-cerrar" @onclick="CancelarAnulacion"><i class="bi bi-x-lg"></i> Cancelar</button>
                 <button class="btn btn-save" @onclick="ConfirmarAnulacionAsync" disabled="@(string.IsNullOrWhiteSpace(_motivoAnulacion))">
                     <i class="bi bi-slash-circle-fill"></i> Confirmar Anulación
                 </button>
             </div>
-
         </div>
     </div>
 }
 
 @code {
+    private static readonly CultureInfo CulturaCOP = CultureInfo.GetCultureInfo("es-CO");
+
     private ResultadoPaginado<GarantiaDTO>? _pagina;
     private List<Bien> bienes = new();
     private List<ProveedorDTO> proveedores = new();
+    private List<SedeDTO> _sedes = new();
     private GarantiaDTO dto = new();
     private (int Vigentes, int PorVencer, int Vencidas, int Total) _metricas;
 
@@ -537,7 +506,6 @@
     private bool _detalleAbierto = false;
     private GarantiaDTO? _detalle;
 
-    // ═══ Estado del modal de anulación ═══
     private bool _modalAnulacionAbierto = false;
     private GarantiaDTO? _itemAAnular;
     private string _motivoAnulacion = "";
@@ -556,15 +524,16 @@
 
         puedeCrear  = await Seguridad.TienePermisoAsync("garantias.crear");
         puedeEditar = await Seguridad.TienePermisoAsync("garantias.editar");
-        // ═══ Permiso nuevo: garantias.anular ═══
         puedeAnular = await Seguridad.TienePermisoAsync("garantias.anular");
 
         var t1 = BienRepo.ObtenerTodosAsync();
         var t2 = ProveedorRepo.ObtenerTodosAsync();
-        await Task.WhenAll(t1, t2);
+        var t3 = SedeRepo.ObtenerTodasAsync();
+        await Task.WhenAll(t1, t2, t3);
 
         bienes = (await t1).ToList();
         proveedores = (await t2).ToList();
+        _sedes = (await t3).ToList();
 
         await Cargar();
     }
@@ -660,7 +629,8 @@
         {
             FechaInicio = DateTime.Today,
             FechaVencimiento = DateTime.Today.AddYears(1),
-            Tipo = "FABRICA"
+            Tipo = "FABRICA",
+            SedeId = Sesion.VeTodasLasSedes ? null : Sesion.SedeId
         };
         _editando = false;
         _editandoId = 0;
@@ -680,7 +650,8 @@
             FechaVencimiento = g.FechaVencimiento,
             Condiciones = g.Condiciones,
             ContactoProveedor = g.ContactoProveedor,
-            Observaciones = g.Observaciones
+            Observaciones = g.Observaciones,
+            SedeId = g.SedeId
         };
         _editando = true;
         _editandoId = g.Id;
@@ -702,30 +673,24 @@
         if (_editando && !puedeEditar) { Toast.Error("No tiene permiso."); return; }
         if (dto.BienId <= 0) { Toast.Error("Debe seleccionar un bien."); return; }
 
+        if (!Sesion.VeTodasLasSedes)
+            dto.SedeId = Sesion.SedeId;
+
+        if (dto.SedeId == null)
+        {
+            Toast.Error("Debe seleccionar una Sede.");
+            return;
+        }
+
         try
         {
             if (_editando)
             {
                 await GarantiaRepo.ActualizarAsync(dto);
 
-                // ═══ AUDITORÍA — EDITAR ═══
                 await Auditoria.RegistrarEdicionAsync(
-                    modulo: "garantias",
-                    objetoTipo: "Garantia",
-                    objetoId: dto.Id,
-                    objetoCodigo: null,
-                    objetoDescripcion: $"Garantía de bien ID {dto.BienId}",
-                    antes: null,
-                    despues: new
-                    {
-                        dto.BienId,
-                        dto.Tipo,
-                        dto.NumeroGarantia,
-                        dto.FechaInicio,
-                        dto.FechaVencimiento,
-                        dto.ProveedorId
-                    },
-                    motivo: "Edición de garantía"
+                    modulo: "garantias", objetoTipo: "Garantia", objetoId: dto.Id, objetoCodigo: null, objetoDescripcion: $"Garantía de bien ID {dto.BienId}",
+                    antes: null, despues: new { dto.BienId, dto.Tipo, dto.NumeroGarantia, dto.FechaInicio, dto.FechaVencimiento, dto.ProveedorId, dto.SedeId }, motivo: "Edición de garantía"
                 );
 
                 Toast.Exito("Garantía actualizada.");
@@ -734,22 +699,9 @@
             {
                 await GarantiaRepo.CrearAsync(dto);
 
-                // ═══ AUDITORÍA — CREAR ═══
                 await Auditoria.RegistrarCreacionAsync(
-                    modulo: "garantias",
-                    objetoTipo: "Garantia",
-                    objetoId: dto.Id,
-                    objetoCodigo: null,
-                    objetoDescripcion: $"Garantía {dto.Tipo} de bien ID {dto.BienId}",
-                    despues: new
-                    {
-                        dto.BienId,
-                        dto.Tipo,
-                        dto.NumeroGarantia,
-                        dto.FechaInicio,
-                        dto.FechaVencimiento,
-                        dto.ProveedorId
-                    }
+                    modulo: "garantias", objetoTipo: "Garantia", objetoId: dto.Id, objetoCodigo: null, objetoDescripcion: $"Garantía {dto.Tipo} de bien ID {dto.BienId}",
+                    despues: new { dto.BienId, dto.Tipo, dto.NumeroGarantia, dto.FechaInicio, dto.FechaVencimiento, dto.ProveedorId, dto.SedeId }
                 );
 
                 Toast.Exito("Garantía registrada.");
@@ -764,34 +716,18 @@
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // MÉTODOS DE ANULACIÓN (Soft-Delete)
-    // ═══════════════════════════════════════════════════════════════
-
     private void IntentarAnular(GarantiaDTO g)
     {
-        if (!puedeAnular)
-        {
-            Toast.Error("No tiene permiso para anular garantías.");
-            return;
-        }
+        if (!puedeAnular) { Toast.Error("No tiene permiso para anular garantías."); return; }
 
-        // ═══ VALIDACIÓN: solo garantías VENCIDAS ═══
         if (g.EstadoCalculado != "VENCIDA")
         {
-            Toast.Warning(
-                $"No se puede anular la garantía de '{g.BienNombre}': " +
-                $"está en estado '{g.EstadoCalculado}'. Solo se pueden anular garantías vencidas.");
+            Toast.Warning($"No se puede anular la garantía de '{g.BienNombre}': está en estado '{g.EstadoCalculado}'. Solo se pueden anular garantías vencidas.");
             return;
         }
 
-        if (g.Anulada)
-        {
-            Toast.Warning("Esta garantía ya está anulada.");
-            return;
-        }
+        if (g.Anulada) { Toast.Warning("Esta garantía ya está anulada."); return; }
 
-        // Abrir modal de anulación
         _itemAAnular = g;
         _motivoAnulacion = "";
         _modalAnulacionAbierto = true;
@@ -808,38 +744,16 @@
     private async Task ConfirmarAnulacionAsync()
     {
         if (_itemAAnular is null) return;
-        if (string.IsNullOrWhiteSpace(_motivoAnulacion))
-        {
-            Toast.Warning("Debe ingresar un motivo para la anulación.");
-            return;
-        }
+        if (string.IsNullOrWhiteSpace(_motivoAnulacion)) { Toast.Warning("Debe ingresar un motivo."); return; }
 
         try
         {
             await GarantiaRepo.AnularAsync(_itemAAnular.Id, _motivoAnulacion);
 
-            // ═══ AUDITORÍA — ANULAR (operación CRÍTICA) ═══
             await Auditoria.RegistrarAnulacionAsync(
-                modulo: "garantias",
-                objetoTipo: "Garantia",
-                objetoId: _itemAAnular.Id,
-                objetoCodigo: _itemAAnular.BienCodigo,
-                objetoDescripcion: $"Anulación de garantía para '{_itemAAnular.BienNombre}'",
-                antes: new
-                {
-                    Estado = _itemAAnular.EstadoCalculado,
-                    Anulada = false,
-                    FechaVencimiento = _itemAAnular.FechaVencimiento,
-                    Tipo = _itemAAnular.Tipo
-                },
-                despues: new
-                {
-                    Estado = "ANULADA",
-                    Anulada = true,
-                    Motivo = _motivoAnulacion,
-                    AnuladaPor = Sesion.UsuarioActual?.Id,
-                    AnuladaFecha = DateTime.Now
-                },
+                modulo: "garantias", objetoTipo: "Garantia", objetoId: _itemAAnular.Id, objetoCodigo: _itemAAnular.BienCodigo, objetoDescripcion: $"Anulación de garantía para '{_itemAAnular.BienNombre}'",
+                antes: new { Estado = _itemAAnular.EstadoCalculado, Anulada = false, FechaVencimiento = _itemAAnular.FechaVencimiento, Tipo = _itemAAnular.Tipo },
+                despues: new { Estado = "ANULADA", Anulada = true, Motivo = _motivoAnulacion, AnuladaPor = Sesion.UsuarioActual?.Id, AnuladaFecha = DateTime.Now },
                 motivo: _motivoAnulacion
             );
 

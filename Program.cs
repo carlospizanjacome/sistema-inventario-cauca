@@ -5,7 +5,7 @@ using Almacen.Models;
 using Almacen.Repositories;
 using Almacen.Services;
 
-// CULTURA GLOBAL
+// ═══ CULTURA GLOBAL: $12.000 · 12.345,67 · 1.234 ═══
 var culturaCO = (CultureInfo)CultureInfo.GetCultureInfo("es-CO").Clone();
 culturaCO.NumberFormat.CurrencyPositivePattern = 0;
 culturaCO.NumberFormat.CurrencyNegativePattern = 1;
@@ -25,11 +25,13 @@ builder.Services.Configure<Microsoft.AspNetCore.SignalR.HubOptions>(options =>
     options.MaximumReceiveMessageSize = 50 * 1024 * 1024; // 50 MB
 });
 
+// ═══ SEGURIDAD / SESIÓN ═══
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<UsuarioSesionService>();
 builder.Services.AddScoped<SeguridadService>();
 builder.Services.AddScoped<PermisoService>();
 
+// ═══ REPOSITORIOS ═══
 builder.Services.AddScoped<IUsuarioRepository, UsuarioRepository>();
 builder.Services.AddScoped<IRolRepository, RolRepository>();
 builder.Services.AddScoped<IPermisoRepository, PermisoRepository>();
@@ -57,35 +59,36 @@ builder.Services.AddScoped<IPrestamoRepository, PrestamoRepository>();
 builder.Services.AddScoped<IMantenimientoRepository, MantenimientoRepository>();
 builder.Services.AddScoped<IGarantiaRepository, GarantiaRepository>();
 builder.Services.AddScoped<IReporteNormativoRepository, ReporteNormativoRepository>();
-
 builder.Services.AddScoped<IImportacionRepository, ImportacionRepository>();
-builder.Services.AddScoped<ExcelImportService>();
 builder.Services.AddScoped<IConciliacionRepository, ConciliacionRepository>();
-
-builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IAuditoriaRepository, AuditoriaRepository>();
-builder.Services.AddScoped<AuditoriaService>();
 
+// ═══ SERVICIOS DE APOYO ═══
+builder.Services.AddScoped<ExcelImportService>();
+builder.Services.AddScoped<AuditoriaService>();
 builder.Services.AddScoped<PlantillaNormativaService>();
 builder.Services.AddScoped<QrService>();
 builder.Services.AddScoped<ArchivoService>();
-
-// CONEXION A BASE DE DATOS
-builder.Services.AddScoped<NpgsqlConnectionFactory>();
-
 builder.Services.AddScoped<ActaPdfService>();
 builder.Services.AddScoped<ExcelExportService>();
-
 builder.Services.AddScoped<ConfirmService>();
 builder.Services.AddScoped<ToastService>();
 
+// ═══ MÓDULOS IA ═══
 builder.Services.AddScoped<AlertasIAService>();
 builder.Services.AddScoped<AsistenteIAService>();
 builder.Services.AddScoped<CienciaDatosService>();
 
+// ═══ HTTP / CONEXIÓN BD ═══
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<NpgsqlConnectionFactory>();
+
+// ═══ DAPPER ═══
 Dapper.DefaultTypeMap.MatchNamesWithUnderscores = true;
+
 var app = builder.Build();
 
+// ═══ PIPELINE ═══
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);

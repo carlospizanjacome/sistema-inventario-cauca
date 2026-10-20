@@ -5,6 +5,7 @@ using Almacen.Helpers;
 using Almacen.Interfaces;
 using Almacen.Models;
 using Almacen.Services;
+using System.Data;
 
 namespace Almacen.Repositories;
 
@@ -24,13 +25,13 @@ public class AuditoriaRepository : IAuditoriaRepository
     {
         const string sql = @"
             INSERT INTO auditoria (
-                institucion_id, usuario_id, usuario_email, usuario_nombre,
+                institucion_id, sede_id, usuario_id, usuario_email, usuario_nombre,
                 fecha_hora, operacion, modulo, severidad,
                 objeto_tipo, objeto_id, objeto_codigo, objeto_descripcion,
                 valor_antes, valor_despues, motivo, documento_referencia,
                 ip, user_agent
             ) VALUES (
-                @InstitucionId, @UsuarioId, @UsuarioEmail, @UsuarioNombre,
+                @InstitucionId, @SedeId, @UsuarioId, @UsuarioEmail, @UsuarioNombre,
                 @FechaHora, @Operacion, @Modulo, @Severidad,
                 @ObjetoTipo, @ObjetoId, @ObjetoCodigo, @ObjetoDescripcion,
                 @ValorAntes, @ValorDespues, @Motivo, @DocumentoReferencia,
@@ -45,6 +46,12 @@ public class AuditoriaRepository : IAuditoriaRepository
     {
         var (filtro, param) = FiltroInstitucion.Construir(
             _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "a");
+
+        // FILTRO MULTI-SEDE
+        if (!_sesion.VeTodasLasSedes && _sesion.SedeId.HasValue)
+        {
+            filtro += " AND a.sede_id = @SedeId";
+        }
 
         var where = ConstruirWhere(f, filtro);
 
@@ -76,6 +83,11 @@ public class AuditoriaRepository : IAuditoriaRepository
         p.Add("Offset", (f.Pagina - 1) * f.Tamano);
         p.Add("Tamano", f.Tamano);
 
+        if (!_sesion.VeTodasLasSedes && _sesion.SedeId.HasValue)
+        {
+            p.Add("SedeId", _sesion.SedeId.Value, DbType.Int32);
+        }
+
         using var cn = new NpgsqlConnection(_cs);
         var total = await cn.QueryFirstAsync<int>(sqlCount, p);
         var items = (await cn.QueryAsync<AuditoriaItemDTO>(sqlData, p)).ToList();
@@ -94,6 +106,11 @@ public class AuditoriaRepository : IAuditoriaRepository
         var (filtro, param) = FiltroInstitucion.Construir(
             _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "a");
 
+        if (!_sesion.VeTodasLasSedes && _sesion.SedeId.HasValue)
+        {
+            filtro += " AND a.sede_id = @SedeId";
+        }
+
         var sql = $@"
         SELECT
             COUNT(*) FILTER (WHERE a.fecha_hora::date = CURRENT_DATE)::int AS eventos_hoy,
@@ -105,14 +122,25 @@ public class AuditoriaRepository : IAuditoriaRepository
         FROM auditoria a
         WHERE 1=1 {filtro};";
 
+        var p = ObtenerParametrosBase(param);
+        if (!_sesion.VeTodasLasSedes && _sesion.SedeId.HasValue)
+        {
+            p.Add("SedeId", _sesion.SedeId.Value, DbType.Int32);
+        }
+
         using var cn = new NpgsqlConnection(_cs);
-        return await cn.QueryFirstAsync<AuditoriaResumenDTO>(sql, param);
+        return await cn.QueryFirstAsync<AuditoriaResumenDTO>(sql, p);
     }
 
     public async Task<IEnumerable<AuditoriaUsuarioOpcionDTO>> ObtenerUsuariosAsync()
     {
         var (filtro, param) = FiltroInstitucion.Construir(
             _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "a");
+
+        if (!_sesion.VeTodasLasSedes && _sesion.SedeId.HasValue)
+        {
+            filtro += " AND a.sede_id = @SedeId";
+        }
 
         var sql = $@"
             SELECT DISTINCT
@@ -123,8 +151,14 @@ public class AuditoriaRepository : IAuditoriaRepository
             WHERE a.usuario_id IS NOT NULL {filtro}
             ORDER BY 2;";
 
+        var p = ObtenerParametrosBase(param);
+        if (!_sesion.VeTodasLasSedes && _sesion.SedeId.HasValue)
+        {
+            p.Add("SedeId", _sesion.SedeId.Value, DbType.Int32);
+        }
+
         using var cn = new NpgsqlConnection(_cs);
-        return await cn.QueryAsync<AuditoriaUsuarioOpcionDTO>(sql, param);
+        return await cn.QueryAsync<AuditoriaUsuarioOpcionDTO>(sql, p);
     }
 
     public async Task<IEnumerable<AuditoriaItemDTO>> ObtenerTodosParaExportarAsync(AuditoriaFiltro f)
@@ -157,16 +191,7 @@ public class AuditoriaRepository : IAuditoriaRepository
 
     private static DynamicParameters ClonarParametros(object? original, AuditoriaFiltro f)
     {
-        var p = new DynamicParameters();
-
-        if (original is not null)
-        {
-            foreach (var prop in original.GetType().GetProperties())
-            {
-                var val = prop.GetValue(original);
-                if (val is not null) p.Add(prop.Name, val);
-            }
-        }
+        var p = ObtenerParametrosBase(original);
 
         if (f.FechaDesde.HasValue) p.Add("FechaDesde", f.FechaDesde.Value);
         if (f.FechaHasta.HasValue) p.Add("FechaHasta", f.FechaHasta.Value);
@@ -176,6 +201,20 @@ public class AuditoriaRepository : IAuditoriaRepository
         if (f.UsuarioId.HasValue) p.Add("UsuarioId", f.UsuarioId.Value);
         if (!string.IsNullOrWhiteSpace(f.Busqueda)) p.Add("Bus", $"%{f.Busqueda}%");
 
+        return p;
+    }
+
+    private static DynamicParameters ObtenerParametrosBase(object? original)
+    {
+        var p = new DynamicParameters();
+        if (original is not null)
+        {
+            foreach (var prop in original.GetType().GetProperties())
+            {
+                var val = prop.GetValue(original);
+                if (val is not null) p.Add(prop.Name, val);
+            }
+        }
         return p;
     }
 }

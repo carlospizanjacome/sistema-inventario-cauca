@@ -765,3 +765,31 @@
         width: 100%;
     }
 }
+/* ═══════════════════════════════════════════════════════════
+   BADGE DE SEDE + INPUT READONLY
+   ═══════════════════════════════════════════════════════════ */
+
+.badge-sede {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(5, 150, 105, 0.06));
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #065f46;
+    white-space: nowrap;
+}
+
+    .badge-sede i {
+        color: #10b981;
+        font-size: 0.75rem;
+    }
+
+.input-readonly input.form-control[disabled] {
+    background-color: #f1f5f9;
+    color: #64748b;
+    cursor: not-allowed;
+}

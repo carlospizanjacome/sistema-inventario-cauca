@@ -12,11 +12,13 @@
 
         public string? NombreRol { get; set; }
 
-        // ⬇️ NUEVAS
+        // ⬇️ Institucion
         public int InstitucionId { get; set; }
         public bool EsSuperAdmin { get; set; }
-        
-
         public string? InstitucionNombre { get; set; }
+
+        // ⬇️ NUEVAS — Soporte multi-sede
+        public int? SedeId { get; set; }
+        public string? SedeNombre { get; set; }
     }
 }

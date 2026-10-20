@@ -4,6 +4,7 @@ using Almacen.Interfaces;
 using Almacen.Services;
 using Dapper;
 using Npgsql;
+using System.Data;
 
 namespace Almacen.Repositories;
 
@@ -19,15 +20,35 @@ public class DashboardRepository : IDashboardRepository
         _sesion = sesion;
     }
 
+    private (string Sql, DynamicParameters Parametros) ConstruirFiltro(string alias)
+    {
+        var sql = "";
+        var p = new DynamicParameters();
+        p.Add("InstitucionId", _sesion.InstitucionId);
+
+        if (!_sesion.EsSuperAdmin)
+        {
+            sql += $" AND {alias}.institucion_id = @InstitucionId";
+        }
+
+        if (!_sesion.VeTodasLasSedes && _sesion.SedeId.HasValue)
+        {
+            sql += $" AND {alias}.sede_id = @SedeId";
+            p.Add("SedeId", _sesion.SedeId.Value, DbType.Int32);
+        }
+
+        return (sql, p);
+    }
+
     // ═══════════════════════════════════════════════════════
     // KPIs PRINCIPALES
     // ═══════════════════════════════════════════════════════
     public async Task<DashboardKpisDto> ObtenerKpisAsync()
     {
-        var (filtroB, _) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "b");
-        var (filtroU, _) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "u");
+        var (filtroB, parametros) = ConstruirFiltro("b");
+        var (filtroU, _) = ConstruirFiltro("u");
+        var (filtroP, _) = ConstruirFiltro("p");
+        var (filtroG, _) = ConstruirFiltro("g");
 
         var sql = $@"
             SELECT
@@ -66,20 +87,18 @@ public class DashboardRepository : IDashboardRepository
 
                 (SELECT COUNT(*) FROM prestamos p 
                  WHERE p.anulada = FALSE 
-                   AND p.estado = 'VENCIDO'
-                   {FiltroInstitucion.Construir(_sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "p").Item1}) AS PrestamosVencidos,
+                   AND p.estado = 'VENCIDO' {filtroP}) AS PrestamosVencidos,
 
                 (SELECT COUNT(*) FROM garantias g 
                  WHERE g.anulada = FALSE 
                   AND g.fecha_vencimiento BETWEEN CURRENT_DATE AND (CURRENT_DATE + INTERVAL '30 days')
-                   {FiltroInstitucion.Construir(_sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "g").Item1}) AS GarantiasPorVencer,
+                   {filtroG}) AS GarantiasPorVencer,
 
                 (SELECT COUNT(*) FROM usuarios u 
                  WHERE u.activo = TRUE {filtroU}) AS UsuariosActivos;";
 
         using var cn = new NpgsqlConnection(_cs);
-        var r = await cn.QuerySingleAsync<DashboardKpisDto>(sql,
-            new { InstitucionId = _sesion.InstitucionId });
+        var r = await cn.QuerySingleAsync<DashboardKpisDto>(sql, parametros);
 
         // Valor inventario total
         r.ValorInventario = r.ValorPPE + r.ValorStockConsumo;
@@ -91,8 +110,8 @@ public class DashboardRepository : IDashboardRepository
     // ═══════════════════════════════════════════════════════
     public async Task<IEnumerable<BienesPorCategoriaDto>> ObtenerBienesPorCategoriaAsync(int top = 10)
     {
-        var (filtro, _) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "b");
+        var (filtro, parametros) = ConstruirFiltro("b");
+        parametros.Add("Top", top);
 
         var sql = $@"
             SELECT
@@ -114,8 +133,7 @@ public class DashboardRepository : IDashboardRepository
             LIMIT @Top;";
 
         using var cn = new NpgsqlConnection(_cs);
-        return await cn.QueryAsync<BienesPorCategoriaDto>(sql,
-            new { Top = top, InstitucionId = _sesion.InstitucionId });
+        return await cn.QueryAsync<BienesPorCategoriaDto>(sql, parametros);
     }
 
     // ═══════════════════════════════════════════════════════
@@ -123,8 +141,8 @@ public class DashboardRepository : IDashboardRepository
     // ═══════════════════════════════════════════════════════
     public async Task<IEnumerable<UltimoBienDto>> ObtenerUltimosBienesAsync(int top = 5)
     {
-        var (filtro, _) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "b");
+        var (filtro, parametros) = ConstruirFiltro("b");
+        parametros.Add("Top", top);
 
         var sql = $@"
             SELECT
@@ -146,8 +164,7 @@ public class DashboardRepository : IDashboardRepository
             LIMIT @Top;";
 
         using var cn = new NpgsqlConnection(_cs);
-        return await cn.QueryAsync<UltimoBienDto>(sql,
-            new { Top = top, InstitucionId = _sesion.InstitucionId });
+        return await cn.QueryAsync<UltimoBienDto>(sql, parametros);
     }
 
     // ═══════════════════════════════════════════════════════
@@ -155,8 +172,7 @@ public class DashboardRepository : IDashboardRepository
     // ═══════════════════════════════════════════════════════
     public async Task<IEnumerable<DepreciacionMensualDto>> ObtenerDepreciacionMensualAsync(int meses = 12)
     {
-        var (filtro, _) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "b");
+        var (filtro, parametros) = ConstruirFiltro("b");
 
         var sql = $@"
             SELECT
@@ -175,8 +191,7 @@ public class DashboardRepository : IDashboardRepository
             ORDER BY d.periodo_anio ASC, d.periodo_mes ASC;";
 
         using var cn = new NpgsqlConnection(_cs);
-        return await cn.QueryAsync<DepreciacionMensualDto>(sql,
-            new { InstitucionId = _sesion.InstitucionId });
+        return await cn.QueryAsync<DepreciacionMensualDto>(sql, parametros);
     }
 
     // ═══════════════════════════════════════════════════════
@@ -184,8 +199,8 @@ public class DashboardRepository : IDashboardRepository
     // ═══════════════════════════════════════════════════════
     public async Task<IEnumerable<TopBienDto>> ObtenerTopBienesAsync(int top = 5)
     {
-        var (filtro, _) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "b");
+        var (filtro, parametros) = ConstruirFiltro("b");
+        parametros.Add("Top", top);
 
         var sql = $@"
             SELECT
@@ -204,7 +219,6 @@ public class DashboardRepository : IDashboardRepository
             LIMIT @Top;";
 
         using var cn = new NpgsqlConnection(_cs);
-        return await cn.QueryAsync<TopBienDto>(sql,
-            new { Top = top, InstitucionId = _sesion.InstitucionId });
+        return await cn.QueryAsync<TopBienDto>(sql, parametros);
     }
 }

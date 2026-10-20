@@ -14,6 +14,7 @@
 @inject IBienRepository BienRepo
 @inject IFuncionarioRepository FuncRepo
 @inject IInstitucionRepository InstRepo
+@inject ISedeRepository SedeRepo
 @inject IJSRuntime JS
 @inject SeguridadService Seguridad
 @inject NavigationManager Navigation
@@ -102,7 +103,6 @@
 
                 @* ═══ FILA 1: Bien | Fecha Devolución | Solicitante ═══ *@
                 <div class="form-fila-1">
-
                     <div class="ff-bien">
                         <label>Bien a prestar *</label>
 
@@ -209,8 +209,30 @@
                     </div>
                 </div>
 
-                @* ═══ FILA 2: Motivo + Botones ═══ *@
+                @* ═══ FILA 2: Sede | Motivo | Botones ═══ *@
                 <div class="form-fila-2">
+                    <div class="ff-sede">
+                        <label>Sede @(!Sesion.VeTodasLasSedes ? "" : "*")</label>
+                        <div class="input-icon">
+                            <i class="bi bi-geo-alt-fill"></i>
+                            <InputSelect class="form-control"
+                                         @bind-Value="dto.SedeId"
+                                         disabled="@(!Sesion.VeTodasLasSedes)">
+                                @if (!Sesion.VeTodasLasSedes)
+                                {
+                                    <option value="@Sesion.SedeId">@Sesion.SedeNombre</option>
+                                }
+                                else
+                                {
+                                    <option value="">— Seleccione sede —</option>
+                                    @foreach (var s in _sedes)
+                                    {
+                                        <option value="@s.Id">@s.Nombre</option>
+                                    }
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
 
                     <div class="ff-motivo">
                         <label>Motivo del préstamo *</label>
@@ -470,9 +492,7 @@
                                             </button>
                                         }
 
-                                        @* ═══ ANULAR (soft-delete) — PATRÓN SALIDAS/BAJAS ═══
-                                           Botón rojo outline + icono bi-slash-circle-fill (relleno)
-                                           Visible solo en estados terminales y si aún no está anulada *@
+                                        @* ═══ ANULAR (soft-delete) ═══ *@
                                         @if (p.EsTerminal && puedeEliminar && !p.Anulada)
                                         {
                                             <button class="btn-action btn-action-delete"
@@ -502,7 +522,7 @@
 </div>
 
 @* ═══════════════════════════════════════════════════════════
-   MODAL DE ANULACIÓN DE REGISTRO (SOFT-DELETE) — Patrón Salidas/Bajas
+   MODAL DE ANULACIÓN DE REGISTRO (SOFT-DELETE)
    ═══════════════════════════════════════════════════════════ *@
 @if (_modalAnularRegistroAbierto && _prestamoAAnular is not null)
 {
@@ -610,6 +630,7 @@
                         {
                             <p>Código DANE: @_institucionDane</p>
                         }
+                        <p><strong>Sede: @p.SedeNombre</strong></p>
                     </div>
                     <div class="acta-header-right">
                         <div class="acta-title">ACTA DE PRÉSTAMO</div>
@@ -627,6 +648,8 @@
                         <dd><strong>@p.BienNombre</strong></dd>
                         <dt>Categoría</dt>
                         <dd>@(p.BienCategoriaNombre ?? "—")</dd>
+                        <dt>Sede</dt>
+                        <dd>@p.SedeNombre</dd>
                     </dl>
                 </div>
 
@@ -797,6 +820,7 @@
     private ResultadoPaginado<PrestamoDTO>? _pagina;
     private List<Bien> bienes = new();
     private List<FuncionarioDTO> funcionarios = new();
+    private List<SedeDTO> _sedes = new();
     private PrestamoDTO dto = new();
     private (int Activos, int Vencidos, int Devueltos, int Total) _metricas;
 
@@ -877,10 +901,12 @@
 
         var t1 = BienRepo.ObtenerTodosAsync();
         var t2 = FuncRepo.ObtenerTodosAsync();
-        await Task.WhenAll(t1, t2);
+        var t3 = SedeRepo.ObtenerTodasAsync();
+        await Task.WhenAll(t1, t2, t3);
 
         bienes = (await t1).ToList();
         funcionarios = (await t2).ToList();
+        _sedes = (await t3).ToList();
         _bienesFiltrados = bienes.Take(20).ToList();
 
         await Cargar();
@@ -1156,7 +1182,8 @@
     {
         dto = new PrestamoDTO
         {
-            FechaDevolucionPrevista = DateTime.Today.AddDays(7)
+            FechaDevolucionPrevista = DateTime.Today.AddDays(7),
+            SedeId = Sesion.VeTodasLasSedes ? null : Sesion.SedeId
         };
         _bienSeleccionado = null;
         _textoBusquedaBien = string.Empty;
@@ -1183,6 +1210,15 @@
         if (dto.FuncionarioSolicitaId <= 0) { Toast.Error("Debe seleccionar el solicitante."); return; }
         if (dto.FechaDevolucionPrevista.Date < DateTime.Today) { Toast.Error("La fecha prevista no puede ser anterior a hoy."); return; }
 
+        if (!Sesion.VeTodasLasSedes)
+            dto.SedeId = Sesion.SedeId;
+
+        if (dto.SedeId == null)
+        {
+            Toast.Error("Debe seleccionar una Sede.");
+            return;
+        }
+
         try
         {
             await PrestamoRepo.CrearAsync(dto);
@@ -1198,7 +1234,8 @@
                     dto.BienId,
                     dto.FuncionarioSolicitaId,
                     dto.FechaDevolucionPrevista,
-                    dto.Motivo
+                    dto.Motivo,
+                    dto.SedeId
                 }
             );
 
@@ -1357,7 +1394,7 @@
     }
 
     // ═══════════════════════════════════════════════════════
-    // SOFT-DELETE (anular registro del histórico) — PATRÓN SALIDAS/BAJAS
+    // SOFT-DELETE (anular registro del histórico)
     // ═══════════════════════════════════════════════════════
 
     private void IntentarAnularRegistro(PrestamoDTO p)

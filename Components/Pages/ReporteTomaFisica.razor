@@ -28,7 +28,7 @@
     }
     else
     {
-        <!-- ═══ HEADER ═══ -->
+                <!-- ═══ HEADER ═══ -->
         <header class="reporte-header">
             <div class="header-left">
                 <button class="btn-back" @onclick="Volver">
@@ -38,8 +38,9 @@
                     <span class="header-tipo">Toma Física · Reporte</span>
                     <h1>@_reporte.Nombre</h1>
                     <p>
-                        <code>@_reporte.Codigo</code> ·
-                        @_reporte.InstitucionNombre ·
+                        <code>@_reporte.Codigo</code> · 
+                        <strong>@_reporte.SedeNombre</strong> · 
+                        @_reporte.InstitucionNombre · 
                         @(_reporte.FechaInicio?.ToString("dd/MM/yyyy") ?? "—")
                         @if (_reporte.FechaCierre.HasValue)
                         {

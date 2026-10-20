@@ -10,6 +10,15 @@ namespace Almacen.Repositories
 {
     public class BienRepository : IBienRepository
     {
+        // ═══════════════════════════════════════════════════════════
+        // Constantes de dominio (cero strings mágicos repetidos)
+        // ═══════════════════════════════════════════════════════════
+        private const string TIPO_DEVOLUTIVO = "devolutivo";
+        private const string TIPO_CONSUMO = "consumo";
+        private const string PREFIJO_DEVO = "DEVO";
+        private const string PREFIJO_CONS = "CONS";
+        private const string SQLSTATE_UNIQUE_VIOLATION = "23505";
+
         private readonly IConfiguration _configuration;
         private readonly UsuarioSesionService _sesion;
 
@@ -22,6 +31,9 @@ namespace Almacen.Repositories
         private NpgsqlConnection Connection
             => new NpgsqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
+        // ═══════════════════════════════════════════════════════════
+        // SELECT base
+        // ═══════════════════════════════════════════════════════════
         private const string BaseSelect = @"
             SELECT
                 b.id, b.codigo, b.nombre, b.descripcion,
@@ -35,6 +47,7 @@ namespace Almacen.Repositories
                 b.created_at AS CreatedAt,
                 b.updated_at AS UpdatedAt,
                 b.institucion_id AS InstitucionId,
+                b.sede_id AS SedeId,
                 b.aula_id AS AulaId,
                 b.funcionario_id AS FuncionarioId,
                 b.vida_util_id AS VidaUtilId,
@@ -55,49 +68,116 @@ namespace Almacen.Repositories
             LEFT JOIN catalogo_cgn vu ON vu.id = b.vida_util_id
             LEFT JOIN aulas a         ON a.id = b.aula_id
             LEFT JOIN bloques bl      ON bl.id = a.bloque_id
-            LEFT JOIN sedes s         ON s.id = bl.sede_id
+            LEFT JOIN sedes s         ON s.id = b.sede_id
             LEFT JOIN funcionarios f  ON f.id = b.funcionario_id";
 
-        public async Task<IEnumerable<Bien>> ObtenerTodosAsync()
+        // ═══════════════════════════════════════════════════════════
+        // Reglas de negocio delegadas a la sesión (no en SQL)
+        // ═══════════════════════════════════════════════════════════
+        private bool DebeFiltrarPorSede()
+            => !_sesion.VeTodasLasSedes;
+
+        // ═══════════════════════════════════════════════════════════
+        // Construcción de filtros en C# (nunca en SQL)
+        // ═══════════════════════════════════════════════════════════
+        private (string Sql, DynamicParameters Parametros) ConstruirFiltros(string alias)
         {
-            var (filtro, param) = FiltroInstitucion.Construir(
-                _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "b");
+            var condiciones = new List<string>();
+            var parametros = new DynamicParameters();
 
-            var sql = $"{BaseSelect} WHERE 1=1 {filtro} AND b.tipo_bien = 'devolutivo' ORDER BY b.codigo;";
+            if (!_sesion.EsSuperAdmin && _sesion.InstitucionId > 0)
+            {
+                condiciones.Add($"{alias}.institucion_id = @InstitucionId");
+                parametros.Add("InstitucionId", _sesion.InstitucionId);
+            }
 
-            using var connection = Connection;
-            return await connection.QueryAsync<Bien>(sql, param);
+            if (DebeFiltrarPorSede())
+            {
+                condiciones.Add($"{alias}.sede_id = @SedeId");
+                parametros.Add("SedeId", _sesion.SedeId!.Value);
+            }
+
+            var sql = condiciones.Count > 0
+                ? " AND " + string.Join(" AND ", condiciones)
+                : string.Empty;
+
+            return (sql, parametros);
         }
 
+        // ═══════════════════════════════════════════════════════════
+        // Asignar sede obligatoria (usado en Crear/Actualizar)
+        // ═══════════════════════════════════════════════════════════
+        private void AsignarSedeObligatoria(Bien bien)
+        {
+            if (!_sesion.VeTodasLasSedes)
+            {
+                // Almacenista/otros → se fuerza su sede
+                bien.SedeId = _sesion.SedeId;
+            }
+            else if (bien.SedeId == null)
+            {
+                // Rector/Admin que no eligió → error
+                throw new InvalidOperationException(
+                    "Debe seleccionar una sede para el bien.");
+            }
+
+            // Validación final
+            if (bien.SedeId == null)
+            {
+                throw new InvalidOperationException(
+                    "No se pudo determinar la sede del bien. " +
+                    "Contacte al administrador del sistema.");
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        // OBTENER TODOS
+        // ═══════════════════════════════════════════════════════════
+        public async Task<IEnumerable<Bien>> ObtenerTodosAsync()
+        {
+            var (filtro, parametros) = ConstruirFiltros("b");
+            parametros.Add("TipoDevolutivo", TIPO_DEVOLUTIVO);
+
+            var sql = $"{BaseSelect} WHERE b.tipo_bien = @TipoDevolutivo {filtro} ORDER BY b.codigo;";
+
+            using var connection = Connection;
+            return await connection.QueryAsync<Bien>(sql, parametros);
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        // OBTENER POR ID
+        // ═══════════════════════════════════════════════════════════
         public async Task<Bien?> ObtenerPorIdAsync(int id)
         {
-            var (filtro, param) = FiltroInstitucion.Construir(
-                _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "b");
+            var (filtro, parametros) = ConstruirFiltros("b");
+            parametros.Add("Id", id);
 
             var sql = $"{BaseSelect} WHERE b.id = @Id {filtro};";
 
             using var connection = Connection;
-            return await connection.QueryFirstOrDefaultAsync<Bien>(sql,
-                new { Id = id, InstitucionId = _sesion.InstitucionId });
+            return await connection.QueryFirstOrDefaultAsync<Bien>(sql, parametros);
         }
 
-        // ✨ NUEVO — Buscar bien por código contable (dentro de la institución)
+        // ═══════════════════════════════════════════════════════════
+        // OBTENER POR CÓDIGO
+        // ═══════════════════════════════════════════════════════════
         public async Task<Bien?> ObtenerPorCodigoAsync(string codigo)
         {
             if (string.IsNullOrWhiteSpace(codigo))
                 return null;
 
-            var (filtro, param) = FiltroInstitucion.Construir(
-                _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "b");
+            var (filtro, parametros) = ConstruirFiltros("b");
+            parametros.Add("Codigo", codigo.Trim());
 
             var sql = $"{BaseSelect} WHERE b.codigo = @Codigo {filtro};";
 
             using var connection = Connection;
-            return await connection.QueryFirstOrDefaultAsync<Bien>(sql,
-                new { Codigo = codigo.Trim(), InstitucionId = _sesion.InstitucionId });
+            return await connection.QueryFirstOrDefaultAsync<Bien>(sql, parametros);
         }
 
-        // ✨ NUEVO — Verificar existencia rápida de un código
+        // ═══════════════════════════════════════════════════════════
+        // EXISTE CÓDIGO (siempre dentro de la institución)
+        // ═══════════════════════════════════════════════════════════
         public async Task<bool> ExisteCodigoAsync(string codigo)
         {
             if (string.IsNullOrWhiteSpace(codigo))
@@ -115,22 +195,22 @@ namespace Almacen.Repositories
                 new { Codigo = codigo.Trim(), InstitucionId = _sesion.InstitucionId });
         }
 
+        // ═══════════════════════════════════════════════════════════
+        // CREAR
+        // ═══════════════════════════════════════════════════════════
         public async Task<int> CrearAsync(Bien bien)
         {
-            bien.InstitucionId = _sesion.InstitucionId;
+            // Institucion
+            if (!_sesion.EsSuperAdmin)
+                bien.InstitucionId = _sesion.InstitucionId;
 
-            // ═══════════════════════════════════════════════════════════
-            // CÁLCULO AUTOMÁTICO DE VALOR NETO
-            // Al crear un bien, valor_neto = valor_adquisicion - valor_residual
-            // ═══════════════════════════════════════════════════════════
+            // Sede (obligatoria)
+            AsignarSedeObligatoria(bien);
+
+            // Cálculos
             bien.DepreciacionAcumulada = 0;
             bien.ValorNeto = bien.ValorAdquisicion - bien.ValorResidual;
 
-            // ═══════════════════════════════════════════════════════════
-            // FIX CRÍTICO: Distinguir entre código del usuario y generado
-            // Si el usuario (o el Excel) trae código → NO se auto-genera
-            // Si viene vacío → se genera automáticamente
-            // ═══════════════════════════════════════════════════════════
             bool codigoVinoDelUsuario = !string.IsNullOrWhiteSpace(bien.Codigo);
 
             const string sql = @"
@@ -138,7 +218,7 @@ namespace Almacen.Repositories
                 (codigo, nombre, descripcion, categoria_id, tipo_bien,
                  marca, modelo, serie, valor_adquisicion, fecha_adquisicion,
                  estado_fisico, ubicacion, responsable, activo,
-                 institucion_id, aula_id, funcionario_id, vida_util_id,
+                 institucion_id, sede_id, aula_id, funcionario_id, vida_util_id,
                  codigo_qr, valor_residual, cantidad,
                  depreciacion_acumulada, valor_neto, fecha_ultimo_calculo,
                  created_at, updated_at)
@@ -146,13 +226,13 @@ namespace Almacen.Repositories
                 (@Codigo, @Nombre, @Descripcion, @CategoriaId, @TipoBien,
                  @Marca, @Modelo, @Serie, @ValorAdquisicion, @FechaAdquisicion,
                  @EstadoFisico, @Ubicacion, @Responsable, @Activo,
-                 @InstitucionId, @AulaId, @FuncionarioId, @VidaUtilId,
+                 @InstitucionId, @SedeId, @AulaId, @FuncionarioId, @VidaUtilId,
                  @CodigoQr, @ValorResidual, @Cantidad,
                  @DepreciacionAcumulada, @ValorNeto, NOW(),
                  NOW(), NOW())
                 RETURNING id;";
 
-            // ── Caso A: El usuario NO trajo código → generar y reintentar si hay colisión ──
+            // ── Caso A: sin código → autogenerar ──
             if (!codigoVinoDelUsuario)
             {
                 const int maxIntentos = 3;
@@ -160,16 +240,15 @@ namespace Almacen.Repositories
                 {
                     try
                     {
-                        bien.Codigo = await GenerarSiguienteCodigoAsync(bien.TipoBien ?? "devolutivo");
+                        bien.Codigo = await GenerarSiguienteCodigoAsync(
+                            bien.TipoBien ?? TIPO_DEVOLUTIVO);
 
                         using var connection = Connection;
-                        var id = await connection.ExecuteScalarAsync<int>(sql, bien);
-                        return id;
+                        return await connection.ExecuteScalarAsync<int>(sql, bien);
                     }
                     catch (PostgresException ex)
-                        when (ex.SqlState == "23505" && intento < maxIntentos)
+                        when (ex.SqlState == SQLSTATE_UNIQUE_VIOLATION && intento < maxIntentos)
                     {
-                        // Colisión de código autogenerado → reintentar
                         bien.Codigo = string.Empty;
                         await Task.Delay(50);
                     }
@@ -179,25 +258,26 @@ namespace Almacen.Repositories
                     "No se pudo generar un código único después de 3 intentos.");
             }
 
-            // ── Caso B: El usuario SÍ trajo código → NO reintentar, rechazar si existe ──
+            // ── Caso B: con código → sin reintentos ──
             try
             {
                 using var connection = Connection;
-                var id = await connection.ExecuteScalarAsync<int>(sql, bien);
-                return id;
+                return await connection.ExecuteScalarAsync<int>(sql, bien);
             }
-            catch (PostgresException ex) when (ex.SqlState == "23505")
+            catch (PostgresException ex) when (ex.SqlState == SQLSTATE_UNIQUE_VIOLATION)
             {
-                // El código contable ya existe → rechazar sin auto-generar
                 throw new InvalidOperationException(
                     $"El código '{bien.Codigo}' ya existe en el sistema. " +
                     $"No se puede crear un bien duplicado con el mismo código contable.");
             }
         }
 
+        // ═══════════════════════════════════════════════════════════
+        // Generación de código (sin strings mágicos)
+        // ═══════════════════════════════════════════════════════════
         private async Task<string> GenerarSiguienteCodigoAsync(string tipoBien)
         {
-            var prefijo = tipoBien == "consumo" ? "CONS" : "DEVO";
+            var prefijo = tipoBien == TIPO_CONSUMO ? PREFIJO_CONS : PREFIJO_DEVO;
             var anio = DateTime.Now.Year;
             var patron = $"{prefijo}-{anio}-%";
             var regex = $"^{prefijo}-{anio}-\\d+$";
@@ -222,14 +302,11 @@ namespace Almacen.Repositories
             return $"{prefijo}-{anio}-{(ultimo + 1):D3}";
         }
 
+        // ═══════════════════════════════════════════════════════════
+        // ACTUALIZAR
+        // ═══════════════════════════════════════════════════════════
         public async Task ActualizarAsync(Bien bien)
         {
-            // ═══════════════════════════════════════════════════════════
-            // CÁLCULO AUTOMÁTICO DE VALOR NETO
-            // Si cambia el valor de adquisición, hay que recalcular
-            // el valor_neto manteniendo la depreciación acumulada.
-            // ═══════════════════════════════════════════════════════════
-
             decimal depreciacionActual;
             using (var cnLeer = Connection)
             {
@@ -241,6 +318,11 @@ namespace Almacen.Repositories
             bien.DepreciacionAcumulada = depreciacionActual;
             bien.ValorNeto = bien.ValorAdquisicion - depreciacionActual - bien.ValorResidual;
 
+            if (!_sesion.EsSuperAdmin)
+                bien.InstitucionId = _sesion.InstitucionId;
+
+            AsignarSedeObligatoria(bien);
+
             const string sql = @"
                 UPDATE bienes
                 SET codigo = @Codigo, nombre = @Nombre, descripcion = @Descripcion,
@@ -249,7 +331,7 @@ namespace Almacen.Repositories
                     valor_adquisicion = @ValorAdquisicion, fecha_adquisicion = @FechaAdquisicion,
                     estado_fisico = @EstadoFisico, ubicacion = @Ubicacion,
                     responsable = @Responsable, activo = @Activo,
-                    aula_id = @AulaId, funcionario_id = @FuncionarioId,
+                    sede_id = @SedeId, aula_id = @AulaId, funcionario_id = @FuncionarioId,
                     vida_util_id = @VidaUtilId, codigo_qr = @CodigoQr,
                     valor_residual = @ValorResidual, cantidad = @Cantidad,
                     valor_neto = @ValorNeto,
@@ -260,6 +342,9 @@ namespace Almacen.Repositories
             await connection.ExecuteAsync(sql, bien);
         }
 
+        // ═══════════════════════════════════════════════════════════
+        // ELIMINAR
+        // ═══════════════════════════════════════════════════════════
         public async Task<bool> EliminarAsync(int id)
         {
             using var connection = Connection;
@@ -269,7 +354,7 @@ namespace Almacen.Repositories
         }
 
         // ═══════════════════════════════════════════════════════════
-        // Verificar si el bien tiene historia
+        // VERIFICAR COMPROMISO
         // ═══════════════════════════════════════════════════════════
         public async Task<CompromisoDTO> VerificarCompromisoAsync(int bienId)
         {
@@ -360,6 +445,9 @@ namespace Almacen.Repositories
             return dto;
         }
 
+        // ═══════════════════════════════════════════════════════════
+        // PAGINADO simple
+        // ═══════════════════════════════════════════════════════════
         public async Task<ResultadoPaginado<Bien>> ObtenerPaginadoAsync(
             int pagina = 1, int tamano = 25, string? filtroTexto = null)
         {
@@ -367,34 +455,30 @@ namespace Almacen.Repositories
             if (tamano < 1) tamano = 25;
             if (tamano > 200) tamano = 200;
 
-            var (filtroInst, _) = FiltroInstitucion.Construir(
-                _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "b");
+            var (filtroFiltros, parametros) = ConstruirFiltros("b");
+            parametros.Add("TipoDevolutivo", TIPO_DEVOLUTIVO);
 
             var filtroBusqueda = string.Empty;
             if (!string.IsNullOrWhiteSpace(filtroTexto))
+            {
                 filtroBusqueda = " AND (b.codigo ILIKE @Buscar OR b.nombre ILIKE @Buscar)";
+                parametros.Add("Buscar", $"%{filtroTexto}%");
+            }
+
+            parametros.Add("Tamano", tamano);
+            parametros.Add("Offset", (pagina - 1) * tamano);
 
             var sqlCount = $@"
                 SELECT COUNT(*) FROM bienes b
-                WHERE 1=1 {filtroInst} {filtroBusqueda}
-                  AND b.tipo_bien = 'devolutivo';";
+                WHERE b.tipo_bien = @TipoDevolutivo {filtroFiltros} {filtroBusqueda};";
 
             var sqlData = $@"
                 {BaseSelect}
-                WHERE 1=1 {filtroInst} {filtroBusqueda}
-                  AND b.tipo_bien = 'devolutivo'
+                WHERE b.tipo_bien = @TipoDevolutivo {filtroFiltros} {filtroBusqueda}
                 ORDER BY b.codigo
                 LIMIT @Tamano OFFSET @Offset;";
 
             using var connection = Connection;
-
-            var parametros = new
-            {
-                InstitucionId = _sesion.InstitucionId,
-                Buscar = $"%{filtroTexto}%",
-                Tamano = tamano,
-                Offset = (pagina - 1) * tamano
-            };
 
             var total = await connection.ExecuteScalarAsync<int>(sqlCount, parametros);
             var items = (await connection.QueryAsync<Bien>(sqlData, parametros)).ToList();
@@ -408,6 +492,9 @@ namespace Almacen.Repositories
             };
         }
 
+        // ═══════════════════════════════════════════════════════════
+        // PAGINADO con filtros (incluye SedeId del filtro)
+        // ═══════════════════════════════════════════════════════════
         public async Task<ResultadoPaginado<Bien>> ObtenerPaginadoConFiltrosAsync(
             FiltroBienDTO filtro, int pagina = 1, int tamano = 25)
         {
@@ -415,19 +502,16 @@ namespace Almacen.Repositories
             if (tamano < 1) tamano = 25;
             if (tamano > 200) tamano = 200;
 
-            var (filtroInst, _) = FiltroInstitucion.Construir(
-                _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "b");
+            var (filtroBase, parametros) = ConstruirFiltros("b");
+            parametros.Add("TipoDevolutivo", TIPO_DEVOLUTIVO);
 
-            var condiciones = new List<string> { "b.tipo_bien = 'devolutivo'" };
-            var parametros = new DynamicParameters();
-            parametros.Add("InstitucionId", _sesion.InstitucionId);
+            var condiciones = new List<string>();
 
             if (!string.IsNullOrWhiteSpace(filtro.Texto))
             {
                 condiciones.Add("(b.codigo ILIKE @Texto OR b.nombre ILIKE @Texto OR b.serie ILIKE @Texto)");
                 parametros.Add("Texto", $"%{filtro.Texto}%");
             }
-
             if (filtro.CategoriaId.HasValue)
             {
                 condiciones.Add("b.categoria_id = @CategoriaId");
@@ -435,8 +519,8 @@ namespace Almacen.Repositories
             }
             if (filtro.SedeId.HasValue)
             {
-                condiciones.Add("s.id = @SedeId");
-                parametros.Add("SedeId", filtro.SedeId.Value);
+                condiciones.Add("b.sede_id = @FiltroSedeId");
+                parametros.Add("FiltroSedeId", filtro.SedeId.Value);
             }
             if (filtro.AulaId.HasValue)
             {
@@ -469,21 +553,20 @@ namespace Almacen.Repositories
                 parametros.Add("FechaHasta", filtro.FechaHasta.Value);
             }
 
-            var whereExtra = " AND " + string.Join(" AND ", condiciones);
+            var whereExtra = condiciones.Count > 0
+                ? " AND " + string.Join(" AND ", condiciones)
+                : string.Empty;
 
             parametros.Add("Tamano", tamano);
             parametros.Add("Offset", (pagina - 1) * tamano);
 
             var sqlCount = $@"
                 SELECT COUNT(*) FROM bienes b
-                LEFT JOIN aulas a ON a.id = b.aula_id
-                LEFT JOIN bloques bl ON bl.id = a.bloque_id
-                LEFT JOIN sedes s ON s.id = bl.sede_id
-                WHERE 1=1 {filtroInst} {whereExtra};";
+                WHERE b.tipo_bien = @TipoDevolutivo {filtroBase} {whereExtra};";
 
             var sqlData = $@"
                 {BaseSelect}
-                WHERE 1=1 {filtroInst} {whereExtra}
+                WHERE b.tipo_bien = @TipoDevolutivo {filtroBase} {whereExtra}
                 ORDER BY b.codigo
                 LIMIT @Tamano OFFSET @Offset;";
 
@@ -501,22 +584,25 @@ namespace Almacen.Repositories
             };
         }
 
+        // ═══════════════════════════════════════════════════════════
+        // POR FUNCIONARIO
+        // ═══════════════════════════════════════════════════════════
         public async Task<IEnumerable<Bien>> ObtenerPorFuncionarioAsync(int funcionarioId)
         {
-            var (filtroInst, _) = FiltroInstitucion.Construir(
-                _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "b");
+            var (filtro, parametros) = ConstruirFiltros("b");
+            parametros.Add("FuncionarioId", funcionarioId);
+            parametros.Add("TipoDevolutivo", TIPO_DEVOLUTIVO);
 
             var sql = $@"
                 {BaseSelect}
                 WHERE b.funcionario_id = @FuncionarioId
                   AND b.activo = TRUE
-                  AND b.tipo_bien = 'devolutivo'
-                  {filtroInst}
+                  AND b.tipo_bien = @TipoDevolutivo
+                  {filtro}
                 ORDER BY b.codigo;";
 
             using var connection = Connection;
-            return await connection.QueryAsync<Bien>(sql,
-                new { FuncionarioId = funcionarioId, InstitucionId = _sesion.InstitucionId });
+            return await connection.QueryAsync<Bien>(sql, parametros);
         }
     }
 }

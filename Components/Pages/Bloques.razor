@@ -11,6 +11,7 @@
 
 @inject IBloqueRepository BloqueRepo
 @inject ISedeRepository SedeRepo
+@inject UsuarioSesionService Sesion
 @inject ToastService Toast
 @inject ConfirmService Confirm
 @inject IJSRuntime JS
@@ -61,20 +62,34 @@
                 <DataAnnotationsValidator />
 
                 <div class="form-grid">
-                    <div class="form-group">
-                        <label>Sede *</label>
-                        <div class="input-icon">
-                            <i class="bi bi-building"></i>
-                            <InputSelect @bind-Value="_model.SedeId" class="form-control">
-                                <option value="0">— Seleccione —</option>
-                                @foreach (var s in _sedes)
-                                {
-                                    <option value="@s.Id">@s.InstitucionNombre — @s.Nombre</option>
-                                }
-                            </InputSelect>
+                    @if (Sesion.VeTodasLasSedes)
+                    {
+                        <div class="form-group">
+                            <label>Sede *</label>
+                            <div class="input-icon">
+                                <i class="bi bi-building"></i>
+                                <InputSelect @bind-Value="_model.SedeId" class="form-control">
+                                    <option value="0">— Seleccione —</option>
+                                    @foreach (var s in _sedes)
+                                    {
+                                        <option value="@s.Id">@s.InstitucionNombre — @s.Nombre</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                            <ValidationMessage For="() => _model.SedeId" />
                         </div>
-                        <ValidationMessage For="() => _model.SedeId" />
-                    </div>
+                    }
+                    else
+                    {
+                        <div class="form-group">
+                            <label>Sede</label>
+                            <div class="input-icon input-readonly">
+                                <i class="bi bi-building"></i>
+                                <input type="text" class="form-control"
+                                       value="@(Sesion.SedeNombre ?? "Sin sede")" disabled />
+                            </div>
+                        </div>
+                    }
 
                     <div class="form-group">
                         <label>Nombre *</label>
@@ -146,41 +161,44 @@
 
             <div class="filtros-tabla-derecha">
 
-                @* ═══ Dropdown custom de sede ═══ *@
-                <details class="dropdown-sede" id="dropdown-sede-bloques">
-                    <summary class="dropdown-sede-trigger">
-                        <i class="bi bi-building"></i>
-                        <span>@(string.IsNullOrEmpty(_sedeSeleccionadaNombre) ? "Todas las sedes" : _sedeSeleccionadaNombre)</span>
-                        <i class="bi bi-chevron-down dropdown-sede-chevron"></i>
-                    </summary>
+                @* ═══ Dropdown de sede (solo si ve varias) ═══ *@
+                @if (Sesion.VeTodasLasSedes && _sedes.Count > 1)
+                {
+                    <details class="dropdown-sede" id="dropdown-sede-bloques">
+                        <summary class="dropdown-sede-trigger">
+                            <i class="bi bi-building"></i>
+                            <span>@(string.IsNullOrEmpty(_sedeSeleccionadaNombre) ? "Todas las sedes" : _sedeSeleccionadaNombre)</span>
+                            <i class="bi bi-chevron-down dropdown-sede-chevron"></i>
+                        </summary>
 
-                    <div class="dropdown-sede-panel">
-                        <div class="dropdown-sede-item @(_sedeSeleccionadaId is null ? "active" : "")"
-                             @onclick="() => SeleccionarSede(null)">
-                            <i class="bi bi-grid-3x3"></i>
-                            <span>Todas las sedes</span>
-                            @if (_sedeSeleccionadaId is null)
-                            {
-                                <i class="bi bi-check2 dropdown-sede-check"></i>
-                            }
-                        </div>
-
-                        <div class="dropdown-sede-divider"></div>
-
-                        @foreach (var s in _sedes)
-                        {
-                            <div class="dropdown-sede-item @(_sedeSeleccionadaId == s.Id ? "active" : "")"
-                                 @onclick="() => SeleccionarSede(s)">
-                                <i class="bi bi-building"></i>
-                                <span>@s.Nombre</span>
-                                @if (_sedeSeleccionadaId == s.Id)
+                        <div class="dropdown-sede-panel">
+                            <div class="dropdown-sede-item @(_sedeSeleccionadaId is null ? "active" : "")"
+                                 @onclick="() => SeleccionarSede(null)">
+                                <i class="bi bi-grid-3x3"></i>
+                                <span>Todas las sedes</span>
+                                @if (_sedeSeleccionadaId is null)
                                 {
                                     <i class="bi bi-check2 dropdown-sede-check"></i>
                                 }
                             </div>
-                        }
-                    </div>
-                </details>
+
+                            <div class="dropdown-sede-divider"></div>
+
+                            @foreach (var s in _sedes)
+                            {
+                                <div class="dropdown-sede-item @(_sedeSeleccionadaId == s.Id ? "active" : "")"
+                                     @onclick="() => SeleccionarSede(s)">
+                                    <i class="bi bi-building"></i>
+                                    <span>@s.Nombre</span>
+                                    @if (_sedeSeleccionadaId == s.Id)
+                                    {
+                                        <i class="bi bi-check2 dropdown-sede-check"></i>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </details>
+                }
 
                 <span class="badge-total">
                     <i class="bi bi-grid-3x3"></i>
@@ -280,7 +298,16 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // SedeRepo ya filtra automáticamente por sede del usuario
         _sedes = (await SedeRepo.ObtenerTodasAsync()).ToList();
+
+        // Si el usuario solo tiene una sede, preseleccionarla
+        if (!Sesion.VeTodasLasSedes && _sedes.Count == 1)
+        {
+            _sedeSeleccionadaId = _sedes[0].Id;
+            _sedeSeleccionadaNombre = _sedes[0].Nombre;
+        }
+
         await Cargar();
     }
 
@@ -325,7 +352,6 @@
         _sedeSeleccionadaNombre = sede?.Nombre ?? string.Empty;
         _paginaActual = 1;
 
-        // Cerrar el dropdown
         try
         {
             await JS.InvokeVoidAsync("eval",
@@ -355,6 +381,17 @@
     private void AbrirFormulario()
     {
         _model = new BloqueDTO { Activo = true, Pisos = 1 };
+
+        // Preselección de sede (sin hardcode)
+        if (!Sesion.VeTodasLasSedes)
+        {
+            _model.SedeId = Sesion.SedeId ?? 0;
+        }
+        else if (_sedes.Count == 1)
+        {
+            _model.SedeId = _sedes[0].Id;
+        }
+
         _editando = false;
         _mostrarFormulario = true;
     }

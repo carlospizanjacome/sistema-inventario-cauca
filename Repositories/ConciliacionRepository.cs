@@ -4,6 +4,7 @@ using Almacen.Interfaces;
 using Almacen.Services;
 using Dapper;
 using Npgsql;
+using System.Data;
 
 namespace Almacen.Repositories;
 
@@ -21,8 +22,16 @@ public class ConciliacionRepository : IConciliacionRepository
 
     public async Task<IEnumerable<TomaFisicaCerradaDTO>> ObtenerTomasCerradasAsync()
     {
-        var (filtroInst, _) = FiltroInstitucion.Construir(
+        var (filtroInst, paramBase) = FiltroInstitucion.Construir(
             _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "t");
+
+        var parametros = new DynamicParameters(paramBase);
+
+        if (!_sesion.VeTodasLasSedes && _sesion.SedeId.HasValue)
+        {
+            filtroInst += " AND t.sede_id = @SedeId";
+            parametros.Add("SedeId", _sesion.SedeId.Value);
+        }
 
         var sql = $@"
             SELECT
@@ -38,14 +47,22 @@ public class ConciliacionRepository : IConciliacionRepository
             ORDER BY t.fecha_cierre DESC NULLS LAST, t.id DESC;";
 
         using var cn = new NpgsqlConnection(_cs);
-        return await cn.QueryAsync<TomaFisicaCerradaDTO>(sql,
-            new { InstitucionId = _sesion.InstitucionId });
+        return await cn.QueryAsync<TomaFisicaCerradaDTO>(sql, parametros);
     }
 
     public async Task<ConciliacionGlobalDTO?> ObtenerGlobalAsync(int tomaFisicaId)
     {
-        var (filtroInst, _) = FiltroInstitucion.Construir(
+        var (filtroInst, paramBase) = FiltroInstitucion.Construir(
             _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "t");
+
+        var parametros = new DynamicParameters(paramBase);
+        parametros.Add("Id", tomaFisicaId);
+
+        if (!_sesion.VeTodasLasSedes && _sesion.SedeId.HasValue)
+        {
+            filtroInst += " AND t.sede_id = @SedeId";
+            parametros.Add("SedeId", _sesion.SedeId.Value);
+        }
 
         var sql = $@"
             SELECT
@@ -76,13 +93,12 @@ public class ConciliacionRepository : IConciliacionRepository
             GROUP BY t.id, t.codigo, t.nombre, t.fecha_inicio, t.fecha_cierre;";
 
         using var cn = new NpgsqlConnection(_cs);
-        return await cn.QueryFirstOrDefaultAsync<ConciliacionGlobalDTO>(sql,
-            new { Id = tomaFisicaId, InstitucionId = _sesion.InstitucionId });
+        return await cn.QueryFirstOrDefaultAsync<ConciliacionGlobalDTO>(sql, parametros);
     }
 
     public async Task<IEnumerable<ConciliacionCategoriaDTO>> ObtenerPorCategoriaAsync(int tomaFisicaId)
     {
-        const string sql = @"
+        var sql = @"
             SELECT
                 c.id                    AS CategoriaId,
                 COALESCE(c.nombre, 'Sin categoría') AS CategoriaNombre,
@@ -111,7 +127,7 @@ public class ConciliacionRepository : IConciliacionRepository
 
     public async Task<IEnumerable<ConciliacionDetalleDTO>> ObtenerDetalleAsync(int tomaFisicaId)
     {
-        const string sql = @"
+        var sql = @"
             SELECT
                 d.id                    AS DetalleId,
                 d.bien_id               AS BienId,

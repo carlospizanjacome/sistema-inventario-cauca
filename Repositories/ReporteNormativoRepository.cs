@@ -4,6 +4,7 @@ using Almacen.Interfaces;
 using Almacen.Services;
 using Dapper;
 using Npgsql;
+using System.Data;
 
 namespace Almacen.Repositories;
 
@@ -193,10 +194,19 @@ public class ReporteNormativoRepository : IReporteNormativoRepository
     // ═══════════════════════════════════════════════════════════
     public async Task<IEnumerable<EntradaConBienDTO>> ObtenerEntradasAsync()
     {
-        var (filtro, param) = FiltroInstitucion.Construir(
+        var (filtro, paramBase) = FiltroInstitucion.Construir(
             _sesion.EsSuperAdmin,
             _sesion.InstitucionId,
             tabla: "e");
+
+        var parametros = new DynamicParameters(paramBase);
+
+        // ✅ SOLUCIÓN: Solo filtrar por sede si NO puede ver todas las sedes
+        if (!_sesion.VeTodasLasSedes && _sesion.SedeId.HasValue)
+        {
+            filtro += " AND e.sede_id = @SedeId";
+            parametros.Add("SedeId", _sesion.SedeId.Value);
+        }
 
         var sql = $@"
             SELECT
@@ -217,21 +227,27 @@ public class ReporteNormativoRepository : IReporteNormativoRepository
             ORDER BY e.fecha_entrada DESC;";
 
         using var cn = new NpgsqlConnection(_cs);
-        return await cn.QueryAsync<EntradaConBienDTO>(sql, param);
+        return await cn.QueryAsync<EntradaConBienDTO>(sql, parametros);
     }
 
     // ═══════════════════════════════════════════════════════════
     // MOVIMIENTOS DEL KARDEX (consumibles) — CGN-001 + F06 FUB
     // ═══════════════════════════════════════════════════════════
-    // ═══════════════════════════════════════════════════════════
-    // MOVIMIENTOS DEL KARDEX (consumibles) — CGN-001 + F06 FUB
-    // ═══════════════════════════════════════════════════════════
     public async Task<IEnumerable<MovimientoKardexReporteDTO>> ObtenerMovimientosKardexAsync()
     {
-        var (filtro, param) = FiltroInstitucion.Construir(
+        var (filtro, paramBase) = FiltroInstitucion.Construir(
             _sesion.EsSuperAdmin,
             _sesion.InstitucionId,
             tabla: "m");
+
+        var parametros = new DynamicParameters(paramBase);
+
+        // ✅ SOLUCIÓN: Solo filtrar por sede si NO puede ver todas las sedes
+        if (!_sesion.VeTodasLasSedes && _sesion.SedeId.HasValue)
+        {
+            filtro += " AND m.sede_id = @SedeId";
+            parametros.Add("SedeId", _sesion.SedeId.Value);
+        }
 
         var sql = $@"
         SELECT
@@ -261,7 +277,7 @@ public class ReporteNormativoRepository : IReporteNormativoRepository
         ORDER BY m.fecha_movimiento ASC, m.id ASC;";
 
         using var cn = new NpgsqlConnection(_cs);
-        return await cn.QueryAsync<MovimientoKardexReporteDTO>(sql, param);
+        return await cn.QueryAsync<MovimientoKardexReporteDTO>(sql, parametros);
     }
 
     public async Task<(int Borradores, int Vigentes, int Retirados, int Total)> ObtenerMetricasAsync()

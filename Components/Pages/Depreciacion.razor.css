@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   DEPRECIACIÓN — estilos específicos
+   DEPRECIACIÓN — estilos específicos (Layout corregido)
    ═══════════════════════════════════════════════════════════ */
 
 /* ═══ BOTÓN CALCULAR ═══ */
@@ -29,19 +29,9 @@
         box-shadow: 0 6px 18px rgba(79, 70, 229, 0.4);
     }
 
-    .btn-calculate:active:not(:disabled) {
-        transform: translateY(0) scale(0.98);
-    }
-
     .btn-calculate:disabled {
         opacity: 0.6;
         cursor: not-allowed;
-        transform: none;
-    }
-
-    .btn-calculate i {
-        font-size: 1.1em;
-        line-height: 1;
     }
 
 /* ═══ BOTÓN EXPORTAR CGN ═══ */
@@ -68,21 +58,11 @@
         background: var(--success);
         color: #fff;
         transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(22, 163, 74, 0.3);
-    }
-
-    .btn-export-cgn:active:not(:disabled) {
-        transform: translateY(0) scale(0.98);
     }
 
     .btn-export-cgn:disabled {
         opacity: 0.6;
         cursor: not-allowed;
-    }
-
-    .btn-export-cgn i {
-        font-size: 1.1em;
-        line-height: 1;
     }
 
 /* ═══ SELECT INLINE ═══ */
@@ -116,10 +96,6 @@
         min-width: 200px;
     }
 
-        .filtro-select-inline select:hover {
-            border-color: var(--border-strong);
-        }
-
         .filtro-select-inline select:focus {
             outline: none;
             border-color: var(--brand);
@@ -151,88 +127,103 @@
     }
 
     .kpi-card-compact .kpi-value {
-        font-size: var(--fs-xl);
+        font-size: 1.3rem; /* Ligeramente más pequeño para que quepa el valor completo */
         line-height: 1.15;
+        font-weight: 800;
+        color: #0f172a;
     }
 
 /* ═══════════════════════════════════════════════════════════
-   FIX LAYOUT — página sin scroll · solo la tabla scrollea
+   LAYOUT MAESTRO — Página sin scroll, tabla con scroll interno
    ═══════════════════════════════════════════════════════════ */
-
-/* La página ocupa exacto el alto del viewport menos el topbar */
-.page-container:has(.card-table-fija) {
-    height: calc(100vh - 60px - 40px); /* topbar + padding vertical del .app-content */
-  
+.page-container.page-crud {
+    display: flex !important;
+    flex-direction: column !important;
+    height: calc(100vh - 108px) !important;
+    max-height: calc(100vh - 108px) !important;
+    min-height: calc(100vh - 108px) !important;
+    overflow: hidden !important;
+    gap: 12px !important;
+    padding: 20px !important;
+    box-sizing: border-box !important;
 }
 
-    /* Header y KPIs fijos, no se comprimen */
-    .page-container:has(.card-table-fija) > .page-header,
-    .page-container:has(.card-table-fija) > .kpi-grid {
-        flex: 0 0 auto;
-        margin-bottom: 0;
+    .page-container.page-crud > .page-header,
+    .page-container.page-crud > .kpi-grid {
+        flex-shrink: 0 !important;
+        flex-grow: 0 !important;
+        margin-bottom: 0 !important;
     }
 
-/* Card-table ocupa el resto y contiene el scroll */
+/* La tarjeta de la tabla ocupa todo el espacio restante */
 .card-table-fija {
-    flex: 1 1 0;
-    min-height: 150px;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    margin-bottom: 0;
+    flex: 1 1 0 !important;
+    min-height: 200px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    background: #fff !important;
+    border-radius: 12px !important;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06) !important;
+    margin-bottom: 0 !important;
 }
 
     .card-table-fija > .filtros-tabla {
-        flex: 0 0 auto;
+        flex-shrink: 0 !important;
+        padding: 12px 16px !important;
+        border-bottom: 1px solid #e2e8f0 !important;
+        background: #fafbfc !important;
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        flex-wrap: wrap !important;
+        gap: 10px !important;
     }
 
+    /* El contenedor de la tabla SÍ tiene scroll */
     .card-table-fija > .table-responsive {
-        flex: 1 1 0;
-        min-height: 0;
-        overflow-y: auto;
-        overflow-x: auto;
-        scrollbar-width: thin;
-        scrollbar-color: var(--border-strong) transparent;
+        flex: 1 1 0 !important;
+        min-height: 0 !important;
+        overflow-y: auto !important;
+        overflow-x: auto !important;
     }
 
+        /* Scrollbar estilizada */
         .card-table-fija > .table-responsive::-webkit-scrollbar {
             width: 8px;
             height: 8px;
         }
 
         .card-table-fija > .table-responsive::-webkit-scrollbar-thumb {
-            background: var(--border-strong);
-            border-radius: var(--radius-sm);
+            background: #cbd5e1;
+            border-radius: 4px;
         }
 
-            .card-table-fija > .table-responsive::-webkit-scrollbar-thumb:hover {
-                background: var(--text-disabled);
-            }
-
+    /* Header de la tabla fijo (sticky) */
     .card-table-fija .modern-table thead th {
-        position: sticky;
-        top: 0;
-        z-index: 5;
-        background: #fafbfc;
-        box-shadow: 0 1px 0 #e2e8f0;
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 5 !important;
+        background: #f8fafc !important;
+        box-shadow: 0 1px 0 #e2e8f0 !important;
     }
 
 /* ═══ RESPONSIVE ═══ */
 @media (max-width: 767.98px) {
-    .page-container:has(.card-table-fija) {
-        height: auto;
-        max-height: none;
-        overflow: visible;
-        display: block;
-        padding: 16px;
+    .page-container.page-crud {
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+        display: block !important;
+        padding: 16px !important;
     }
 
     .card-table-fija {
-        display: block;
+        display: block !important;
     }
 
         .card-table-fija > .table-responsive {
-            max-height: 60vh;
+            max-height: 60vh !important;
         }
 
     .btn-calculate,
@@ -246,122 +237,3 @@
         min-width: 0;
     }
 }
-/* ═══ LAYOUT — página sin scroll · tabla con scroll interno ═══ */
-
-.page-container:has(.card-table-fija) {
-    height: calc(100vh - 60px);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    padding: 24px;
-    gap: 12px;
-    box-sizing: border-box;
-    max-width: none;
-    margin: 0;
-}
-
-.page-container:has(.card-table-fija) > .page-header,
-.page-container:has(.card-table-fija) > .kpi-grid {
-    flex: 0 0 auto;
-    margin-bottom: 0;
-}
-
-.card-table-fija {
-    flex: 1 1 0;
-    min-height: 150px;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    margin-bottom: 0;
-}
-
-.card-table-fija > .filtros-tabla {
-    flex: 0 0 auto;
-}
-
-.card-table-fija > .table-responsive {
-    flex: 1 1 0;
-    min-height: 0;
-    overflow-y: auto;
-    overflow-x: auto;
-    scrollbar-width: thin;
-    scrollbar-color: var(--border-strong) transparent;
-}
-
-.card-table-fija > .table-responsive::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-}
-
-.card-table-fija > .table-responsive::-webkit-scrollbar-thumb {
-    background: var(--border-strong);
-    border-radius: var(--radius-sm);
-}
-
-.card-table-fija .modern-table thead th {
-    position: sticky;
-    top: 0;
-    z-index: 5;
-    background: #fafbfc;
-    box-shadow: 0 1px 0 #e2e8f0;
-}
-
-/* ═══ LAYOUT — página sin scroll · tabla con scroll interno ═══ */
-
-.page-container:has(.card-table-fija) {
-    height: calc(100vh - 60px);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    padding: 24px;
-    gap: 12px;
-    box-sizing: border-box;
-    max-width: none;
-    margin: 0;
-}
-
-    .page-container:has(.card-table-fija) > .page-header,
-    .page-container:has(.card-table-fija) > .kpi-grid {
-        flex: 0 0 auto;
-        margin-bottom: 0;
-    }
-
-.card-table-fija {
-    flex: 1 1 0;
-    min-height: 150px;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    margin-bottom: 0;
-}
-
-    .card-table-fija > .filtros-tabla {
-        flex: 0 0 auto;
-    }
-
-    .card-table-fija > .table-responsive {
-        flex: 1 1 0;
-        min-height: 0;
-        overflow-y: auto;
-        overflow-x: auto;
-        scrollbar-width: thin;
-        scrollbar-color: var(--border-strong) transparent;
-    }
-
-        .card-table-fija > .table-responsive::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-
-        .card-table-fija > .table-responsive::-webkit-scrollbar-thumb {
-            background: var(--border-strong);
-            border-radius: var(--radius-sm);
-        }
-
-    .card-table-fija .modern-table thead th {
-        position: sticky;
-        top: 0;
-        z-index: 5;
-        background: #fafbfc;
-        box-shadow: 0 1px 0 #e2e8f0;
-    }

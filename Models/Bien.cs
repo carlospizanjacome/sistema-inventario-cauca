@@ -20,6 +20,10 @@
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
         public int? InstitucionId { get; set; }
+
+        // ⬇️ NUEVO — Soporte multi-sede
+        public int? SedeId { get; set; }
+
         public int? AulaId { get; set; }
         public int? FuncionarioId { get; set; }
         public int? VidaUtilId { get; set; }

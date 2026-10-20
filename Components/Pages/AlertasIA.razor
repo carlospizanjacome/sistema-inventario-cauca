@@ -21,6 +21,8 @@
             <h1><i class="bi bi-bell-fill"></i> Alertas IA</h1>
             <p class="subtitle">Detección automática de problemas en el inventario</p>
         </div>
+
+        @* Solo queda el botón de re-escanear *@
         <div class="header-actions">
             <button class="btn-export-cgn" @onclick="RefrescarAlertas" disabled="@_refrescando">
                 <i class="bi @(_refrescando ? "bi-hourglass-split" : "bi-arrow-clockwise")"></i>
@@ -150,19 +152,6 @@
                                     <p>Bienes sin aula asignada</p>
                                     <span class="ai-resumen-count">@_sinUbicacion.Count</span>
                                 </div>
-                            </div>
-                        </div>
-
-                        <div class="cd-info-box">
-                            <i class="bi bi-lightbulb"></i>
-                            <div>
-                                <strong>Las alertas se calculan en tiempo real.</strong>
-                                Haz click en <strong>"Re-escanear"</strong> para actualizar tras cambios en el inventario.
-                                <ul>
-                                    <li><strong>CRÍTICO:</strong> requiere acción inmediata</li>
-                                    <li><strong>ALTO:</strong> atender esta semana</li>
-                                    <li><strong>MEDIO:</strong> revisar cuando haya tiempo</li>
-                                </ul>
                             </div>
                         </div>
                     </div>
@@ -423,12 +412,11 @@
 
         try
         {
-            var institucionId = Sesion.InstitucionId;
-
-            var t1 = AlertasService.ObtenerAlertasStockAsync(institucionId);
-            var t2 = AlertasService.ObtenerAlertasPrestamosAsync(institucionId);
-            var t3 = AlertasService.ObtenerAlertasSinResponsableAsync(institucionId);
-            var t4 = AlertasService.ObtenerAlertasSinUbicacionAsync(institucionId);
+            // Ya no se le pasa la sede al servicio, él la toma de la sesión global
+            var t1 = AlertasService.ObtenerAlertasStockAsync();
+            var t2 = AlertasService.ObtenerAlertasPrestamosAsync();
+            var t3 = AlertasService.ObtenerAlertasSinResponsableAsync();
+            var t4 = AlertasService.ObtenerAlertasSinUbicacionAsync();
 
             await Task.WhenAll(t1, t2, t3, t4);
 

@@ -1,94 +1,397 @@
-/* CSS for Garantias component */
-/* ═══════════════════════════════════════════════════════
-   Garantias.razor — Estilos aislados
-   ═══════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════
+   GARANTÍAS — Layout v2.0 (Compacto y optimizado)
+   ═══════════════════════════════════════════════════════════ */
 
-.kpi-clicable {
-    cursor: pointer;
-    transition: transform 0.15s, box-shadow 0.15s;
+.page-container.page-crud,
+.page-crud {
+    display: flex !important;
+    flex-direction: column !important;
+    height: calc(100vh - 108px) !important;
+    max-height: calc(100vh - 108px) !important;
+    min-height: calc(100vh - 108px) !important;
+    overflow: hidden !important;
+    gap: 8px !important;
+    padding: 16px !important;
+    box-sizing: border-box !important;
 }
 
-    .kpi-clicable:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
+    .page-crud > .page-header {
+        flex-shrink: 0 !important;
+        margin-bottom: 0 !important;
     }
 
-.pills-filter {
+.page-header h1 {
+    font-size: 1.4rem !important;
+    margin: 0 0 2px 0 !important;
+}
+
+.page-header .subtitle {
+    font-size: 0.8rem !important;
+}
+
+/* KPIs Compactos */
+.page-crud .kpi-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 8px !important;
+    margin-bottom: 0 !important;
+    flex-shrink: 0 !important;
+}
+
+.page-crud .kpi-card {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding: 6px 10px !important;
+    min-height: 40px !important;
+    border-radius: 8px !important;
+    background: #fff !important;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06) !important;
+    border-left: 3px solid #4f46e5 !important;
+    transition: all 0.15s !important;
+    cursor: pointer;
+}
+
+    .page-crud .kpi-card:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1) !important;
+    }
+
+.page-crud .kpi-green {
+    border-left-color: #16a34a !important;
+}
+
+.page-crud .kpi-orange {
+    border-left-color: #ea580c !important;
+}
+
+.page-crud .kpi-red {
+    border-left-color: #dc2626 !important;
+}
+
+.page-crud .kpi-blue {
+    border-left-color: #3b82f6 !important;
+}
+
+.page-crud .kpi-icon {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 26px !important;
+    height: 26px !important;
+    border-radius: 6px !important;
+    font-size: 0.8rem !important;
+    color: #fff !important;
+    flex-shrink: 0 !important;
+}
+
+.page-crud .kpi-green .kpi-icon {
+    background: linear-gradient(135deg, #10b981, #16a34a);
+}
+
+.page-crud .kpi-orange .kpi-icon {
+    background: linear-gradient(135deg, #f97316, #ea580c);
+}
+
+.page-crud .kpi-red .kpi-icon {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+}
+
+.page-crud .kpi-blue .kpi-icon {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+}
+
+.page-crud .kpi-label {
+    font-size: 0.55rem !important;
+}
+
+.page-crud .kpi-value {
+    font-size: 0.9rem !important;
+    font-weight: 800 !important;
+}
+
+/* Formulario */
+.page-crud > .card-form {
+    flex-shrink: 0 !important;
+    max-height: 260px !important;
+    overflow-y: auto !important;
+    margin-bottom: 0 !important;
+    padding: 10px 14px !important;
+    border: 2px solid #c7d2fe !important;
+    border-radius: 12px !important;
+    background: #fff !important;
+    box-shadow: 0 4px 16px rgba(79, 70, 229, 0.08) !important;
+}
+
+.card-form .form-header {
     display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin-bottom: 16px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    padding-top: 8px;
+    margin-top: -8px;
+    border-bottom: 1px solid #e2e8f0;
+    min-height: 36px;
+    position: sticky;
+    top: 0;
+    background: #fff;
+    z-index: 10;
+}
+
+.form-row-4 {
+    display: grid !important;
+    grid-template-columns: 2fr 1fr 1.5fr 1.2fr !important;
+    gap: 10px !important;
+    margin-bottom: 10px !important;
+    align-items: end !important;
+}
+
+    .form-row-4:nth-of-type(2) {
+        grid-template-columns: 1.5fr 1.5fr 1fr 1fr !important;
+    }
+
+.form-row-bottom {
+    display: grid !important;
+    grid-template-columns: 2fr 2fr auto !important;
+    gap: 10px !important;
+    margin-bottom: 4px !important;
+    align-items: end !important;
+}
+
+.form-group {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 3px !important;
+    min-width: 0 !important;
+}
+
+    .form-group label {
+        font-size: 0.68rem !important;
+        font-weight: 700 !important;
+        color: #64748b !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.05em !important;
+        margin: 0 !important;
+    }
+
+    .form-group .input-icon {
+        position: relative !important;
+        display: flex !important;
+        align-items: center !important;
+    }
+
+        .form-group .input-icon > i {
+            position: absolute !important;
+            left: 10px !important;
+            top: 50% !important;
+            transform: translateY(-50%) !important;
+            color: #94a3b8 !important;
+            font-size: 0.8rem !important;
+            pointer-events: none !important;
+            z-index: 1 !important;
+        }
+
+    .form-group .form-control, .form-group .form-select, textarea.compact-textarea {
+        width: 100% !important;
+        padding: 0.45rem 0.7rem 0.45rem 2rem !important;
+        border: 1.5px solid #e2e8f0 !important;
+        border-radius: 8px !important;
+        font-size: 0.85rem !important;
+        color: #0f172a !important;
+        background: #fff !important;
+        height: 34px !important;
+        box-sizing: border-box !important;
+        transition: all 0.15s !important;
+    }
+
+        .form-group .form-control:focus, .form-group .form-select:focus {
+            outline: none !important;
+            border-color: #4f46e5 !important;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1) !important;
+        }
+
+textarea.compact-textarea {
+    resize: none !important;
+    overflow-y: auto !important;
+    line-height: 1.2 !important;
+}
+
+.form-actions-inline {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    height: 34px !important;
+}
+
+    .form-actions-inline .btn {
+        padding: 0 1.2rem !important;
+        font-size: 0.85rem !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        cursor: pointer !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 6px !important;
+        height: 34px !important;
+        white-space: nowrap !important;
+        transition: all 0.15s !important;
+    }
+
+    .form-actions-inline .btn-cancel {
+        background: #fff !important;
+        color: #64748b !important;
+        border: 1.5px solid #e2e8f0 !important;
+    }
+
+        .form-actions-inline .btn-cancel:hover {
+            background: #f8fafc !important;
+            border-color: #cbd5e1 !important;
+        }
+
+    .form-actions-inline .btn-save {
+        background: linear-gradient(135deg, #4f46e5, #4338ca) !important;
+        color: #fff !important;
+        border: none !important;
+        box-shadow: 0 2px 6px rgba(79, 70, 229, 0.28) !important;
+    }
+
+        .form-actions-inline .btn-save:hover {
+            transform: translateY(-1px) !important;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.38) !important;
+        }
+
+/* Tabla y Toolbar */
+.page-crud > .card-table {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    background: #fff !important;
+    border-radius: 12px !important;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06) !important;
+}
+
+.card-table > .filtros-toolbar {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 12px !important;
+    padding: 8px 12px !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    flex-shrink: 0 !important;
+}
+
+    .card-table > .filtros-toolbar .filtro-busqueda-principal {
+        flex: 1 1 250px !important;
+        max-width: 350px !important;
+        position: relative !important;
+    }
+
+        .card-table > .filtros-toolbar .filtro-busqueda-principal input {
+            height: 32px !important;
+            font-size: 0.8rem !important;
+            width: 100% !important;
+            padding-left: 2rem !important;
+            border-radius: 8px !important;
+            border: 1.5px solid #e2e8f0 !important;
+        }
+
+        .card-table > .filtros-toolbar .filtro-busqueda-principal > i {
+            position: absolute !important;
+            left: 10px !important;
+            top: 50% !important;
+            transform: translateY(-50%) !important;
+            color: #94a3b8 !important;
+        }
+
+.pills-filter-inline {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    flex-wrap: wrap !important;
 }
 
 .pill-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 18px;
-    border-radius: 999px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    cursor: pointer;
-    font-family: inherit;
-    line-height: 1.2;
-    transition: all 0.15s;
-    outline: none;
-    white-space: nowrap;
+    padding: 4px 10px !important;
+    font-size: 0.7rem !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    height: 32px !important;
+    border-radius: 999px !important;
+    cursor: pointer !important;
+    font-weight: 600 !important;
+    transition: all 0.15s !important;
+    border: 1px solid transparent !important;
 }
 
     .pill-btn.inactive {
-        background: #ffffff;
-        color: #475569;
-        border: 1px solid #e2e8f0;
+        background: #ffffff !important;
+        color: #475569 !important;
+        border-color: #e2e8f0 !important;
     }
 
         .pill-btn.inactive:hover {
-            background: #f8fafc;
-            border-color: #4f46e5;
-            color: #4f46e5;
+            background: #f8fafc !important;
+            border-color: #4f46e5 !important;
+            color: #4f46e5 !important;
         }
 
     .pill-btn.active-indigo {
-        background: #4f46e5;
-        color: #fff;
-        border: 1px solid #4f46e5;
-        box-shadow: 0 2px 8px rgba(79, 70, 229, 0.25);
+        background: #4f46e5 !important;
+        color: #fff !important;
+        border-color: #4f46e5 !important;
     }
 
     .pill-btn.active-green {
-        background: #16a34a;
-        color: #fff;
-        border: 1px solid #16a34a;
-        box-shadow: 0 2px 8px rgba(22, 163, 74, 0.25);
+        background: #16a34a !important;
+        color: #fff !important;
+        border-color: #16a34a !important;
     }
 
     .pill-btn.active-orange {
-        background: #ea580c;
-        color: #fff;
-        border: 1px solid #ea580c;
-        box-shadow: 0 2px 8px rgba(234, 88, 12, 0.25);
+        background: #ea580c !important;
+        color: #fff !important;
+        border-color: #ea580c !important;
     }
 
     .pill-btn.active-red {
-        background: #dc2626;
-        color: #fff;
-        border: 1px solid #dc2626;
-        box-shadow: 0 2px 8px rgba(220, 38, 38, 0.25);
+        background: #dc2626 !important;
+        color: #fff !important;
+        border-color: #dc2626 !important;
     }
 
-.btn-action-view {
-    background: #eef2ff;
-    color: #4f46e5;
-    border: 1px solid #c7d2fe;
+.card-table > .table-responsive {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: auto !important;
 }
 
-    .btn-action-view:hover {
-        background: #4f46e5;
-        color: #fff;
-        border-color: #4f46e5;
-    }
+.page-crud .modern-table thead th {
+    padding: 8px 10px !important;
+    font-size: 0.7rem !important;
+    position: sticky !important;
+    top: 0 !important;
+    background: #fafbfc !important;
+    z-index: 2 !important;
+}
 
-/* ═══ MODAL ═══ */
+.page-crud .modern-table tbody td {
+    padding: 8px 10px !important;
+    font-size: 0.8rem !important;
+}
+
+.card-table > .paginador {
+    flex-shrink: 0 !important;
+    border-top: 1px solid #e2e8f0 !important;
+}
+
+/* Modales */
 .modal-backdrop-det {
     position: fixed;
     inset: 0;
@@ -101,19 +404,9 @@
     animation: fadeIn 0.15s ease-out;
 }
 
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-    }
-
-    to {
-        opacity: 1;
-    }
-}
-
 .modal-det {
     background: #fff;
-    border-radius: 16px;
+    border-radius: 12px;
     max-width: 700px;
     width: 100%;
     max-height: 90vh;
@@ -124,23 +417,11 @@
     animation: slideUp 0.2s ease-out;
 }
 
-@keyframes slideUp {
-    from {
-        transform: translateY(20px);
-        opacity: 0;
-    }
-
-    to {
-        transform: translateY(0);
-        opacity: 1;
-    }
-}
-
 .modal-det-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 20px 24px;
+    padding: 16px 20px;
     border-bottom: 1px solid #e2e8f0;
     background: #f8fafc;
 }
@@ -153,14 +434,14 @@
 
 .modal-det-header h3 {
     margin: 0;
-    font-size: 1.15rem;
+    font-size: 1.1rem;
     font-weight: 700;
     color: #0f172a;
 }
 
 .modal-det-close {
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
     border-radius: 8px;
     border: 1px solid #e2e8f0;
     background: #fff;
@@ -169,7 +450,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1rem;
+    font-size: 0.95rem;
     transition: all 0.15s;
 }
 
@@ -281,20 +562,24 @@
         border-color: #cbd5e1;
     }
 
-@media (max-width: 768px) {
-    .det-dl {
-        grid-template-columns: 1fr;
-        gap: 4px;
+@keyframes fadeIn {
+    from {
+        opacity: 0;
     }
 
-        .det-dl dt {
-            font-size: 0.78rem;
-            margin-top: 6px;
-        }
+    to {
+        opacity: 1;
+    }
+}
 
-    .pills-filter {
-        overflow-x: auto;
-        flex-wrap: nowrap;
-        padding-bottom: 4px;
+@keyframes slideUp {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
     }
 }

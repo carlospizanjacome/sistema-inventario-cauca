@@ -19,6 +19,32 @@ public class EntradaRepository : IEntradaRepository
         _sesion = sesion;
     }
 
+    // ═══════════════════════════════════════════════════════
+    // REGLA DE NEGOCIO: MULTI-SEDE
+    // ═══════════════════════════════════════════════════════
+    private bool DebeFiltrarPorSede() => !_sesion.VeTodasLasSedes;
+
+    private (string Sql, DynamicParameters Parametros) ConstruirFiltros(string alias)
+    {
+        var condiciones = new List<string>();
+        var parametros = new DynamicParameters();
+
+        if (!_sesion.EsSuperAdmin && _sesion.InstitucionId > 0)
+        {
+            condiciones.Add($"{alias}.institucion_id = @InstitucionId");
+            parametros.Add("InstitucionId", _sesion.InstitucionId);
+        }
+
+        if (DebeFiltrarPorSede())
+        {
+            condiciones.Add($"{alias}.sede_id = @SedeId");
+            parametros.Add("SedeId", _sesion.SedeId!.Value);
+        }
+
+        var sql = condiciones.Count > 0 ? " AND " + string.Join(" AND ", condiciones) : string.Empty;
+        return (sql, parametros);
+    }
+
     private const string BaseSelect = @"
         SELECT
             e.id,
@@ -32,6 +58,7 @@ public class EntradaRepository : IEntradaRepository
             e.funcionario_recibe_id AS FuncionarioRecibeId,
             e.observaciones,
             e.institucion_id       AS InstitucionId,
+            e.sede_id              AS SedeId,
             e.anulada,
             e.anulada_por          AS AnuladaPor,
             e.anulada_fecha::timestamp AS AnuladaFecha,
@@ -39,17 +66,17 @@ public class EntradaRepository : IEntradaRepository
             b.codigo               AS BienCodigo,
             b.nombre               AS BienNombre,
             f.nombre_completo      AS FuncionarioNombre,
-            p.nombre               AS ProveedorNombre
+            p.nombre               AS ProveedorNombre,
+            s.nombre               AS SedeNombre
         FROM entradas e
         LEFT JOIN bienes b       ON b.id = e.bien_id
         LEFT JOIN funcionarios f ON f.id = e.funcionario_recibe_id
-        LEFT JOIN proveedores p  ON p.id = e.proveedor_id";
+        LEFT JOIN proveedores p  ON p.id = e.proveedor_id
+        LEFT JOIN sedes s        ON s.id = e.sede_id";
 
     public async Task<IEnumerable<EntradaDTO>> ObtenerTodasAsync()
     {
-        var (filtro, param) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "e");
-
+        var (filtro, param) = ConstruirFiltros("e");
         var sql = $"{BaseSelect} WHERE e.anulada = FALSE {filtro} ORDER BY e.fecha_entrada DESC, e.id DESC;";
 
         using var cn = new NpgsqlConnection(_cs);
@@ -58,47 +85,54 @@ public class EntradaRepository : IEntradaRepository
 
     public async Task<EntradaDTO?> ObtenerPorIdAsync(int id)
     {
-        var (filtro, param) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "e");
+        var (filtro, param) = ConstruirFiltros("e");
+        param.Add("Id", id);
 
         var sql = $"{BaseSelect} WHERE e.id = @Id {filtro};";
 
         using var cn = new NpgsqlConnection(_cs);
-        return await cn.QueryFirstOrDefaultAsync<EntradaDTO>(sql,
-            new { Id = id, InstitucionId = _sesion.InstitucionId });
+        return await cn.QueryFirstOrDefaultAsync<EntradaDTO>(sql, param);
     }
 
     public async Task<int> CrearAsync(EntradaDTO dto)
     {
+        if (!_sesion.EsSuperAdmin)
+        {
+            dto.InstitucionId = _sesion.InstitucionId;
+        }
+
+        if (!_sesion.VeTodasLasSedes)
+        {
+            dto.SedeId = _sesion.SedeId;
+        }
+
+        if (dto.SedeId == null)
+        {
+            throw new InvalidOperationException("La sede es obligatoria para registrar la entrada.");
+        }
+
         const string sql = @"
             INSERT INTO entradas
                 (bien_id, tipo_fuente, numero_factura, fecha_entrada, valor,
                  proveedor, proveedor_id, funcionario_recibe_id, observaciones,
-                 institucion_id, anulada)
+                 institucion_id, sede_id, anulada)
             VALUES
                 (@BienId, @TipoFuente, @NumeroFactura, @FechaEntrada, @Valor,
                  @Proveedor, @ProveedorId, @FuncionarioRecibeId, @Observaciones,
-                 @InstitucionId, FALSE)
+                 @InstitucionId, @SedeId, FALSE)
             RETURNING id;";
 
         using var cn = new NpgsqlConnection(_cs);
-        return await cn.ExecuteScalarAsync<int>(sql, new
-        {
-            dto.BienId,
-            dto.TipoFuente,
-            dto.NumeroFactura,
-            dto.FechaEntrada,
-            dto.Valor,
-            dto.Proveedor,
-            dto.ProveedorId,
-            dto.FuncionarioRecibeId,
-            dto.Observaciones,
-            InstitucionId = _sesion.InstitucionId
-        });
+        return await cn.ExecuteScalarAsync<int>(sql, dto);
     }
 
     public async Task<bool> ActualizarAsync(EntradaDTO dto)
     {
+        if (!_sesion.VeTodasLasSedes)
+        {
+            dto.SedeId = _sesion.SedeId;
+        }
+
         const string sql = @"
             UPDATE entradas
             SET bien_id = @BienId,
@@ -110,6 +144,7 @@ public class EntradaRepository : IEntradaRepository
                 proveedor_id = @ProveedorId,
                 funcionario_recibe_id = @FuncionarioRecibeId,
                 observaciones = @Observaciones,
+                sede_id = @SedeId,
                 updated_at = NOW()
             WHERE id = @Id AND anulada = FALSE;";
 
@@ -117,12 +152,6 @@ public class EntradaRepository : IEntradaRepository
         return await cn.ExecuteAsync(sql, dto) > 0;
     }
 
-    /// <summary>
-    /// Anula lógicamente una entrada (soft-delete).
-    /// REGLA DE NEGOCIO: solo se puede anular si es la ÚLTIMA entrada del bien.
-    /// ADEMÁS: no debe haber movimientos de consumo posteriores.
-    /// El Kardex se recalcula automáticamente.
-    /// </summary>
     public async Task AnularAsync(int id, string motivo)
     {
         using var cn = new NpgsqlConnection(_cs);
@@ -131,13 +160,8 @@ public class EntradaRepository : IEntradaRepository
 
         try
         {
-            // 1. Obtener datos de la entrada
-            //    ⚠️ Casteamos fecha_entrada::timestamp para evitar el error DateOnly → DateTime
             var entrada = await cn.QueryFirstOrDefaultAsync<dynamic>(
-                @"SELECT 
-                      bien_id, 
-                      fecha_entrada::timestamp AS fecha_entrada, 
-                      anulada
+                @"SELECT bien_id, fecha_entrada::timestamp AS fecha_entrada, anulada
                   FROM entradas 
                   WHERE id = @Id",
                 new { Id = id }, tx);
@@ -151,7 +175,6 @@ public class EntradaRepository : IEntradaRepository
             int bienId = (int)entrada.bien_id;
             DateTime fechaEntrada = (DateTime)entrada.fecha_entrada;
 
-            // 2. Validar que sea la última entrada
             var hayEntradasPosteriores = await cn.ExecuteScalarAsync<int>(@"
                 SELECT COUNT(*) FROM entradas
                 WHERE bien_id = @BienId
@@ -159,36 +182,25 @@ public class EntradaRepository : IEntradaRepository
                   AND id <> @Id
                   AND (fecha_entrada > @FechaEntrada
                        OR (fecha_entrada = @FechaEntrada AND id > @Id));",
-                new
-                {
-                    BienId = bienId,
-                    Id = id,
-                    FechaEntrada = fechaEntrada.Date
-                }, tx);
+                new { BienId = bienId, Id = id, FechaEntrada = fechaEntrada.Date }, tx);
 
             if (hayEntradasPosteriores > 0)
                 throw new InvalidOperationException(
                     $"No se puede anular: hay {hayEntradasPosteriores} entrada(s) posterior(es). " +
                     "Anule primero las entradas más recientes.");
 
-            // 3. Validar que no haya movimientos de consumo posteriores
             var hayMovimientosPosteriores = await cn.ExecuteScalarAsync<int>(@"
                 SELECT COUNT(*) FROM movimientos_consumo
                 WHERE bien_id = @BienId
                   AND anulada = FALSE
                   AND fecha_movimiento > @FechaEntrada;",
-                new
-                {
-                    BienId = bienId,
-                    FechaEntrada = fechaEntrada.Date
-                }, tx);
+                new { BienId = bienId, FechaEntrada = fechaEntrada.Date }, tx);
 
             if (hayMovimientosPosteriores > 0)
                 throw new InvalidOperationException(
                     $"No se puede anular: hay {hayMovimientosPosteriores} movimiento(s) de consumo posterior(es). " +
                     "Anule primero los movimientos más recientes.");
 
-            // 4. Marcar como anulada
             await cn.ExecuteAsync(@"
                 UPDATE entradas
                 SET anulada = TRUE,
@@ -197,16 +209,9 @@ public class EntradaRepository : IEntradaRepository
                     anulada_motivo = @Motivo,
                     updated_at = NOW()
                 WHERE id = @Id;",
-                new
-                {
-                    Id = id,
-                    UsuarioId = _sesion.UsuarioActual?.Id,
-                    Motivo = motivo
-                }, tx);
+                new { Id = id, UsuarioId = _sesion.UsuarioActual?.Id, Motivo = motivo }, tx);
 
-            // 5. Recalcular el saldo del bien (Kardex)
             await RecalcularKardexAsync(bienId, cn, tx);
-
             await tx.CommitAsync();
         }
         catch
@@ -216,10 +221,6 @@ public class EntradaRepository : IEntradaRepository
         }
     }
 
-    /// <summary>
-    /// Recalcula el stock y CPP del bien basándose en los movimientos activos.
-    /// Solo aplica a bienes de consumo (que tienen Kardex).
-    /// </summary>
     private async Task RecalcularKardexAsync(int bienId, NpgsqlConnection cn, NpgsqlTransaction tx)
     {
         await cn.ExecuteAsync(@"
@@ -241,90 +242,54 @@ public class EntradaRepository : IEntradaRepository
             new { BienId = bienId }, tx);
     }
 
-    /// <summary>
-    /// Verifica si una entrada es la última del bien.
-    /// Retorna false si hay entradas posteriores o movimientos de consumo posteriores.
-    /// </summary>
     public async Task<bool> EsUltimaEntradaAsync(int id)
     {
         using var cn = new NpgsqlConnection(_cs);
-
-        var esUltima = await cn.ExecuteScalarAsync<bool>(@"
+        return await cn.ExecuteScalarAsync<bool>(@"
             SELECT NOT EXISTS (
                 SELECT 1 FROM entradas e2
-                WHERE e2.bien_id = (
-                    SELECT bien_id FROM entradas WHERE id = @Id
-                )
-                  AND e2.anulada = FALSE
-                  AND e2.id <> @Id
-                  AND (
-                      e2.fecha_entrada > (SELECT fecha_entrada FROM entradas WHERE id = @Id)
-                      OR (
-                          e2.fecha_entrada = (SELECT fecha_entrada FROM entradas WHERE id = @Id)
-                          AND e2.id > @Id
-                      )
-                  )
-            );",
-            new { Id = id });
-
-        return esUltima;
+                WHERE e2.bien_id = (SELECT bien_id FROM entradas WHERE id = @Id)
+                  AND e2.anulada = FALSE AND e2.id <> @Id
+                  AND (e2.fecha_entrada > (SELECT fecha_entrada FROM entradas WHERE id = @Id)
+                       OR (e2.fecha_entrada = (SELECT fecha_entrada FROM entradas WHERE id = @Id) AND e2.id > @Id))
+            );", new { Id = id });
     }
 
     public async Task<bool> BienTieneEntradaAsync(int bienId, int? excluirId = null)
     {
-        const string sql = @"
-            SELECT COUNT(*) FROM entradas
-            WHERE bien_id = @BienId
-              AND anulada = FALSE
-              AND (@ExcluirId IS NULL OR id <> @ExcluirId);";
-
         using var cn = new NpgsqlConnection(_cs);
-        var n = await cn.ExecuteScalarAsync<int>(sql,
-            new { BienId = bienId, ExcluirId = excluirId });
-        return n > 0;
+        return await cn.ExecuteScalarAsync<int>(@"
+            SELECT COUNT(*) FROM entradas
+            WHERE bien_id = @BienId AND anulada = FALSE
+              AND (@ExcluirId IS NULL OR id <> @ExcluirId);",
+            new { BienId = bienId, ExcluirId = excluirId }) > 0;
     }
 
     public async Task<ResultadoPaginado<EntradaDTO>> ObtenerPaginadoAsync(
-        int pagina = 1,
-        int tamano = 25,
-        string? filtroTexto = null)
+        int pagina = 1, int tamano = 25, string? filtroTexto = null)
     {
         if (pagina < 1) pagina = 1;
         if (tamano < 1) tamano = 25;
         if (tamano > 200) tamano = 200;
 
-        var (filtroInst, _) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "e");
+        var (filtro, parametros) = ConstruirFiltros("e");
+        var condiciones = new List<string> { "e.anulada = FALSE" };
 
-        var filtroBusqueda = string.Empty;
         if (!string.IsNullOrWhiteSpace(filtroTexto))
         {
-            filtroBusqueda = @" AND (b.codigo ILIKE @Buscar 
-                                 OR b.nombre ILIKE @Buscar 
-                                 OR e.numero_factura ILIKE @Buscar 
-                                 OR e.proveedor ILIKE @Buscar)";
+            condiciones.Add(@"(b.codigo ILIKE @Buscar OR b.nombre ILIKE @Buscar 
+                               OR e.numero_factura ILIKE @Buscar OR e.proveedor ILIKE @Buscar)");
+            parametros.Add("Buscar", $"%{filtroTexto}%");
         }
 
-        var sqlCount = $@"
-            SELECT COUNT(*) FROM entradas e
-            LEFT JOIN bienes b ON b.id = e.bien_id
-            WHERE e.anulada = FALSE {filtroInst} {filtroBusqueda};";
+        var whereExtra = " AND " + string.Join(" AND ", condiciones);
+        parametros.Add("Tamano", tamano);
+        parametros.Add("Offset", (pagina - 1) * tamano);
 
-        var sqlData = $@"
-            {BaseSelect}
-            WHERE e.anulada = FALSE {filtroInst} {filtroBusqueda}
-            ORDER BY e.fecha_entrada DESC, e.id DESC
-            LIMIT @Tamano OFFSET @Offset;";
+        var sqlCount = $@"SELECT COUNT(*) FROM entradas e LEFT JOIN bienes b ON b.id = e.bien_id WHERE 1=1 {filtro} {whereExtra};";
+        var sqlData = $@"{BaseSelect} WHERE 1=1 {filtro} {whereExtra} ORDER BY e.fecha_entrada DESC, e.id DESC LIMIT @Tamano OFFSET @Offset;";
 
         using var cn = new NpgsqlConnection(_cs);
-        var parametros = new
-        {
-            InstitucionId = _sesion.InstitucionId,
-            Buscar = $"%{filtroTexto}%",
-            Tamano = tamano,
-            Offset = (pagina - 1) * tamano
-        };
-
         var total = await cn.ExecuteScalarAsync<int>(sqlCount, parametros);
         var items = (await cn.QueryAsync<EntradaDTO>(sqlData, parametros)).ToList();
 
@@ -338,20 +303,14 @@ public class EntradaRepository : IEntradaRepository
     }
 
     public async Task<ResultadoPaginado<EntradaDTO>> ObtenerPaginadoConFiltrosAsync(
-        FiltroMovimientoDTO filtro,
-        int pagina = 1,
-        int tamano = 25)
+        FiltroMovimientoDTO filtro, int pagina = 1, int tamano = 25)
     {
         if (pagina < 1) pagina = 1;
         if (tamano < 1) tamano = 25;
         if (tamano > 200) tamano = 200;
 
-        var (filtroInst, _) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "e");
-
+        var (filtroSql, parametros) = ConstruirFiltros("e");
         var condiciones = new List<string> { "e.anulada = FALSE" };
-        var parametros = new DynamicParameters();
-        parametros.Add("InstitucionId", _sesion.InstitucionId);
 
         if (!string.IsNullOrWhiteSpace(filtro.Texto))
         {
@@ -378,21 +337,12 @@ public class EntradaRepository : IEntradaRepository
             parametros.Add("Tipo", filtro.Tipo);
         }
 
-        var whereExtra = string.Join(" AND ", condiciones);
-
+        var whereExtra = " AND " + string.Join(" AND ", condiciones);
         parametros.Add("Tamano", tamano);
         parametros.Add("Offset", (pagina - 1) * tamano);
 
-        var sqlCount = $@"
-            SELECT COUNT(*) FROM entradas e
-            LEFT JOIN bienes b ON b.id = e.bien_id
-            WHERE {whereExtra} {filtroInst};";
-
-        var sqlData = $@"
-            {BaseSelect}
-            WHERE {whereExtra} {filtroInst}
-            ORDER BY e.fecha_entrada DESC, e.id DESC
-            LIMIT @Tamano OFFSET @Offset;";
+        var sqlCount = $@"SELECT COUNT(*) FROM entradas e LEFT JOIN bienes b ON b.id = e.bien_id WHERE 1=1 {filtroSql} {whereExtra};";
+        var sqlData = $@"{BaseSelect} WHERE 1=1 {filtroSql} {whereExtra} ORDER BY e.fecha_entrada DESC, e.id DESC LIMIT @Tamano OFFSET @Offset;";
 
         using var cn = new NpgsqlConnection(_cs);
         var total = await cn.ExecuteScalarAsync<int>(sqlCount, parametros);

@@ -32,26 +32,21 @@ public class SalidaDTO
     public string? Observaciones { get; set; }
 
     public int InstitucionId { get; set; }
+    public int? SedeId { get; set; } // ⬅️ NUEVO
 
-    // ═══════════════════════════════════════════════════════════
-    // PROPIEDADES DE SOFT-DELETE (ANULACIÓN)
-    // ═══════════════════════════════════════════════════════════
+    // ═══ SOFT-DELETE (ANULACIÓN) ═══
     public bool Anulada { get; set; }
     public int? AnuladaPor { get; set; }
     public DateTime? AnuladaFecha { get; set; }
     public string? AnuladaMotivo { get; set; }
-    // ═══════════════════════════════════════════════════════════
 
     // ── Navegación (read-only) ──
     public string? BienCodigo { get; set; }
     public string? BienNombre { get; set; }
     public string? FuncionarioNombre { get; set; }
+    public string? SedeNombre { get; set; } // ⬅️ NUEVO
 
     // ── Calculadas ──
-    /// <summary>
-    /// Indica si la salida tiene Acta Comité o Denuncia penal.
-    /// Las salidas formales NO se pueden anular desde la UI.
-    /// </summary>
     public bool EsFormal => !string.IsNullOrWhiteSpace(NumeroActaComite)
                          || !string.IsNullOrWhiteSpace(NumeroDenuncia);
 }

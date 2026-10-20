@@ -5,6 +5,7 @@
 @using Almacen.Interfaces
 @using Almacen.Services
 @using Microsoft.JSInterop
+@using Microsoft.AspNetCore.Components.Web
 
 @inject ITomaFisicaRepository TomaRepo
 @inject IFuncionarioRepository FuncRepo
@@ -36,7 +37,10 @@
                 </button>
                 <div>
                     <h1>@_toma.Nombre</h1>
-                    <p>@_toma.InstitucionNombre — @_toma.Codigo</p>
+                    <p>
+                        <i class="bi bi-geo-alt-fill"></i> <strong>@_toma.SedeNombre</strong> — 
+                        @_toma.InstitucionNombre — @_toma.Codigo
+                    </p>
                 </div>
             </div>
 
@@ -392,6 +396,7 @@
 
             var detalleSnap = await TomaRepo.BuscarPorCodigoAsync(TomaId, codigoLimpio);
 
+            // Autocompletar campos si vienen del snapshot
             if (detalleSnap is not null)
             {
                 if (string.IsNullOrWhiteSpace(_ubicacionReal)
@@ -489,6 +494,15 @@
                     Toast.Info(mensaje);
                     break;
             }
+
+            // ═══ FIX: LIMPIAR CAMPOS DESPUÉS DEL ESCANEO ═══
+            // Esto evita que el siguiente escaneo herede datos del bien anterior
+            _funcionarioRealId = null;
+            _ubicacionReal = null;
+            _estadoFisicoReal = null;
+            _funcionarioAutoCargado = false;
+            _ubicacionAutoCargada = false;
+            _estadoFisicoAutoCargado = false;
 
             try { await JS.InvokeVoidAsync("navigator.vibrate", 100); }
             catch { }

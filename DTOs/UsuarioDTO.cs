@@ -22,11 +22,15 @@ public class UsuarioDTO
 
     public int? RolId { get; set; }
 
-    // ⬇️ NUEVAS
+    // ⬇️ Institucion
     public int InstitucionId { get; set; }
     public bool EsSuperAdmin { get; set; }
+
+    // ⬇️ NUEVAS — Soporte multi-sede
+    public int? SedeId { get; set; }
 
     // Navegación
     public string? NombreRol { get; set; }
     public string? InstitucionNombre { get; set; }
+    public string? SedeNombre { get; set; }
 }

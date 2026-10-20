@@ -13,6 +13,7 @@
 @inject ISalidaRepository SalidaRepo
 @inject IBienRepository BienRepo
 @inject IFuncionarioRepository FuncRepo
+@inject ISedeRepository SedeRepo
 @inject IJSRuntime JS
 @inject SeguridadService Seguridad
 @inject NavigationManager Navigation
@@ -77,9 +78,8 @@
             <EditForm @key="salidaEditandoId" Model="salidaDTO" OnValidSubmit="Guardar">
                 <DataAnnotationsValidator />
 
-                @* ═══ FILA 1: Bien | Tipo Baja | Fecha ═══ *@
+                @* ═══ FILA 1: Bien | Tipo Baja | Fecha | Sede ═══ *@
                 <div class="form-fila-1">
-
                     <div class="ff-bien">
                         <label>Bien *</label>
 
@@ -192,11 +192,33 @@
                         </div>
                         <ValidationMessage For="() => salidaDTO.FechaSalida" class="form-error" />
                     </div>
+
+                    <div class="ff-sede">
+                        <label>Sede @(!Sesion.VeTodasLasSedes ? "" : "*")</label>
+                        <div class="input-icon">
+                            <i class="bi bi-geo-alt-fill"></i>
+                            <InputSelect class="form-control"
+                                         @bind-Value="salidaDTO.SedeId"
+                                         disabled="@(!Sesion.VeTodasLasSedes || _esSalidaFormal)">
+                                @if (!Sesion.VeTodasLasSedes)
+                                {
+                                    <option value="@Sesion.SedeId">@Sesion.SedeNombre</option>
+                                }
+                                else
+                                {
+                                    <option value="">— Seleccione sede —</option>
+                                    @foreach (var s in _sedes)
+                                    {
+                                        <option value="@s.Id">@s.Nombre</option>
+                                    }
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
                 </div>
 
                 @* ═══ FILA 2: Acta | Denuncia | Valor | Aprueba ═══ *@
                 <div class="form-fila-2">
-
                     <div class="ff-acta">
                         <label>N° Acta Comité</label>
                         <div class="input-icon">
@@ -248,7 +270,6 @@
 
                 @* ═══ FILA 3: Motivo | Observaciones ═══ *@
                 <div class="form-fila-3">
-
                     <div class="ff-motivo">
                         <label>Motivo *</label>
                         <div class="input-icon">
@@ -363,40 +384,33 @@
 
                     <div class="filtro-select">
                         <i class="bi bi-calendar"></i>
-                        <input type="date"
-                               placeholder="Desde"
-                               @bind="_filtroFechaDesde"
-                               @bind:after="AplicarFiltrosAvanzados" />
+                        <input type="date" placeholder="Desde" @bind="_filtroFechaDesde" @bind:after="AplicarFiltrosAvanzados" />
                     </div>
 
                     <div class="filtro-select">
                         <i class="bi bi-calendar"></i>
-                        <input type="date"
-                               placeholder="Hasta"
-                               @bind="_filtroFechaHasta"
-                               @bind:after="AplicarFiltrosAvanzados" />
+                        <input type="date" placeholder="Hasta" @bind="_filtroFechaHasta" @bind:after="AplicarFiltrosAvanzados" />
                     </div>
 
                     @if (_hayFiltrosAvanzados)
                     {
                         <button class="btn-limpiar-filtros" @onclick="LimpiarTodosLosFiltros">
-                            <i class="bi bi-arrow-counterclockwise"></i>
-                            Limpiar
+                            <i class="bi bi-arrow-counterclockwise"></i> Limpiar
                         </button>
                     }
                 </div>
             </div>
         }
 
-        <div class="table-responsive">
+                <div class="table-responsive">
             <table class="table modern-table">
                 <thead>
                     <tr>
+                        <th>Acta</th>
                         <th>Fecha</th>
                         <th>Bien</th>
                         <th>Tipo Baja</th>
                         <th>Motivo</th>
-                        <th>Acta</th>
                         <th>Denuncia</th>
                         <th class="text-end">Valor</th>
                         <th>Aprueba</th>
@@ -420,6 +434,7 @@
                                         || !string.IsNullOrWhiteSpace(s.NumeroDenuncia);
 
                             <tr class="table-row-hover" @key="s.Id">
+                                <td class="text-mono">@(string.IsNullOrWhiteSpace(s.NumeroActaComite) ? "—" : s.NumeroActaComite)</td>
                                 <td class="text-mono">@s.FechaSalida?.ToString("dd/MM/yyyy")</td>
                                 <td>
                                     <div class="table-cell-primary">
@@ -431,7 +446,6 @@
                                     <span class="badge @GetClaseBadgeTipoBaja(s.TipoBaja)">@s.TipoBaja</span>
                                 </td>
                                 <td>@s.Motivo</td>
-                                <td class="text-mono">@s.NumeroActaComite</td>
                                 <td class="text-mono">
                                     @if (!string.IsNullOrEmpty(s.NumeroDenuncia))
                                     {
@@ -477,14 +491,10 @@
                 </tbody>
             </table>
         </div>
-
         @* ═══ PAGINADOR — Oculto cuando el formulario está abierto ═══ *@
         @if (_pagina is not null && _pagina.TotalRegistros > 0 && !_mostrarFormulario)
         {
-            <Paginador T="SalidaDTO"
-                       Resultado="_pagina"
-                       OnCambioPagina="CambioPagina"
-                       OnCambioTamano="CambioTamano" />
+            <Paginador T="SalidaDTO" Resultado="_pagina" OnCambioPagina="CambioPagina" OnCambioTamano="CambioTamano" />
         }
     </div>
 </div>
@@ -573,6 +583,7 @@
     private ResultadoPaginado<SalidaDTO>? _pagina;
     private IEnumerable<Bien> bienes = [];
     private IEnumerable<FuncionarioDTO> funcionarios = [];
+    private List<SedeDTO> _sedes = new();
 
     private SalidaDTO salidaDTO = new();
     private SalidaDTO? _salidaAntesDeEditar;
@@ -628,6 +639,7 @@
 
         bienes = await BienRepo.ObtenerTodosAsync();
         funcionarios = await FuncRepo.ObtenerTodosAsync();
+        _sedes = (await SedeRepo.ObtenerTodasAsync()).ToList();
         _bienesFiltrados = bienes.Take(20).ToList();
 
         await Cargar();
@@ -693,7 +705,11 @@
 
     private void AbrirFormulario()
     {
-        salidaDTO = new SalidaDTO { FechaSalida = DateTime.Today, TipoBaja = "Obsolescencia" };
+        salidaDTO = new SalidaDTO { 
+            FechaSalida = DateTime.Today, 
+            TipoBaja = "Obsolescencia",
+            SedeId = Sesion.VeTodasLasSedes ? null : Sesion.SedeId
+        };
         editando = false;
         salidaEditandoId = 0;
         _salidaAntesDeEditar = null;
@@ -895,6 +911,15 @@
             return;
         }
 
+        if (!Sesion.VeTodasLasSedes)
+            salidaDTO.SedeId = Sesion.SedeId;
+
+        if (salidaDTO.SedeId == null)
+        {
+            Toast.Error("Debe seleccionar una Sede.");
+            return;
+        }
+
         try
         {
             if (editando)
@@ -907,7 +932,8 @@
                     _salidaAntesDeEditar.FechaSalida,
                     _salidaAntesDeEditar.NumeroActaComite,
                     _salidaAntesDeEditar.NumeroDenuncia,
-                    _salidaAntesDeEditar.ValorSalida
+                    _salidaAntesDeEditar.ValorSalida,
+                    _salidaAntesDeEditar.SedeId
                 };
 
                 await SalidaRepo.ActualizarAsync(salidaDTO);
@@ -927,7 +953,8 @@
                         salidaDTO.FechaSalida,
                         salidaDTO.NumeroActaComite,
                         salidaDTO.NumeroDenuncia,
-                        salidaDTO.ValorSalida
+                        salidaDTO.ValorSalida,
+                        salidaDTO.SedeId
                     },
                     motivo: _esSalidaFormal 
                         ? "Edición de observaciones (salida formal)" 
@@ -967,7 +994,8 @@
                         salidaDTO.FechaSalida,
                         salidaDTO.NumeroActaComite,
                         salidaDTO.NumeroDenuncia,
-                        salidaDTO.ValorSalida
+                        salidaDTO.ValorSalida,
+                        salidaDTO.SedeId
                     }
                 );
 
@@ -1014,6 +1042,7 @@
         salidaDTO.ValorSalida = s.ValorSalida;
         salidaDTO.FuncionarioApruebaId = s.FuncionarioApruebaId;
         salidaDTO.Observaciones = s.Observaciones;
+        salidaDTO.SedeId = s.SedeId;
 
         _bienSeleccionado = bienes.FirstOrDefault(b => b.Id == s.BienId);
         _textoBusquedaBien = string.Empty;

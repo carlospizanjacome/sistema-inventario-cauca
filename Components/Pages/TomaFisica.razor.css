@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   TOMA FÍSICA — Listado v3.1 (tamaño normal, patrón Bienes)
+   TOMA FÍSICA — Listado v3.3 (Sede en formulario, tabla limpia)
    ═══════════════════════════════════════════════════════════ */
 
 /* ═══════════════════════════════════════════════════════════
@@ -173,7 +173,8 @@
 
 .form-fila-2 {
     display: grid !important;
-    grid-template-columns: 1fr 1.2fr 1.5fr auto !important;
+    /* Sede | Fecha | Responsable | Observaciones | Botones */
+    grid-template-columns: 1.2fr 1fr 1.5fr 1.5fr auto !important;
     gap: 10px !important;
     padding: 8px 0 0 !important;
     align-items: end !important;
@@ -558,7 +559,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════════
-   7. TABLA (tamaño normal Bienes)
+   7. TABLA (Limpia sin Institución ni Responsable)
    ═══════════════════════════════════════════════════════════ */
 .card-table > .table-responsive {
     flex: 1 1 0 !important;
@@ -649,33 +650,6 @@
         text-overflow: ellipsis !important;
     }
 
-    .card-table .tomas-table .nombre-secundario {
-        display: block !important;
-        color: #94a3b8 !important;
-        font-size: 0.82rem !important;
-        font-weight: 500 !important;
-        text-decoration: none !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-    }
-
-        .card-table .tomas-table .nombre-secundario i {
-            color: #94a3b8 !important;
-            font-size: 0.78rem !important;
-            margin-right: 3px !important;
-        }
-
-    /* ─── Columna Institución ─── */
-    .card-table .tomas-table .celda-inst {
-        display: block !important;
-        color: #64748b !important;
-        font-size: 0.88rem !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-    }
-
     /* ─── Columna Fecha ─── */
     .card-table .tomas-table .celda-fecha {
         display: block !important;
@@ -742,7 +716,7 @@
         color: #ea580c !important;
     }
 
-    .card-table .tomas-table tbody td:nth-child(6) {
+    .card-table .tomas-table tbody td:nth-child(5) {
         color: #4f46e5 !important;
     }
 
@@ -989,17 +963,17 @@
    9. RESPONSIVE
    ═══════════════════════════════════════════════════════════ */
 @media (max-width: 1200px) {
+    .card-table .tomas-table thead th:nth-child(5),
     .card-table .tomas-table thead th:nth-child(6),
     .card-table .tomas-table thead th:nth-child(7),
-    .card-table .tomas-table thead th:nth-child(8),
-    .card-table .tomas-table thead th:nth-child(9) {
+    .card-table .tomas-table thead th:nth-child(8) {
         padding-right: 12px !important;
     }
 
+    .card-table .tomas-table tbody td:nth-child(5),
     .card-table .tomas-table tbody td:nth-child(6),
     .card-table .tomas-table tbody td:nth-child(7),
-    .card-table .tomas-table tbody td:nth-child(8),
-    .card-table .tomas-table tbody td:nth-child(9) {
+    .card-table .tomas-table tbody td:nth-child(8) {
         padding-right: 12px !important;
     }
 }

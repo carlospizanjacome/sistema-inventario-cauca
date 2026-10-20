@@ -9,12 +9,6 @@ using System.Text;
 
 namespace Almacen.Services;
 
-/// <summary>
-/// Service para importación masiva de Excel/CSV (V2.0 §12).
-/// Lee archivos .xlsx, .xls y .csv, valida filas y las persiste como bienes reales.
-/// Aplica RECHAZO INTELIGENTE de duplicados por código contable.
-/// Mensaje final honesto: distingue bienes nuevos vs ya existentes.
-/// </summary>
 public class ExcelImportService
 {
     private readonly string _cs;
@@ -381,11 +375,11 @@ public class ExcelImportService
 
     // ═══════════════════════════════════════════════════════
     // 6. PERSISTIR BIENES REALES + RECHAZO INTELIGENTE
-    //    ✨ CON MENSAJE FINAL HONESTO
     // ═══════════════════════════════════════════════════════
     public async Task<ResultadoImportacionDTO> PersistirBienesAsync(
         List<FilaImportacionDTO> filas,
         int importacionId,
+        int? sedeId,
         Action<int>? onProgreso = null)
     {
         var resultado = new ResultadoImportacionDTO
@@ -394,11 +388,18 @@ public class ExcelImportService
             TotalFilas = filas.Count
         };
 
+        // Forzar la sede recibida o la del usuario en sesión
+        var sedeFinalId = sedeId ?? _sesion.SedeId;
+
+        if (sedeFinalId == null)
+        {
+            throw new InvalidOperationException("Debe seleccionar una sede para importar los bienes.");
+        }
+
         var filasParaImportar = filas
             .Where(f => f.Estado == "OK" || f.Estado == "WARNING")
             .ToList();
 
-        // Pre-cargar catálogos en memoria (4 queries)
         var categorias = await CargarCategoriasAsync();
         var aulas = await CargarAulasAsync();
         var funcionarios = await CargarFuncionariosAsync();
@@ -407,26 +408,23 @@ public class ExcelImportService
         int importadas = 0;
         int conError = 0;
         int conWarning = 0;
-        int yaExistian = 0;   // ✨ Contador de bienes que ya existían (duplicados idénticos)
+        int yaExistian = 0;
 
         foreach (var fila in filasParaImportar)
         {
             try
             {
-                // ── 1. Resolver Categoría por nombre ──
                 var categoria = BuscarPorNombre(categorias, fila.CategoriaNombre);
                 if (categoria is null)
                 {
-                    fila.Errores.Add($"Categoría '{fila.CategoriaNombre}' no encontrada en el sistema");
+                    fila.Errores.Add($"Categoría '{fila.CategoriaNombre}' no encontrada");
                     fila.Estado = "ERROR";
-                    await _impRepo.MarcarDetalleErrorPorFilaAsync(
-                        importacionId, fila.NumeroFila, string.Join("; ", fila.Errores));
+                    await _impRepo.MarcarDetalleErrorPorFilaAsync(importacionId, fila.NumeroFila, string.Join("; ", fila.Errores));
                     conError++;
                     onProgreso?.Invoke(importadas + conError);
                     continue;
                 }
 
-                // ── 2. Resolver Aula por nombre (opcional) ──
                 int? aulaId = null;
                 if (!string.IsNullOrWhiteSpace(fila.AulaNombre))
                 {
@@ -434,7 +432,6 @@ public class ExcelImportService
                     aulaId = aula?.Id;
                 }
 
-                // ── 3. Resolver Funcionario por nombre (opcional) ──
                 int? funcionarioId = null;
                 if (!string.IsNullOrWhiteSpace(fila.FuncionarioNombre))
                 {
@@ -442,14 +439,12 @@ public class ExcelImportService
                     funcionarioId = func?.Id;
                 }
 
-                // ── 4. Resolver VidaÚtil desde el CGN de la categoría ──
                 int? vidaUtilId = null;
                 if (!string.IsNullOrWhiteSpace(categoria.CodigoCgn))
                 {
                     vidaUtilId = vidasUtiles.GetValueOrDefault(categoria.CodigoCgn);
                 }
 
-                // ── 5. Construir el Bien ──
                 var tipoBienFinal = string.IsNullOrWhiteSpace(categoria.TipoBien)
                     ? (fila.TipoBien ?? "devolutivo").ToLower()
                     : categoria.TipoBien!.ToLower();
@@ -475,48 +470,40 @@ public class ExcelImportService
                     FuncionarioId = funcionarioId,
                     VidaUtilId = vidaUtilId,
                     ValorResidual = 0,
-                    Cantidad = (int)(fila.StockInicial ?? 1)
+                    Cantidad = (int)(fila.StockInicial ?? 1),
+                    SedeId = sedeFinalId // ⬅️ ASIGNACIÓN OBLIGATORIA DE SEDE
                 };
 
-                // ═══════════════════════════════════════════════════════
-                // ✨ 5.5. VALIDACIÓN DE DUPLICADOS (RECHAZO INTELIGENTE)
-                // ═══════════════════════════════════════════════════════
                 if (!string.IsNullOrWhiteSpace(bien.Codigo))
                 {
                     var bienExistente = await _bienRepo.ObtenerPorCodigoAsync(bien.Codigo);
 
                     if (bienExistente is not null)
                     {
-                        // Comparar si los datos son idénticos (idempotencia)
                         bool datosIdenticos =
-                            string.Equals(bienExistente.Nombre?.Trim(), bien.Nombre?.Trim(),
-                                StringComparison.OrdinalIgnoreCase) &&
+                            string.Equals(bienExistente.Nombre?.Trim(), bien.Nombre?.Trim(), StringComparison.OrdinalIgnoreCase) &&
                             bienExistente.ValorAdquisicion == bien.ValorAdquisicion &&
                             bienExistente.CategoriaId == bien.CategoriaId;
 
                         if (datosIdenticos)
                         {
-                            // ✅ Idempotente: no crear duplicado, marcar como OK con advertencia
-                            fila.Advertencias.Add($"'{bien.Codigo}' ya existía con datos idénticos — no se duplicó");
-                            await _impRepo.MarcarDetalleImportadoPorFilaAsync(
-                                importacionId, fila.NumeroFila, bienExistente.Id);
+                            fila.Advertencias.Add($"'{bien.Codigo}' ya existía — no se duplicó");
+                            await _impRepo.MarcarDetalleImportadoPorFilaAsync(importacionId, fila.NumeroFila, bienExistente.Id);
                             importadas++;
                             conWarning++;
-                            yaExistian++;   // ✨ NUEVO — registra el duplicado idéntico
+                            yaExistian++;
                             onProgreso?.Invoke(importadas + conError);
                             continue;
                         }
                         else
                         {
-                            // ❌ Código existe con datos diferentes → RECHAZAR
                             var mensajeError =
-                                $"El código '{bien.Codigo}' ya existe en el sistema con datos diferentes. " +
+                                $"El código '{bien.Codigo}' ya existe con datos diferentes. " +
                                 $"Bien existente: '{bienExistente.Nombre}' — Valor: {bienExistente.ValorAdquisicion:C0}";
 
                             fila.Errores.Add(mensajeError);
                             fila.Estado = "ERROR";
-                            await _impRepo.MarcarDetalleErrorPorFilaAsync(
-                                importacionId, fila.NumeroFila, mensajeError);
+                            await _impRepo.MarcarDetalleErrorPorFilaAsync(importacionId, fila.NumeroFila, mensajeError);
                             conError++;
                             onProgreso?.Invoke(importadas + conError);
                             continue;
@@ -524,12 +511,8 @@ public class ExcelImportService
                     }
                 }
 
-                // ── 6. Crear bien REAL ──
                 var bienId = await _bienRepo.CrearAsync(bien);
-
-                // ── 7. Marcar el detalle como importado ──
-                await _impRepo.MarcarDetalleImportadoPorFilaAsync(
-                    importacionId, fila.NumeroFila, bienId);
+                await _impRepo.MarcarDetalleImportadoPorFilaAsync(importacionId, fila.NumeroFila, bienId);
 
                 importadas++;
                 if (fila.Advertencias.Any()) conWarning++;
@@ -539,57 +522,31 @@ public class ExcelImportService
             {
                 fila.Errores.Add(ex.Message);
                 fila.Estado = "ERROR";
-                await _impRepo.MarcarDetalleErrorPorFilaAsync(
-                    importacionId, fila.NumeroFila, ex.Message);
+                await _impRepo.MarcarDetalleErrorPorFilaAsync(importacionId, fila.NumeroFila, ex.Message);
                 conError++;
                 onProgreso?.Invoke(importadas + conError);
             }
         }
 
-        // Actualizar contadores reales de la cabecera
-        await _impRepo.ActualizarContadoresAsync(
-            importacionId, importadas, conWarning, conError);
+        await _impRepo.ActualizarContadoresAsync(importacionId, importadas, conWarning, conError);
 
         resultado.FilasImportadas = importadas;
         resultado.FilasConError = conError;
         resultado.FilasConWarning = conWarning;
         resultado.Exito = conError == 0;
 
-        // ═══════════════════════════════════════════════════════════════
-        // ✨ MENSAJE FINAL INTELIGENTE — Distingue nuevos vs existentes
-        // ═══════════════════════════════════════════════════════════════
         var nuevasReales = importadas - yaExistian;
 
         if (conError > 0)
-        {
-            // Caso 1: Hubo errores
-            resultado.Mensaje = $"Se procesaron {importadas} fila(s): " +
-                                $"{nuevasReales} bien(es) nuevo(s) creado(s), " +
-                                $"{yaExistian} ya existían (sin duplicar) y " +
-                                $"{conError} fila(s) fallaron.";
-        }
+            resultado.Mensaje = $"Se procesaron {importadas} fila(s): {nuevasReales} nuevo(s), {yaExistian} ya existían y {conError} fallaron.";
         else if (importadas > 0 && yaExistian == importadas)
-        {
-            // Caso 2: TODOS los bienes ya existían (típico de reimportar el mismo archivo)
-            resultado.Mensaje = $"Los {importadas} bienes ya existían con datos idénticos. " +
-                                "No se creó ningún duplicado.";
-        }
+            resultado.Mensaje = $"Los {importadas} bienes ya existían. No se creó ningún duplicado.";
         else if (yaExistian > 0)
-        {
-            // Caso 3: Mixto (algunos nuevos + algunos existentes)
-            resultado.Mensaje = $"Se crearon {nuevasReales} bien(es) nuevo(s). " +
-                                $"{yaExistian} ya existían y no se duplicaron.";
-        }
+            resultado.Mensaje = $"Se crearon {nuevasReales} bien(es) nuevo(s). {yaExistian} ya existían.";
         else if (importadas > 0)
-        {
-            // Caso 4: Todos nuevos (importación limpia)
             resultado.Mensaje = $"Se importaron {nuevasReales} bienes correctamente.";
-        }
         else
-        {
-            // Caso 5: Nada se importó (0 filas válidas)
             resultado.Mensaje = "No se importó ningún bien. Verifique el archivo.";
-        }
 
         return resultado;
     }
@@ -728,36 +685,24 @@ public class ExcelImportService
     private static decimal? ParseDecimal(string? valor)
     {
         if (string.IsNullOrWhiteSpace(valor)) return null;
-
         var limpio = valor.Replace("$", "").Replace(" ", "").Trim();
-
-        if (limpio.Contains(',') && limpio.Contains('.'))
-            limpio = limpio.Replace(",", "");
-        else if (limpio.Contains(','))
-            limpio = limpio.Replace(",", ".");
-
-        if (decimal.TryParse(limpio, NumberStyles.Any, CultureInfo.InvariantCulture, out var result))
-            return result;
-
+        if (limpio.Contains(',') && limpio.Contains('.')) limpio = limpio.Replace(",", "");
+        else if (limpio.Contains(',')) limpio = limpio.Replace(",", ".");
+        if (decimal.TryParse(limpio, NumberStyles.Any, CultureInfo.InvariantCulture, out var result)) return result;
         return null;
     }
 
     private static DateTime? ParseFecha(string? valor)
     {
         if (string.IsNullOrWhiteSpace(valor)) return null;
-
         var formatos = new[] { "dd/MM/yyyy", "d/M/yyyy", "yyyy-MM-dd", "dd-MM-yyyy", "MM/dd/yyyy" };
-
         foreach (var formato in formatos)
         {
-            if (DateTime.TryParseExact(valor, formato, CultureInfo.InvariantCulture,
-                DateTimeStyles.None, out var result))
+            if (DateTime.TryParseExact(valor, formato, CultureInfo.InvariantCulture, DateTimeStyles.None, out var result))
                 return result;
         }
-
         if (DateTime.TryParse(valor, CultureInfo.InvariantCulture, DateTimeStyles.None, out var result2))
             return result2;
-
         return null;
     }
 
@@ -776,21 +721,14 @@ public class ExcelImportService
 
         foreach (var ch in linea)
         {
-            if (ch == '"')
-            {
-                entreComillas = !entreComillas;
-            }
+            if (ch == '"') entreComillas = !entreComillas;
             else if (ch == separador && !entreComillas)
             {
                 celdas.Add(actual.ToString().Trim());
                 actual.Clear();
             }
-            else
-            {
-                actual.Append(ch);
-            }
+            else actual.Append(ch);
         }
-
         celdas.Add(actual.ToString().Trim());
         return celdas;
     }

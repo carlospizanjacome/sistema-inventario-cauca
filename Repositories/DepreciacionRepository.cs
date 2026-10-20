@@ -19,10 +19,35 @@ public class DepreciacionRepository : IDepreciacionRepository
         _sesion = sesion;
     }
 
+    // ═══════════════════════════════════════════════════════
+    // REGLA DE NEGOCIO: MULTI-SEDE
+    // ═══════════════════════════════════════════════════════
+    private bool DebeFiltrarPorSede() => !_sesion.VeTodasLasSedes;
+
+    private (string Sql, DynamicParameters Parametros) ConstruirFiltros(string alias)
+    {
+        var condiciones = new List<string>();
+        var parametros = new DynamicParameters();
+
+        if (!_sesion.EsSuperAdmin && _sesion.InstitucionId > 0)
+        {
+            condiciones.Add($"{alias}.institucion_id = @InstitucionId");
+            parametros.Add("InstitucionId", _sesion.InstitucionId);
+        }
+
+        if (DebeFiltrarPorSede())
+        {
+            condiciones.Add($"{alias}.sede_id = @SedeId");
+            parametros.Add("SedeId", _sesion.SedeId!.Value);
+        }
+
+        var sql = condiciones.Count > 0 ? " AND " + string.Join(" AND ", condiciones) : string.Empty;
+        return (sql, parametros);
+    }
+
     public async Task<IEnumerable<BienDepreciacionDTO>> ObtenerResumenBienesAsync()
     {
-        var (filtro, param) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "b");
+        var (filtroSql, parametros) = ConstruirFiltros("b");
 
         var sql = $@"
             SELECT
@@ -43,11 +68,11 @@ public class DepreciacionRepository : IDepreciacionRepository
               AND b.tipo_bien = 'devolutivo'
               AND b.vida_util_id IS NOT NULL
               AND b.fecha_adquisicion IS NOT NULL
-              {filtro}
+              {filtroSql}
             ORDER BY b.nombre;";
 
         using var cn = new NpgsqlConnection(_cs);
-        var lista = (await cn.QueryAsync<BienDepreciacionDTO>(sql, param)).ToList();
+        var lista = (await cn.QueryAsync<BienDepreciacionDTO>(sql, parametros)).ToList();
 
         // Calcular campos derivados en memoria
         var hoy = DateTime.Today;
@@ -145,8 +170,7 @@ public class DepreciacionRepository : IDepreciacionRepository
 
     public async Task<int> ContarBienesDepreciablesAsync()
     {
-        var (filtro, param) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "b");
+        var (filtroSql, parametros) = ConstruirFiltros("b");
 
         var sql = $@"
             SELECT COUNT(*) FROM bienes b
@@ -154,9 +178,9 @@ public class DepreciacionRepository : IDepreciacionRepository
               AND b.tipo_bien = 'devolutivo'
               AND b.vida_util_id IS NOT NULL
               AND b.fecha_adquisicion IS NOT NULL
-              {filtro};";
+              {filtroSql};";
 
         using var cn = new NpgsqlConnection(_cs);
-        return await cn.ExecuteScalarAsync<int>(sql, param);
+        return await cn.ExecuteScalarAsync<int>(sql, parametros);
     }
 }

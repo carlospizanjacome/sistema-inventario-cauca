@@ -12,6 +12,7 @@
 @inject ICategoriaRepository CategoriaRepo
 @inject IAulaRepository AulaRepo
 @inject IFuncionarioRepository FuncRepo
+@inject ISedeRepository SedeRepo
 @inject ExcelImportService ExcelService
 @inject SeguridadService Seguridad
 @inject NavigationManager Navigation
@@ -42,8 +43,6 @@
         @for (int i = 1; i <= 6; i++)
         {
             var num = i;
-            // ✨ FIX: Si ya se muestra el resultado (paso 5 con _resultado != null),
-            // todos los pasos 1-5 se consideran completados (verde con check).
             var resultadoMostrado = _pasoActual == 5 && _resultado is not null;
             var clase = (_pasoActual == num && !resultadoMostrado) ? "active" :
                        (_pasoActual > num || resultadoMostrado) ? "completed" : "pending";
@@ -226,6 +225,22 @@
             }
             else
             {
+                @* ⬇️ SELECTOR DE SEDE (Solo visible para Rector/Admin) ⬇️ *@
+                @if (Sesion.VeTodasLasSedes)
+                {
+                    <div class="form-group" style="margin-bottom: 16px; max-width: 400px;">
+                        <label>Sede destino de la importación *</label>
+                        <select @bind="_sedeSeleccionada" class="form-select">
+                            <option value="">— Seleccione sede —</option>
+                            @foreach (var s in _sedes)
+                            {
+                                <option value="@s.Id">@s.Nombre</option>
+                            }
+                        </select>
+                        <small class="text-muted">Los bienes se guardarán en esta sede.</small>
+                    </div>
+                }
+
                 <div class="kpi-validacion-grid">
                     <div class="kpi-val kpi-val-ok">
                         <i class="bi bi-check-circle-fill"></i>
@@ -319,7 +334,7 @@
                     </button>
                     <button class="btn-import-next"
                             @onclick="IrAPaso4"
-                            disabled="@(importables == 0 || _filasError > 0)">
+                            disabled="@(importables == 0 || _filasError > 0 || (Sesion.VeTodasLasSedes && !_sedeSeleccionada.HasValue))">
                         <i class="bi bi-play-fill"></i> Importar @importables bien(es)
                     </button>
                 </div>
@@ -439,12 +454,25 @@
     private int _progresoImportacion = 0;
     private ResultadoImportacionDTO? _resultado;
 
+    private List<SedeDTO> _sedes = new();
+    private int? _sedeSeleccionada;
+
     protected override async Task OnInitializedAsync()
     {
         if (!await Seguridad.TienePermisoAsync("bienes.crear"))
         {
             Navigation.NavigateTo("/");
             return;
+        }
+
+        if (Sesion.VeTodasLasSedes)
+        {
+            _sedes = (await SedeRepo.ObtenerTodasAsync()).ToList();
+            if (_sedes.Any()) _sedeSeleccionada = _sedes.First().Id;
+        }
+        else
+        {
+            _sedeSeleccionada = Sesion.SedeId;
         }
     }
 
@@ -572,6 +600,7 @@
             var resultado = await ExcelService.PersistirBienesAsync(
                 _filasProcesadas,
                 importacionId,
+                _sedeSeleccionada,
                 onProgreso: (completadas) =>
                 {
                     var pct = totalImportables > 0
@@ -603,7 +632,8 @@
                     FilasImportadas = resultado.FilasImportadas,
                     FilasConWarning = resultado.FilasConWarning,
                     FilasConError = resultado.FilasConError,
-                    Total = _filasProcesadas.Count
+                    Total = _filasProcesadas.Count,
+                    SedeId = _sedeSeleccionada
                 }
             );
 
@@ -632,6 +662,16 @@
         _filasProcesadas.Clear();
         _resultado = null;
         _progresoImportacion = 0;
+
+        if (Sesion.VeTodasLasSedes)
+        {
+            _sedeSeleccionada = _sedes.FirstOrDefault()?.Id;
+        }
+        else
+        {
+            _sedeSeleccionada = Sesion.SedeId;
+        }
+
         StateHasChanged();
     }
 

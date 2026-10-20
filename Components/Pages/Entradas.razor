@@ -14,6 +14,7 @@
 @inject IBienRepository BienRepo
 @inject IFuncionarioRepository FuncRepo
 @inject IProveedorRepository ProveedorRepo
+@inject ISedeRepository SedeRepo
 @inject IJSRuntime JS
 @inject SeguridadService Seguridad
 @inject NavigationManager Navigation
@@ -70,15 +71,12 @@
             <EditForm @key="entradaEditandoId" Model="entradaDTO" OnValidSubmit="Guardar">
                 <DataAnnotationsValidator />
 
-                @* ═══ FILA 1: Bien | Tipo Fuente | Fecha ═══ *@
+                @* ═══ FILA 1: Bien | Tipo Fuente | Fecha | Sede ═══ *@
                 <div class="form-fila-1">
-
                     <div class="ff-bien">
                         <label>Bien *</label>
-
                         @if (_bienSeleccionado != null)
                         {
-                            @* ═══ Bien seleccionado — chip compacto ═══ *@
                             <div class="bien-chip">
                                 <i class="bi bi-box-seam-fill"></i>
                                 <div class="bien-chip-info">
@@ -92,7 +90,6 @@
                         }
                         else
                         {
-                            @* ═══ Buscador con dropdown custom ═══ *@
                             <div class="bien-buscador">
                                 <div class="bien-buscador-input">
                                     <i class="bi bi-search"></i>
@@ -112,7 +109,6 @@
                                         </button>
                                     }
                                 </div>
-
                                 @if (_mostrarDropdownBien)
                                 {
                                     <div class="bien-dropdown" @onmousedown:preventDefault="true">
@@ -152,7 +148,6 @@
                                 }
                             </div>
                         }
-
                         <ValidationMessage For="() => entradaDTO.BienId" class="form-error" />
                     </div>
 
@@ -177,11 +172,33 @@
                         </div>
                         <ValidationMessage For="() => entradaDTO.FechaEntrada" class="form-error" />
                     </div>
+
+                    <div class="ff-sede">
+                        <label>Sede @(!Sesion.VeTodasLasSedes ? "" : "*")</label>
+                        <div class="input-icon">
+                            <i class="bi bi-geo-alt-fill"></i>
+                            <InputSelect class="form-control"
+                                         @bind-Value="entradaDTO.SedeId"
+                                         disabled="@(!Sesion.VeTodasLasSedes)">
+                                @if (!Sesion.VeTodasLasSedes)
+                                {
+                                    <option value="@Sesion.SedeId">@Sesion.SedeNombre</option>
+                                }
+                                else
+                                {
+                                    <option value="">— Seleccione sede —</option>
+                                    @foreach (var s in _sedes)
+                                    {
+                                        <option value="@s.Id">@s.Nombre</option>
+                                    }
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
                 </div>
 
                 @* ═══ FILA 2: N° Factura | Proveedor | Valor | Recibe ═══ *@
                 <div class="form-fila-2">
-
                     <div class="ff-factura">
                         <label>N° Factura</label>
                         <div class="input-icon">
@@ -228,7 +245,7 @@
                     </div>
                 </div>
 
-                @* ═══ FILA 3: Observaciones (ancho) ═══ *@
+                @* ═══ FILA 3: Observaciones ═══ *@
                 <div class="form-fila-3">
                     <div class="ff-observaciones">
                         <label>Observaciones</label>
@@ -240,7 +257,7 @@
                     </div>
                 </div>
 
-                @* ═══ Soporte adjuntos (solo si editando) ═══ *@
+                @* ═══ Soporte adjuntos ═══ *@
                 @if (editando && entradaEditandoId > 0)
                 {
                     <div class="form-soportes">
@@ -267,7 +284,7 @@
 
     <div class="card-table">
 
-        @* ═══ BARRA SUPERIOR — Siempre visible ═══ *@
+        @* ═══ BARRA SUPERIOR ═══ *@
         <div class="filtros-toolbar">
             <div class="filtro-busqueda-principal">
                 <i class="bi bi-search"></i>
@@ -322,28 +339,18 @@
                             <option value="Otro">Otro</option>
                         </select>
                     </div>
-
                     <div class="filtro-select">
                         <i class="bi bi-calendar"></i>
-                        <input type="date"
-                               placeholder="Desde"
-                               @bind="_filtroFechaDesde"
-                               @bind:after="AplicarFiltrosAvanzados" />
+                        <input type="date" placeholder="Desde" @bind="_filtroFechaDesde" @bind:after="AplicarFiltrosAvanzados" />
                     </div>
-
                     <div class="filtro-select">
                         <i class="bi bi-calendar"></i>
-                        <input type="date"
-                               placeholder="Hasta"
-                               @bind="_filtroFechaHasta"
-                               @bind:after="AplicarFiltrosAvanzados" />
+                        <input type="date" placeholder="Hasta" @bind="_filtroFechaHasta" @bind:after="AplicarFiltrosAvanzados" />
                     </div>
-
                     @if (_hayFiltrosAvanzados)
                     {
                         <button class="btn-limpiar-filtros" @onclick="LimpiarTodosLosFiltros">
-                            <i class="bi bi-arrow-counterclockwise"></i>
-                            Limpiar
+                            <i class="bi bi-arrow-counterclockwise"></i> Limpiar
                         </button>
                     }
                 </div>
@@ -407,19 +414,13 @@
                                     <div class="action-buttons">
                                         @if (puedeEditar)
                                         {
-                                            <button type="button" class="btn-action btn-action-edit"
-                                                    @onclick="() => Editar(e)"
-                                                    title="Editar / Adjuntos">
+                                            <button type="button" class="btn-action btn-action-edit" @onclick="() => Editar(e)" title="Editar">
                                                 <i class="bi bi-pencil-fill"></i>
                                             </button>
                                         }
                                         @if (puedeAnular)
                                         {
-                                            <button type="button"
-                                                    class="btn-action btn-action-delete"
-                                                    @onclick="() => IntentarAnular(e)"
-                                                    @onclick:stopPropagation="true"
-                                                    title="Anular entrada (solo si es la última)">
+                                            <button type="button" class="btn-action btn-action-delete" @onclick="() => IntentarAnular(e)" title="Anular">
                                                 <i class="bi bi-slash-circle-fill"></i>
                                             </button>
                                         }
@@ -432,13 +433,9 @@
             </table>
         </div>
 
-        @* ═══ PAGINADOR — Oculto cuando el formulario está abierto ═══ *@
         @if (_pagina is not null && _pagina.TotalRegistros > 0 && !_mostrarFormulario)
         {
-            <Paginador T="EntradaDTO"
-                       Resultado="_pagina"
-                       OnCambioPagina="CambioPagina"
-                       OnCambioTamano="CambioTamano" />
+            <Paginador T="EntradaDTO" Resultado="_pagina" OnCambioPagina="CambioPagina" OnCambioTamano="CambioTamano" />
         }
     </div>
 </div>
@@ -449,10 +446,8 @@
 @if (_modalAnulacionAbierto && _itemAAnular is not null)
 {
     var e = _itemAAnular;
-
     <div class="modal-backdrop-det" @onclick="CancelarAnulacion">
         <div class="modal-det" @onclick:stopPropagation="true">
-
             <div class="modal-det-header">
                 <div class="modal-det-header-left">
                     <span class="badge badge-off">Anular entrada</span>
@@ -462,76 +457,54 @@
                     <i class="bi bi-x-lg"></i>
                 </button>
             </div>
-
             <div class="modal-det-body">
                 <div class="det-section" style="background: #fffbeb; border-left: 4px solid #f59e0b;">
                     <h4><i class="bi bi-exclamation-triangle-fill"></i> ¿Qué es anular?</h4>
-                    <p style="margin: 0;">
-                        El registro <strong>NO se elimina de la base de datos</strong>. Se marca como "Anulada" y se excluye de los reportes operativos.
-                        El historial completo queda disponible para auditoría y para el expediente del bien.
-                    </p>
-                    <p style="margin: 8px 0 0 0; font-size: 0.85rem;">
-                        <i class="bi bi-info-circle"></i> <strong>Regla:</strong> solo se puede anular si es la <strong>última entrada</strong> del bien.
-                    </p>
+                    <p style="margin: 0;">El registro <strong>NO se elimina</strong>. Se marca como "Anulada" y se excluye de los reportes. El historial queda para auditoría.</p>
+                    <p style="margin: 8px 0 0 0; font-size: 0.85rem;"><i class="bi bi-info-circle"></i> <strong>Regla:</strong> solo si es la <strong>última entrada</strong> del bien.</p>
                 </div>
-
                 <div class="det-section">
                     <h4><i class="bi bi-info-circle"></i> Entrada a anular</h4>
                     <dl class="det-dl">
-                        <dt>Bien</dt>
-                        <dd><code>@e.BienCodigo</code> — @e.BienNombre</dd>
-                        <dt>Fecha</dt>
-                        <dd>@e.FechaEntrada?.ToString("dd/MM/yyyy")</dd>
-                        <dt>Fuente</dt>
-                        <dd><span class="badge badge-info">@e.TipoFuente</span></dd>
-                        <dt>Factura</dt>
-                        <dd>@(e.NumeroFactura ?? "—")</dd>
-                        <dt>Valor</dt>
-                        <dd>@e.Valor.ToString("C0", CulturaCOP)</dd>
+                        <dt>Bien</dt><dd><code>@e.BienCodigo</code> — @e.BienNombre</dd>
+                        <dt>Fecha</dt><dd>@e.FechaEntrada?.ToString("dd/MM/yyyy")</dd>
+                        <dt>Valor</dt><dd>@e.Valor.ToString("C0", CulturaCOP)</dd>
                     </dl>
                 </div>
-
                 <div class="form-group form-group-full">
                     <label>Motivo de la anulación *</label>
                     <div class="input-icon">
                         <i class="bi bi-pencil-square"></i>
-                        <InputTextArea class="form-control" rows="3"
-                                       @bind-Value="_motivoAnulacion"
-                                       placeholder="Ej: Error de digitación, compra duplicada, prueba del sistema..." />
+                        <InputTextArea class="form-control" rows="3" @bind-Value="_motivoAnulacion" placeholder="Ej: Error de digitación..." />
                     </div>
-                    <small class="text-muted">Este motivo quedará registrado en la bitácora de auditoría.</small>
                 </div>
             </div>
-
             <div class="modal-det-footer">
                 <button type="button" class="btn-det-cerrar" @onclick="CancelarAnulacion">
                     <i class="bi bi-x-lg"></i> Cancelar
                 </button>
-                <button type="button" class="btn btn-save" @onclick="ConfirmarAnulacionAsync"
-                        disabled="@(string.IsNullOrWhiteSpace(_motivoAnulacion))">
+                <button type="button" class="btn btn-save" @onclick="ConfirmarAnulacionAsync" disabled="@(string.IsNullOrWhiteSpace(_motivoAnulacion))">
                     <i class="bi bi-slash-circle-fill"></i> Confirmar Anulación
                 </button>
             </div>
-
         </div>
     </div>
 }
 
 @code {
-    private static readonly System.Globalization.CultureInfo CulturaCOP =
-        System.Globalization.CultureInfo.GetCultureInfo("es-CO");
+    private static readonly System.Globalization.CultureInfo CulturaCOP = System.Globalization.CultureInfo.GetCultureInfo("es-CO");
 
     private ResultadoPaginado<EntradaDTO>? _pagina;
     private IEnumerable<Bien> bienes = [];
     private IEnumerable<FuncionarioDTO> funcionarios = [];
     private IEnumerable<ProveedorDTO> proveedores = [];
+    private List<SedeDTO> _sedes = new();
 
     private EntradaDTO entradaDTO = new();
     private bool editando = false;
     private int entradaEditandoId;
     private bool _mostrarFormulario = false;
     private bool _mostrarFiltros = false;
-
     private EntradaDTO? _entradaAntesDeEditar;
 
     private int _paginaActual = 1;
@@ -550,22 +523,13 @@
     private EntradaDTO? _itemAAnular;
     private string _motivoAnulacion = "";
 
-    // ═══ Estado del buscador de bienes ═══
     private Bien? _bienSeleccionado;
     private string _textoBusquedaBien = string.Empty;
     private bool _mostrarDropdownBien = false;
     private List<Bien> _bienesFiltrados = new();
 
-    private bool _hayFiltrosActivos =>
-        !string.IsNullOrEmpty(_filtroTexto) ||
-        !string.IsNullOrEmpty(_filtroTipo) ||
-        _filtroFechaDesde.HasValue ||
-        _filtroFechaHasta.HasValue;
-
-    private bool _hayFiltrosAvanzados =>
-        !string.IsNullOrEmpty(_filtroTipo) ||
-        _filtroFechaDesde.HasValue ||
-        _filtroFechaHasta.HasValue;
+    private bool _hayFiltrosActivos => !string.IsNullOrEmpty(_filtroTexto) || !string.IsNullOrEmpty(_filtroTipo) || _filtroFechaDesde.HasValue || _filtroFechaHasta.HasValue;
+    private bool _hayFiltrosAvanzados => !string.IsNullOrEmpty(_filtroTipo) || _filtroFechaDesde.HasValue || _filtroFechaHasta.HasValue;
 
     protected override async Task OnInitializedAsync()
     {
@@ -582,6 +546,7 @@
         bienes = await BienRepo.ObtenerTodosAsync();
         funcionarios = await FuncRepo.ObtenerTodosAsync();
         proveedores = await ProveedorRepo.ObtenerTodosAsync();
+        _sedes = (await SedeRepo.ObtenerTodasAsync()).ToList();
         _bienesFiltrados = bienes.Take(20).ToList();
 
         await Cargar();
@@ -598,16 +563,9 @@
         };
 
         if (filtro.HayFiltros)
-        {
-            _pagina = await EntradaRepo.ObtenerPaginadoConFiltrosAsync(
-                filtro, _paginaActual, _tamanoPagina);
-        }
+            _pagina = await EntradaRepo.ObtenerPaginadoConFiltrosAsync(filtro, _paginaActual, _tamanoPagina);
         else
-        {
-            _pagina = await EntradaRepo.ObtenerPaginadoAsync(
-                _paginaActual, _tamanoPagina,
-                string.IsNullOrWhiteSpace(_filtroTexto) ? null : _filtroTexto);
-        }
+            _pagina = await EntradaRepo.ObtenerPaginadoAsync(_paginaActual, _tamanoPagina, string.IsNullOrWhiteSpace(_filtroTexto) ? null : _filtroTexto);
     }
 
     private void AbrirFormulario()
@@ -615,7 +573,8 @@
         entradaDTO = new EntradaDTO
         {
             FechaEntrada = DateTime.Today,
-            TipoFuente = "FSE"
+            TipoFuente = "FSE",
+            SedeId = Sesion.VeTodasLasSedes ? null : Sesion.SedeId
         };
         editando = false;
         entradaEditandoId = 0;
@@ -623,7 +582,6 @@
         _mostrarFormulario = true;
         _mostrarFiltros = false;
 
-        // Reset del chip del bien
         _bienSeleccionado = null;
         _textoBusquedaBien = string.Empty;
         _mostrarDropdownBien = false;
@@ -633,41 +591,27 @@
     private void Cancelar()
     {
         _mostrarFormulario = false;
-        entradaDTO = new EntradaDTO
-        {
-            FechaEntrada = DateTime.Today,
-            TipoFuente = "FSE"
-        };
+        entradaDTO = new EntradaDTO { FechaEntrada = DateTime.Today, TipoFuente = "FSE" };
         editando = false;
         entradaEditandoId = 0;
         _entradaAntesDeEditar = null;
         _filtroTexto = string.Empty;
-
-        // Reset del chip del bien
         _bienSeleccionado = null;
         _textoBusquedaBien = string.Empty;
         _mostrarDropdownBien = false;
-
         StateHasChanged();
     }
 
-    // ═══ Al abrir filtros, cerrar formulario ═══
     private void ToggleFiltros()
     {
         _mostrarFiltros = !_mostrarFiltros;
-
         if (_mostrarFiltros && _mostrarFormulario)
         {
             _mostrarFormulario = false;
-            entradaDTO = new EntradaDTO
-            {
-                FechaEntrada = DateTime.Today,
-                TipoFuente = "FSE"
-            };
+            entradaDTO = new EntradaDTO { FechaEntrada = DateTime.Today, TipoFuente = "FSE" };
             editando = false;
             entradaEditandoId = 0;
             _entradaAntesDeEditar = null;
-
             _bienSeleccionado = null;
             _textoBusquedaBien = string.Empty;
             _mostrarDropdownBien = false;
@@ -683,36 +627,20 @@
 
     private async Task LimpiarTodosLosFiltros()
     {
-        _filtroTexto = string.Empty;
-        _filtroTipo = null;
-        _filtroFechaDesde = null;
-        _filtroFechaHasta = null;
+        _filtroTexto = string.Empty; _filtroTipo = null; _filtroFechaDesde = null; _filtroFechaHasta = null;
         _paginaActual = 1;
         await Cargar();
         StateHasChanged();
     }
 
-    private async Task CambioPagina(int nuevaPagina)
-    {
-        _paginaActual = nuevaPagina;
-        await Cargar();
-        StateHasChanged();
-    }
-
-    private async Task CambioTamano(int nuevoTamano)
-    {
-        _tamanoPagina = nuevoTamano;
-        _paginaActual = 1;
-        await Cargar();
-        StateHasChanged();
-    }
+    private async Task CambioPagina(int nuevaPagina) { _paginaActual = nuevaPagina; await Cargar(); StateHasChanged(); }
+    private async Task CambioTamano(int nuevoTamano) { _tamanoPagina = nuevoTamano; _paginaActual = 1; await Cargar(); StateHasChanged(); }
 
     private async Task BuscarConDebounce()
     {
         _debounceCts?.Cancel();
         _debounceCts = new CancellationTokenSource();
         var token = _debounceCts.Token;
-
         try
         {
             await Task.Delay(350, token);
@@ -724,118 +652,39 @@
         catch (TaskCanceledException) { }
     }
 
-    private async Task LimpiarFiltro()
-    {
-        _filtroTexto = string.Empty;
-        _paginaActual = 1;
-        await Cargar();
-        StateHasChanged();
-    }
+    private async Task LimpiarFiltro() { _filtroTexto = string.Empty; _paginaActual = 1; await Cargar(); StateHasChanged(); }
 
-    // ═══════════════════════════════════════════════════════════
-    // BUSCADOR DE BIENES — Dropdown custom
-    // ═══════════════════════════════════════════════════════════
-
-    private void OnBusquedaBienFocus()
-    {
-        _mostrarDropdownBien = true;
-
-        if (string.IsNullOrWhiteSpace(_textoBusquedaBien))
-        {
-            _bienesFiltrados = bienes.Take(20).ToList();
-        }
-        else
-        {
-            FiltrarBienes();
-        }
-    }
-
-    private void OnBusquedaBienInput(ChangeEventArgs e)
-    {
-        _textoBusquedaBien = e.Value?.ToString() ?? string.Empty;
-        _mostrarDropdownBien = true;
-
-        if (string.IsNullOrWhiteSpace(_textoBusquedaBien))
-        {
-            _bienesFiltrados = bienes.Take(20).ToList();
-        }
-        else
-        {
-            FiltrarBienes();
-        }
-    }
+    private void OnBusquedaBienFocus() { _mostrarDropdownBien = true; if (string.IsNullOrWhiteSpace(_textoBusquedaBien)) _bienesFiltrados = bienes.Take(20).ToList(); else FiltrarBienes(); }
+    private void OnBusquedaBienInput(ChangeEventArgs e) { _textoBusquedaBien = e.Value?.ToString() ?? string.Empty; _mostrarDropdownBien = true; if (string.IsNullOrWhiteSpace(_textoBusquedaBien)) _bienesFiltrados = bienes.Take(20).ToList(); else FiltrarBienes(); }
 
     private void FiltrarBienes()
     {
         var filtro = _textoBusquedaBien.Trim().ToLowerInvariant();
-        _bienesFiltrados = bienes
-            .Where(b =>
-                (b.Codigo?.ToLowerInvariant().Contains(filtro) ?? false) ||
-                (b.Nombre?.ToLowerInvariant().Contains(filtro) ?? false))
-            .OrderBy(b => b.Codigo)
-            .ToList();
+        _bienesFiltrados = bienes.Where(b => (b.Codigo?.ToLowerInvariant().Contains(filtro) ?? false) || (b.Nombre?.ToLowerInvariant().Contains(filtro) ?? false)).OrderBy(b => b.Codigo).ToList();
     }
 
     private void OnBusquedaBienKeyDown(KeyboardEventArgs e)
     {
-        if (e.Key == "Escape")
-        {
-            _mostrarDropdownBien = false;
-            return;
-        }
-
-        if (e.Key == "Enter" && _mostrarDropdownBien && _bienesFiltrados.Count > 0)
-        {
-            SeleccionarBienEntrada(_bienesFiltrados[0]);
-        }
+        if (e.Key == "Escape") { _mostrarDropdownBien = false; return; }
+        if (e.Key == "Enter" && _mostrarDropdownBien && _bienesFiltrados.Count > 0) SeleccionarBienEntrada(_bienesFiltrados[0]);
     }
 
-    private void LimpiarBusquedaBien()
-    {
-        _textoBusquedaBien = string.Empty;
-        _bienesFiltrados = bienes.Take(20).ToList();
-        _mostrarDropdownBien = true;
-    }
-
-    private void SeleccionarBienEntrada(Bien bien)
-    {
-        _bienSeleccionado = bien;
-        entradaDTO.BienId = bien.Id;
-        _textoBusquedaBien = string.Empty;
-        _bienesFiltrados = new List<Bien>();
-        _mostrarDropdownBien = false;
-        StateHasChanged();
-    }
-
-    private void CambiarBien()
-    {
-        _bienSeleccionado = null;
-        entradaDTO.BienId = 0;
-        _textoBusquedaBien = string.Empty;
-        _bienesFiltrados = bienes.Take(20).ToList();
-        _mostrarDropdownBien = true;
-        StateHasChanged();
-    }
-
-    // ═══════════════════════════════════════════════════════════
+    private void LimpiarBusquedaBien() { _textoBusquedaBien = string.Empty; _bienesFiltrados = bienes.Take(20).ToList(); _mostrarDropdownBien = true; }
+    private void SeleccionarBienEntrada(Bien bien) { _bienSeleccionado = bien; entradaDTO.BienId = bien.Id; _textoBusquedaBien = string.Empty; _bienesFiltrados = new List<Bien>(); _mostrarDropdownBien = false; StateHasChanged(); }
+    private void CambiarBien() { _bienSeleccionado = null; entradaDTO.BienId = 0; _textoBusquedaBien = string.Empty; _bienesFiltrados = bienes.Take(20).ToList(); _mostrarDropdownBien = true; StateHasChanged(); }
 
     private async Task Guardar()
     {
-        if (!editando && !puedeCrear)
-        {
-            Toast.Error("No tiene permiso para registrar entradas.");
-            return;
-        }
+        if (!editando && !puedeCrear) { Toast.Error("No tiene permiso."); return; }
+        if (editando && !puedeEditar) { Toast.Error("No tiene permiso."); return; }
+        if (entradaDTO.BienId <= 0) { Toast.Error("Debe seleccionar un bien."); return; }
 
-        if (editando && !puedeEditar)
+        if (!Sesion.VeTodasLasSedes)
+            entradaDTO.SedeId = Sesion.SedeId;
+        
+        if (entradaDTO.SedeId == null)
         {
-            Toast.Error("No tiene permiso para editar entradas.");
-            return;
-        }
-
-        if (entradaDTO.BienId <= 0)
-        {
-            Toast.Error("Debe seleccionar un bien.");
+            Toast.Error("Debe seleccionar una Sede.");
             return;
         }
 
@@ -843,43 +692,10 @@
         {
             if (editando)
             {
-                var antes = _entradaAntesDeEditar is null ? null : new
-                {
-                    _entradaAntesDeEditar.BienId,
-                    _entradaAntesDeEditar.TipoFuente,
-                    _entradaAntesDeEditar.NumeroFactura,
-                    _entradaAntesDeEditar.FechaEntrada,
-                    _entradaAntesDeEditar.Valor,
-                    _entradaAntesDeEditar.ProveedorId,
-                    _entradaAntesDeEditar.FuncionarioRecibeId,
-                    _entradaAntesDeEditar.Observaciones
-                };
-
+                var antes = _entradaAntesDeEditar is null ? null : new { _entradaAntesDeEditar.BienId, _entradaAntesDeEditar.TipoFuente, _entradaAntesDeEditar.NumeroFactura, _entradaAntesDeEditar.FechaEntrada, _entradaAntesDeEditar.Valor, _entradaAntesDeEditar.ProveedorId, _entradaAntesDeEditar.FuncionarioRecibeId, _entradaAntesDeEditar.Observaciones, _entradaAntesDeEditar.SedeId };
                 await EntradaRepo.ActualizarAsync(entradaDTO);
-
-                await Auditoria.RegistrarEdicionAsync(
-                    modulo: "entradas",
-                    objetoTipo: "Entrada",
-                    objetoId: entradaDTO.Id,
-                    objetoCodigo: entradaDTO.NumeroFactura,
-                    objetoDescripcion: $"Entrada de {entradaDTO.TipoFuente}",
-                    antes: antes,
-                    despues: new
-                    {
-                        entradaDTO.BienId,
-                        entradaDTO.TipoFuente,
-                        entradaDTO.NumeroFactura,
-                        entradaDTO.FechaEntrada,
-                        entradaDTO.Valor,
-                        entradaDTO.ProveedorId,
-                        entradaDTO.FuncionarioRecibeId,
-                        entradaDTO.Observaciones
-                    },
-                    motivo: "Edición de entrada"
-                );
-
+                await Auditoria.RegistrarEdicionAsync(modulo: "entradas", objetoTipo: "Entrada", objetoId: entradaDTO.Id, objetoCodigo: entradaDTO.NumeroFactura, objetoDescripcion: $"Entrada de {entradaDTO.TipoFuente}", antes: antes, despues: new { entradaDTO.BienId, entradaDTO.TipoFuente, entradaDTO.NumeroFactura, entradaDTO.FechaEntrada, entradaDTO.Valor, entradaDTO.ProveedorId, entradaDTO.FuncionarioRecibeId, entradaDTO.Observaciones, entradaDTO.SedeId }, motivo: "Edición de entrada");
                 Toast.Exito("Entrada actualizada correctamente");
-
                 _filtroTexto = string.Empty;
                 await Cargar();
                 StateHasChanged();
@@ -887,60 +703,25 @@
             else
             {
                 await EntradaRepo.CrearAsync(entradaDTO);
-
-                await Auditoria.RegistrarCreacionAsync(
-                    modulo: "entradas",
-                    objetoTipo: "Entrada",
-                    objetoId: entradaDTO.Id,
-                    objetoCodigo: entradaDTO.NumeroFactura,
-                    objetoDescripcion: $"Entrada de {entradaDTO.TipoFuente}",
-                    despues: new
-                    {
-                        entradaDTO.BienId,
-                        entradaDTO.TipoFuente,
-                        entradaDTO.NumeroFactura,
-                        entradaDTO.FechaEntrada,
-                        entradaDTO.Valor,
-                        entradaDTO.ProveedorId,
-                        entradaDTO.FuncionarioRecibeId,
-                        entradaDTO.Observaciones
-                    }
-                );
-
-                Toast.Exito($"Entrada '{entradaDTO.NumeroFactura}' creada. Puede continuar registrando.");
+                await Auditoria.RegistrarCreacionAsync(modulo: "entradas", objetoTipo: "Entrada", objetoId: entradaDTO.Id, objetoCodigo: entradaDTO.NumeroFactura, objetoDescripcion: $"Entrada de {entradaDTO.TipoFuente}", despues: new { entradaDTO.BienId, entradaDTO.TipoFuente, entradaDTO.NumeroFactura, entradaDTO.FechaEntrada, entradaDTO.Valor, entradaDTO.ProveedorId, entradaDTO.FuncionarioRecibeId, entradaDTO.Observaciones, entradaDTO.SedeId });
+                Toast.Exito($"Entrada '{entradaDTO.NumeroFactura}' creada. Puede continuar.");
 
                 var tipoFuenteActual = entradaDTO.TipoFuente;
                 var proveedorActual = entradaDTO.ProveedorId;
                 var fechaActual = entradaDTO.FechaEntrada;
+                var sedeActual = entradaDTO.SedeId;
 
-                entradaDTO = new EntradaDTO
-                {
-                    FechaEntrada = fechaActual,
-                    TipoFuente = tipoFuenteActual,
-                    ProveedorId = proveedorActual
-                };
-
-                // Reset del chip
+                entradaDTO = new EntradaDTO { FechaEntrada = fechaActual, TipoFuente = tipoFuenteActual, ProveedorId = proveedorActual, SedeId = sedeActual };
                 _bienSeleccionado = null;
                 _textoBusquedaBien = string.Empty;
                 _mostrarDropdownBien = false;
                 _bienesFiltrados = bienes.Take(20).ToList();
-
-                try
-                {
-                    await JS.InvokeVoidAsync("eval",
-                        "setTimeout(() => { const el = document.querySelector('.bien-buscador-input input'); if (el) el.focus(); }, 100);");
-                }
-                catch { }
-
+                try { await JS.InvokeVoidAsync("eval", "setTimeout(() => { const el = document.querySelector('.bien-buscador-input input'); if (el) el.focus(); }, 100);"); } catch { }
                 await Cargar();
                 StateHasChanged();
             }
         }
-        catch (Exception ex)
-        {
-            ErrorHelper.Mostrar(Toast, ex, "la entrada", "guardar");
-        }
+        catch (Exception ex) { ErrorHelper.Mostrar(Toast, ex, "la entrada", "guardar"); }
     }
 
     private void Editar(EntradaDTO e)
@@ -951,120 +732,45 @@
         _entradaAntesDeEditar = e;
         _mostrarFormulario = true;
         _mostrarFiltros = false;
-
-        entradaDTO.Id = e.Id;
-        entradaDTO.BienId = e.BienId;
-        entradaDTO.TipoFuente = e.TipoFuente;
-        entradaDTO.NumeroFactura = e.NumeroFactura;
-        entradaDTO.FechaEntrada = e.FechaEntrada;
-        entradaDTO.Valor = e.Valor;
-        entradaDTO.ProveedorId = e.ProveedorId;
-        entradaDTO.Proveedor = e.Proveedor;
-        entradaDTO.FuncionarioRecibeId = e.FuncionarioRecibeId;
-        entradaDTO.Observaciones = e.Observaciones;
-
-        // ═══ Cargar el bien seleccionado en el chip ═══
+        entradaDTO = new EntradaDTO {
+            Id = e.Id, BienId = e.BienId, TipoFuente = e.TipoFuente, NumeroFactura = e.NumeroFactura,
+            FechaEntrada = e.FechaEntrada, Valor = e.Valor, ProveedorId = e.ProveedorId, Proveedor = e.Proveedor,
+            FuncionarioRecibeId = e.FuncionarioRecibeId, Observaciones = e.Observaciones, SedeId = e.SedeId
+        };
         _bienSeleccionado = bienes.FirstOrDefault(b => b.Id == e.BienId);
         _textoBusquedaBien = string.Empty;
         _mostrarDropdownBien = false;
         _bienesFiltrados = bienes.Take(20).ToList();
-
         _filtroTexto = string.Empty;
         StateHasChanged();
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // MÉTODOS DE ANULACIÓN (Soft-Delete)
-    // ═══════════════════════════════════════════════════════════════
-
     private async Task IntentarAnular(EntradaDTO e)
     {
-        if (!puedeAnular)
-        {
-            Toast.Error("No tiene permiso para anular entradas.");
-            return;
-        }
-
-        try
-        {
+        if (!puedeAnular) { Toast.Error("No tiene permiso."); return; }
+        try {
             var esUltima = await EntradaRepo.EsUltimaEntradaAsync(e.Id);
-
-            if (!esUltima)
-            {
-                Toast.Warning(
-                    "No se puede anular: hay entradas o movimientos posteriores del mismo bien. " +
-                    "Anule primero los más recientes.");
-                return;
-            }
-        }
-        catch (Exception ex)
-        {
-            ErrorHelper.Mostrar(Toast, ex, "la entrada", "verificar");
-            return;
-        }
-
+            if (!esUltima) { Toast.Warning("No se puede anular: hay entradas o movimientos posteriores."); return; }
+        } catch (Exception ex) { ErrorHelper.Mostrar(Toast, ex, "la entrada", "verificar"); return; }
         _itemAAnular = e;
         _motivoAnulacion = "";
         _modalAnulacionAbierto = true;
         StateHasChanged();
     }
 
-    private void CancelarAnulacion()
-    {
-        _modalAnulacionAbierto = false;
-        _itemAAnular = null;
-        _motivoAnulacion = "";
-    }
+    private void CancelarAnulacion() { _modalAnulacionAbierto = false; _itemAAnular = null; _motivoAnulacion = ""; }
 
     private async Task ConfirmarAnulacionAsync()
     {
         if (_itemAAnular is null) return;
-        if (string.IsNullOrWhiteSpace(_motivoAnulacion))
-        {
-            Toast.Warning("Debe ingresar un motivo para la anulación.");
-            return;
-        }
-
-        try
-        {
+        if (string.IsNullOrWhiteSpace(_motivoAnulacion)) { Toast.Warning("Debe ingresar un motivo."); return; }
+        try {
             await EntradaRepo.AnularAsync(_itemAAnular.Id, _motivoAnulacion);
-
-            await Auditoria.RegistrarAnulacionAsync(
-                modulo: "entradas",
-                objetoTipo: "Entrada",
-                objetoId: _itemAAnular.Id,
-                objetoCodigo: _itemAAnular.NumeroFactura,
-                objetoDescripcion: $"Anulación de entrada para '{_itemAAnular.BienNombre}' — {_itemAAnular.TipoFuente}",
-                antes: new
-                {
-                    BienId = _itemAAnular.BienId,
-                    TipoFuente = _itemAAnular.TipoFuente,
-                    NumeroFactura = _itemAAnular.NumeroFactura,
-                    Valor = _itemAAnular.Valor,
-                    Anulada = false
-                },
-                despues: new
-                {
-                    Anulada = true,
-                    Motivo = _motivoAnulacion,
-                    AnuladaPor = Sesion.UsuarioActual?.Id,
-                    AnuladaFecha = DateTime.Now
-                },
-                motivo: _motivoAnulacion
-            );
-
+            await Auditoria.RegistrarAnulacionAsync(modulo: "entradas", objetoTipo: "Entrada", objetoId: _itemAAnular.Id, objetoCodigo: _itemAAnular.NumeroFactura, objetoDescripcion: $"Anulación de entrada para '{_itemAAnular.BienNombre}'", antes: new { _itemAAnular.BienId, _itemAAnular.TipoFuente, _itemAAnular.NumeroFactura, _itemAAnular.Valor, Anulada = false }, despues: new { Anulada = true, Motivo = _motivoAnulacion, AnuladaPor = Sesion.UsuarioActual?.Id, AnuladaFecha = DateTime.Now }, motivo: _motivoAnulacion);
             Toast.Exito("Entrada anulada correctamente.");
             CancelarAnulacion();
             await Cargar();
             StateHasChanged();
-        }
-        catch (InvalidOperationException iex)
-        {
-            Toast.Warning(iex.Message);
-        }
-        catch (Exception ex)
-        {
-            ErrorHelper.Mostrar(Toast, ex, "la entrada", "anular");
-        }
+        } catch (InvalidOperationException iex) { Toast.Warning(iex.Message); } catch (Exception ex) { ErrorHelper.Mostrar(Toast, ex, "la entrada", "anular"); }
     }
 }

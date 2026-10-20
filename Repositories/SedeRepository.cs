@@ -26,31 +26,68 @@ public class SedeRepository : ISedeRepository
         FROM sedes s
         LEFT JOIN instituciones i ON i.id = s.institucion_id";
 
+    // ═══════════════════════════════════════════════════════════
+    // Regla: usuarios que NO ven todas las sedes → filtrar por la suya
+    // ═══════════════════════════════════════════════════════════
+    private bool DebeFiltrarPorSede()
+        => !_sesion.VeTodasLasSedes;
+
+    // ═══════════════════════════════════════════════════════════
+    // Construir filtros (institución + sede) en C#
+    // ═══════════════════════════════════════════════════════════
+    private (string Sql, DynamicParameters Parametros) ConstruirFiltros(string alias)
+    {
+        var condiciones = new List<string>();
+        var parametros = new DynamicParameters();
+
+        if (!_sesion.EsSuperAdmin && _sesion.InstitucionId > 0)
+        {
+            condiciones.Add($"{alias}.institucion_id = @InstitucionId");
+            parametros.Add("InstitucionId", _sesion.InstitucionId);
+        }
+
+        if (DebeFiltrarPorSede())
+        {
+            condiciones.Add($"{alias}.id = @SedeId");
+            parametros.Add("SedeId", _sesion.SedeId!.Value);
+        }
+
+        var sql = condiciones.Count > 0
+            ? " AND " + string.Join(" AND ", condiciones)
+            : string.Empty;
+
+        return (sql, parametros);
+    }
+
     public async Task<IEnumerable<SedeDTO>> ObtenerTodasAsync()
     {
-        var (filtro, param) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "s");
-
+        var (filtro, parametros) = ConstruirFiltros("s");
         var sql = $"{BaseSelect} WHERE 1=1 {filtro} ORDER BY i.nombre, s.nombre;";
 
         using var cn = new NpgsqlConnection(_cs);
-        return await cn.QueryAsync<SedeDTO>(sql, param);
+        return await cn.QueryAsync<SedeDTO>(sql, parametros);
     }
 
     public async Task<SedeDTO?> ObtenerPorIdAsync(int id)
     {
-        var (filtro, _) = FiltroInstitucion.Construir(
-            _sesion.EsSuperAdmin, _sesion.InstitucionId, tabla: "s");
+        var (filtro, parametros) = ConstruirFiltros("s");
+        parametros.Add("Id", id);
 
         var sql = $"{BaseSelect} WHERE s.id = @Id {filtro};";
 
         using var cn = new NpgsqlConnection(_cs);
-        return await cn.QueryFirstOrDefaultAsync<SedeDTO>(sql,
-            new { Id = id, InstitucionId = _sesion.InstitucionId });
+        return await cn.QueryFirstOrDefaultAsync<SedeDTO>(sql, parametros);
     }
 
     public async Task<int> CrearAsync(SedeDTO dto)
     {
+        // Solo los que ven todas las sedes pueden crear
+        if (!_sesion.VeTodasLasSedes)
+        {
+            throw new InvalidOperationException(
+                "No tiene permisos para crear sedes.");
+        }
+
         if (!_sesion.EsSuperAdmin)
         {
             dto.InstitucionId = _sesion.InstitucionId;
@@ -67,12 +104,18 @@ public class SedeRepository : ISedeRepository
 
     public async Task<bool> ActualizarAsync(SedeDTO dto)
     {
+        // Solo los que ven todas las sedes pueden editar
+        if (!_sesion.VeTodasLasSedes)
+        {
+            throw new InvalidOperationException(
+                "No tiene permisos para editar sedes.");
+        }
+
         if (!_sesion.EsSuperAdmin)
         {
             dto.InstitucionId = _sesion.InstitucionId;
         }
 
-        // En UPDATE no se puede usar alias "s". Validamos con la columna real.
         const string sql = @"
             UPDATE sedes
             SET institucion_id = @InstitucionId,
@@ -100,6 +143,13 @@ public class SedeRepository : ISedeRepository
 
     public async Task<bool> EliminarAsync(int id)
     {
+        // Solo los que ven todas las sedes pueden eliminar
+        if (!_sesion.VeTodasLasSedes)
+        {
+            throw new InvalidOperationException(
+                "No tiene permisos para eliminar sedes.");
+        }
+
         const string sql = @"
             DELETE FROM sedes
             WHERE id = @Id
