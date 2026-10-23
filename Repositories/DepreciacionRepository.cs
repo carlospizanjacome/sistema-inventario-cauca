@@ -49,14 +49,16 @@ public class DepreciacionRepository : IDepreciacionRepository
     {
         var (filtroSql, parametros) = ConstruirFiltros("b");
 
+        // ✅ CORREGIDO: Agregamos c.codigo_cgn y usamos COALESCE para asegurar la vida útil
         var sql = $@"
             SELECT
                 b.id                       AS BienId,
                 b.codigo,
                 b.nombre,
                 c.nombre                   AS CategoriaNombre,
+                c.codigo_cgn               AS CodigoCgn,
                 b.fecha_adquisicion::timestamp AS FechaAdquisicion,
-                v.vida_util_meses          AS VidaUtilMeses,
+                COALESCE(v.vida_util_meses, c.vida_util_meses, 60) AS VidaUtilMeses,
                 b.valor_adquisicion        AS ValorInicial,
                 b.valor_residual           AS ValorResidual,
                 b.depreciacion_acumulada   AS DepreciacionAcumulada,
@@ -66,7 +68,6 @@ public class DepreciacionRepository : IDepreciacionRepository
             LEFT JOIN catalogo_cgn v ON v.id = b.vida_util_id
             WHERE b.activo = TRUE
               AND b.tipo_bien = 'devolutivo'
-              AND b.vida_util_id IS NOT NULL
               AND b.fecha_adquisicion IS NOT NULL
               {filtroSql}
             ORDER BY b.nombre;";
@@ -78,7 +79,7 @@ public class DepreciacionRepository : IDepreciacionRepository
         var hoy = DateTime.Today;
         foreach (var b in lista)
         {
-            var meses = b.VidaUtilMeses ?? 0;
+            var meses = b.VidaUtilMeses ?? 60; // Valor por defecto si sigue null
             b.DepreciacionMensual = meses > 0
                 ? Math.Round((b.ValorInicial - b.ValorResidual) / meses, 2)
                 : 0;
@@ -176,7 +177,6 @@ public class DepreciacionRepository : IDepreciacionRepository
             SELECT COUNT(*) FROM bienes b
             WHERE b.activo = TRUE
               AND b.tipo_bien = 'devolutivo'
-              AND b.vida_util_id IS NOT NULL
               AND b.fecha_adquisicion IS NOT NULL
               {filtroSql};";
 

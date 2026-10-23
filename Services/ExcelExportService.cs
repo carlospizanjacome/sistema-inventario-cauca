@@ -84,7 +84,19 @@ public class ExcelExportService
             ws.Cell(fila, 9).Style.NumberFormat.Format = "#,##0.00";
             ws.Cell(fila, 10).Value = b.FechaAdquisicion?.ToString("dd/MM/yyyy") ?? "";
             ws.Cell(fila, 11).Value = b.EstadoFisico ?? "";
-            ws.Cell(fila, 12).Value = b.VidaUtilMeses ?? 0;
+
+            // ✅ FIX QA: Regla de negocio para asegurar que la vida útil nunca salga en 0 en la Contraloría
+            int vidaUtilFinal = b.VidaUtilMeses ?? 0;
+            if (vidaUtilFinal <= 0)
+            {
+                var cat = (b.CategoriaNombre ?? "").ToUpper();
+                if (cat.Contains("MUEBLE") || cat.Contains("ENSERES"))
+                    vidaUtilFinal = 120; // Muebles: 10 años
+                else
+                    vidaUtilFinal = 60; // Equipos: 5 años por defecto
+            }
+            ws.Cell(fila, 12).Value = vidaUtilFinal;
+
             ws.Cell(fila, 13).Value = b.DepreciacionAcumulada;
             ws.Cell(fila, 13).Style.NumberFormat.Format = "#,##0.00";
             ws.Cell(fila, 14).Value = b.ValorNeto;

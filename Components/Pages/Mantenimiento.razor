@@ -101,7 +101,6 @@
             <EditForm Model="dto" OnValidSubmit="Guardar">
                 <DataAnnotationsValidator />
 
-                @* ═══ FILA 1: Bien | Tipo | Fecha Ingreso | Sede ═══ *@
                 <div class="form-row-4">
                     <div class="form-group">
                         <label>Bien *</label>
@@ -162,7 +161,6 @@
                     </div>
                 </div>
 
-                @* ═══ FILA 2: Devolución | Proveedor | Técnico | Estado | Costo ═══ *@
                 <div class="form-row-5">
                     <div class="form-group">
                         <label>Devolución prevista</label>
@@ -217,7 +215,6 @@
                     </div>
                 </div>
 
-                @* ═══ FILA 3: Diagnóstico | Observaciones | Botones ═══ *@
                 <div class="form-row-bottom">
                     <div class="form-group">
                         <label>Diagnóstico inicial</label>
@@ -253,7 +250,6 @@
 
     <div class="card-table">
 
-        @* ═══ BARRA SUPERIOR UNIFICADA: Buscador | Pills | Filtros ═══ *@
         <div class="filtros-toolbar">
             
             <div class="filtro-busqueda-principal">
@@ -271,7 +267,6 @@
                 }
             </div>
 
-            @* Pills movidos aquí dentro *@
             <div class="pills-filter-inline">
                 <button type="button" class="pill-btn @(_pillActivo is null ? "active-indigo" : "inactive")" @onclick="FiltrarTodos">
                     <i class="bi bi-list-ul"></i> Todos
@@ -464,7 +459,6 @@
     </div>
 </div>
 
-@* ═══════════════ MODAL — Detalle ═══════════════ *@
 @if (_detalleAbierto && _detalle is not null)
 {
     var m = _detalle;
@@ -539,7 +533,6 @@
     </div>
 }
 
-@* ═══════════════ MODAL — Cierre ═══════════════ *@
 @if (_modalCierreAbierto && _paraCerrar is not null)
 {
     var m = _paraCerrar;
@@ -614,7 +607,6 @@
     </div>
 }
 
-@* ═══════════════ MODAL — Anular ═══════════════ *@
 @if (_modalAnulacionAbierto && _itemAAnular is not null)
 {
     var m = _itemAAnular;
@@ -731,7 +723,8 @@
         var t3 = SedeRepo.ObtenerTodasAsync();
         await Task.WhenAll(t1, t2, t3);
 
-        bienes = (await t1).ToList();
+        // ✅ CORRECCIÓN QA: Filtramos solo los activos
+        bienes = (await t1).Where(b => b.Activo).ToList();
         proveedores = (await t2).ToList();
         _sedes = (await t3).ToList();
 

@@ -99,7 +99,6 @@
             <EditForm Model="dto" OnValidSubmit="Guardar">
                 <DataAnnotationsValidator />
 
-                @* ═══ FILA 1: Bien | Tipo | N° Garantía | Sede ═══ *@
                 <div class="form-row-4">
                     <div class="form-group">
                         <label>Bien *</label>
@@ -161,7 +160,6 @@
                     </div>
                 </div>
 
-                @* ═══ FILA 2: Proveedor | Contacto | F. Inicio | F. Vencimiento ═══ *@
                 <div class="form-row-4">
                     <div class="form-group">
                         <label>Proveedor</label>
@@ -202,7 +200,6 @@
                     </div>
                 </div>
 
-                @* ═══ FILA 3: Condiciones | Observaciones | Botones ═══ *@
                 <div class="form-row-bottom">
                     <div class="form-group">
                         <label>Condiciones</label>
@@ -236,7 +233,6 @@
 
     <div class="card-table">
 
-        @* ═══ BARRA SUPERIOR UNIFICADA: Buscador | Pills | Filtros ═══ *@
         <div class="filtros-toolbar">
             
             <div class="filtro-busqueda-principal">
@@ -370,7 +366,6 @@
     </div>
 </div>
 
-@* ═══════════════ MODAL — Detalle ═══════════════ *@
 @if (_detalleAbierto && _detalle is not null)
 {
     var g = _detalle;
@@ -437,7 +432,6 @@
     </div>
 }
 
-@* ═══════════════ MODAL — Anular ═══════════════ *@
 @if (_modalAnulacionAbierto && _itemAAnular is not null)
 {
     var g = _itemAAnular;
@@ -531,7 +525,8 @@
         var t3 = SedeRepo.ObtenerTodasAsync();
         await Task.WhenAll(t1, t2, t3);
 
-        bienes = (await t1).ToList();
+        // ✅ CORRECCIÓN QA: Filtramos solo los activos
+        bienes = (await t1).Where(b => b.Activo).ToList();
         proveedores = (await t2).ToList();
         _sedes = (await t3).ToList();
 

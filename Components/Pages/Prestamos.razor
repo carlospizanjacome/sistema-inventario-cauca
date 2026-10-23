@@ -45,7 +45,6 @@
             }
         </div>
 
-        @* ═══ KPIs compactos clicables ═══ *@
         <section class="kpi-grid">
             <div class="kpi-card kpi-indigo kpi-clicable" @onclick="FiltrarActivos">
                 <div class="kpi-icon"><i class="bi bi-hourglass-split"></i></div>
@@ -101,7 +100,6 @@
             <EditForm Model="dto" OnValidSubmit="Guardar">
                 <DataAnnotationsValidator />
 
-                @* ═══ FILA 1: Bien | Fecha Devolución | Solicitante ═══ *@
                 <div class="form-fila-1">
                     <div class="ff-bien">
                         <label>Bien a prestar *</label>
@@ -209,7 +207,6 @@
                     </div>
                 </div>
 
-                @* ═══ FILA 2: Sede | Motivo | Botones ═══ *@
                 <div class="form-fila-2">
                     <div class="ff-sede">
                         <label>Sede @(!Sesion.VeTodasLasSedes ? "" : "*")</label>
@@ -259,7 +256,6 @@
 
     <div class="card-table">
 
-        @* ═══ Pills de filtro rápido ═══ *@
         @if (!_mostrarFormulario)
         {
             <div class="pills-filter">
@@ -281,7 +277,6 @@
             </div>
         }
 
-        @* ═══ BARRA SUPERIOR — Siempre visible ═══ *@
         <div class="filtros-toolbar">
             <div class="filtro-busqueda-principal">
                 <i class="bi bi-search"></i>
@@ -322,7 +317,6 @@
             </div>
         </div>
 
-        @* ═══ PANEL DE FILTROS ═══ *@
         @if (_mostrarFiltros)
         {
             <div class="panel-filtros">
@@ -449,15 +443,12 @@
                                 </td>
                                 <td class="text-center">
                                     <div class="action-buttons">
-
-                                        @* ═══ VER — siempre visible ═══ *@
                                         <button class="btn-action btn-action-view"
                                                 @onclick="() => VerDetalle(p)"
                                                 title="Ver detalle">
                                             <i class="bi bi-eye-fill"></i>
                                         </button>
 
-                                        @* ═══ APROBAR / RECHAZAR — solo en SOLICITADO ═══ *@
                                         @if (p.Estado == "SOLICITADO" && puedeAprobar)
                                         {
                                             <button class="btn-action btn-action-ok"
@@ -472,7 +463,6 @@
                                             </button>
                                         }
 
-                                        @* ═══ ENTREGAR — solo en APROBADO ═══ *@
                                         @if (p.Estado == "APROBADO" && puedeEntregar)
                                         {
                                             <button class="btn-action btn-action-ok"
@@ -482,7 +472,6 @@
                                             </button>
                                         }
 
-                                        @* ═══ DEVOLVER — solo en PRESTADO/VENCIDO ═══ *@
                                         @if ((p.Estado == "PRESTADO" || p.Estado == "VENCIDO") && puedeDevolver)
                                         {
                                             <button class="btn-action btn-action-ok"
@@ -492,7 +481,6 @@
                                             </button>
                                         }
 
-                                        @* ═══ ANULAR (soft-delete) ═══ *@
                                         @if (p.EsTerminal && puedeEliminar && !p.Anulada)
                                         {
                                             <button class="btn-action btn-action-delete"
@@ -510,7 +498,6 @@
             </table>
         </div>
 
-        @* ═══ PAGINADOR — Oculto con form abierto ═══ *@
         @if (_pagina is not null && _pagina.TotalRegistros > 0 && !_mostrarFormulario)
         {
             <Paginador T="PrestamoDTO"
@@ -521,9 +508,6 @@
     </div>
 </div>
 
-@* ═══════════════════════════════════════════════════════════
-   MODAL DE ANULACIÓN DE REGISTRO (SOFT-DELETE)
-   ═══════════════════════════════════════════════════════════ *@
 @if (_modalAnularRegistroAbierto && _prestamoAAnular is not null)
 {
     var p = _prestamoAAnular;
@@ -600,9 +584,6 @@
     </div>
 }
 
-@* ═══════════════════════════════════════════════════════════
-   MODAL DE DETALLE / ACTA DE PRÉSTAMO
-   ═══════════════════════════════════════════════════════════ *@
 @if (_detalleAbierto && _prestamoDetalle is not null)
 {
     var p = _prestamoDetalle;
@@ -838,16 +819,13 @@
     private bool _detalleAbierto = false;
     private PrestamoDTO? _prestamoDetalle;
 
-    // ═══ Estado del buscador de bienes ═══
     private Bien? _bienSeleccionado;
     private string _textoBusquedaBien = string.Empty;
     private bool _mostrarDropdownBien = false;
     private List<Bien> _bienesFiltrados = new();
 
-    // ═══ Estado de exportación ═══
     private bool _exportando = false;
 
-    // ── Modal de anulación de registro (soft-delete) ──
     private bool _modalAnularRegistroAbierto = false;
     private PrestamoDTO? _prestamoAAnular;
     private string _motivoAnulacionRegistro = string.Empty;
@@ -904,7 +882,8 @@
         var t3 = SedeRepo.ObtenerTodasAsync();
         await Task.WhenAll(t1, t2, t3);
 
-        bienes = (await t1).ToList();
+        // ✅ CORRECCIÓN QA: Filtramos solo los activos
+        bienes = (await t1).Where(b => b.Activo).ToList();
         funcionarios = (await t2).ToList();
         _sedes = (await t3).ToList();
         _bienesFiltrados = bienes.Take(20).ToList();
@@ -997,10 +976,6 @@
         StateHasChanged();
     }
 
-    // ═══════════════════════════════════════════════════════
-    // BUSCADOR DE BIENES — Dropdown custom
-    // ═══════════════════════════════════════════════════════
-
     private void OnBusquedaBienFocus()
     {
         _mostrarDropdownBien = true;
@@ -1081,8 +1056,6 @@
         _mostrarDropdownBien = true;
         StateHasChanged();
     }
-
-    // ═══════════════════════════════════════════════════════
 
     private void VerDetalle(PrestamoDTO prestamo)
     {
@@ -1393,10 +1366,6 @@
         }
     }
 
-    // ═══════════════════════════════════════════════════════
-    // SOFT-DELETE (anular registro del histórico)
-    // ═══════════════════════════════════════════════════════
-
     private void IntentarAnularRegistro(PrestamoDTO p)
     {
         if (!puedeEliminar)
@@ -1480,10 +1449,6 @@
             StateHasChanged();
         }
     }
-
-    // ═══════════════════════════════════════════════════════
-    // EXPORTAR A EXCEL
-    // ═══════════════════════════════════════════════════════
 
     private async Task ExportarExcel()
     {

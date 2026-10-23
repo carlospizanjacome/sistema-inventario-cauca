@@ -9,6 +9,7 @@
 @using Almacen.Services
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.JSInterop
+@using System.Text
 
 @inject IKardexRepository KardexRepo
 @inject ICategoriaRepository CategoriaRepo
@@ -33,14 +34,20 @@
                 <p class="subtitle">Papelería, tintas, aseo y demás consumibles</p>
             </div>
 
-            @if (puedeCrear)
-            {
-                <div class="header-actions">
+            <div class="header-actions" style="display: flex; gap: 10px;">
+                <button class="btn btn-outline-primary" 
+                        @onclick="IrAKardex" 
+                        style="border: 1px solid #1e40af; color: #1e40af; background: transparent; padding: 8px 16px; border-radius: 8px; font-weight: 600; display: flex; align-items: center; gap: 8px;">
+                    <i class="bi bi-journal-text"></i> Kárdex General
+                </button>
+
+                @if (puedeCrear)
+                {
                     <button class="btn-nuevo" @onclick="AbrirFormulario">
                         <i class="bi bi-plus-lg"></i> Nuevo Bien de Consumo
                     </button>
-                </div>
-            }
+                }
+            </div>
         </div>
     }
 
@@ -140,7 +147,6 @@
                     </div>
                 </div>
 
-                @* ⬇️ FILA con Sede *@
                 <div class="form-fila-2">
 
                     <div class="ff-descripcion">
@@ -193,7 +199,7 @@
                             <i class="bi bi-x-lg"></i> Cerrar
                         </button>
                         <button type="submit" class="btn btn-save">
-                            <i class="bi @(editando ? "bi-check-circle-fill" : "bi-save-fill")"></i>
+                            <i class="bi bi-@(editando ? "bi-check-circle-fill" : "bi-save-fill")"></i>
                             @(editando ? "Actualizar" : "Guardar")
                         </button>
                     </div>
@@ -365,13 +371,12 @@
                         <th>Código</th>
                         <th>Nombre</th>
                         <th>Unidad</th>
-                      
                         <th class="text-end">Stock actual</th>
                         <th class="text-end">Stock mínimo</th>
                         <th class="text-end">CPP</th>
                         <th class="text-end">Valor total</th>
                         <th class="text-center">Estado</th>
-                        <th class="text-center" style="width: 130px;">Acciones</th>
+                        <th class="text-center" style="width: 200px;">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -433,10 +438,10 @@
                                     }
                                 </td>
                                 <td class="text-center">
-                                    <div class="action-buttons">
-                                        <button class="btn-action btn-action-edit"
+                                    <div class="action-buttons" style="display: flex; gap: 5px; justify-content: center;">
+                                        <button type="button" class="btn-action" 
                                                 @onclick="() => VerKardex(b)"
-                                                title="Ver kárdex">
+                                                title="Ver movimientos en Kárdex">
                                             <i class="bi bi-clock-history"></i>
                                         </button>
                                         @if (puedeEditar)
@@ -530,7 +535,13 @@
 
         await Task.WhenAll(t1, t2);
 
-        categorias = await t1;
+        // ✅ BUG 1 CORREGIDO
+        var todasLasCategorias = await t1;
+        
+        categorias = todasLasCategorias.Where(c => 
+            c.TipoBien != null && c.TipoBien.ToUpper() == "CONSUMO"
+        ).ToList();
+
         _sedes = (await t2).ToList();
 
         await Cargar();
@@ -647,10 +658,47 @@
         StateHasChanged();
     }
 
+    // ✅ BUG 2 CORREGIDO
     private async Task ExportarExcel()
     {
-        Toast.Info("Exportación a Excel en desarrollo");
-        await Task.CompletedTask;
+        try
+        {
+            if (_pagina == null || !_pagina.Items.Any())
+            {
+                Toast.Warning("No hay datos para exportar.");
+                return;
+            }
+
+            var sb = new StringBuilder();
+            sb.Append('\uFEFF'); 
+            
+            sb.AppendLine("Código;Nombre;Unidad;Stock Actual;Stock Mínimo;CPP;Valor Total;Estado");
+
+            foreach (var item in _pagina.Items)
+            {
+                var estado = item.BajoStockMinimo ? "Bajo Stock" : (item.Activo ? "Activo" : "Inactivo");
+                sb.AppendLine($"{item.Codigo};{item.Nombre};{item.UnidadMedida};{item.StockActual:N2};{item.StockMinimo:N2};{item.CppActual:N2};{item.ValorStock:N2};{estado}");
+            }
+
+            var bytes = Encoding.UTF8.GetBytes(sb.ToString());
+            var base64 = Convert.ToBase64String(bytes);
+            var nombreArchivo = $"Reporte_Consumo_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
+
+            await JS.InvokeVoidAsync("eval", $@"
+                const link = document.createElement('a');
+                link.href = 'data:text/csv;charset=utf-8;base64,{base64}';
+                link.download = '{nombreArchivo}';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            ");
+
+            Toast.Exito("Reporte descargado exitosamente.");
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error al exportar: {ex.Message}");
+        }
     }
 
     private void AbrirFormulario()
@@ -682,7 +730,12 @@
             return;
         }
 
-        // Validación: sede obligatoria (excepto Super-Admin)
+        // ✅ LA SOLUCIÓN: Si no ve todas las sedes (es Almacenista), forzamos su sede por código.
+        if (!Sesion.VeTodasLasSedes)
+        {
+            bienDTO.SedeId = Sesion.SedeId;
+        }
+
         if (!Sesion.EsSuperAdmin && bienDTO.SedeId == null)
         {
             Toast.Error("La sede es obligatoria. Seleccione una sede.");
@@ -873,6 +926,11 @@
     private void VerKardex(BienConsumoDTO b)
     {
         Navigation.NavigateTo($"/kardex?bienId={b.Id}");
+    }
+
+    private void IrAKardex()
+    {
+        Navigation.NavigateTo("/kardex");
     }
 
     private void Cancelar()

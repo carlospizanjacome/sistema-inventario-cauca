@@ -1,4 +1,6 @@
-﻿namespace Almacen.DTOs;
+﻿using System;
+
+namespace Almacen.DTOs;
 
 public class ConciliacionGlobalDTO
 {
@@ -71,14 +73,18 @@ public class ConciliacionDetalleDTO
 
     public bool EsFaltante => Tipo == "FALTANTE" || (!Encontrado && Tipo == "PENDIENTE");
     public bool EsSobrante => Tipo == "SOBRANTE";
+
+    // ✅ CORRECCIÓN APLICADA
     public bool UbicacionDiferente =>
         !string.IsNullOrWhiteSpace(UbicacionSnapshot) &&
         !string.IsNullOrWhiteSpace(UbicacionReal) &&
-        !string.Equals(UbicacionSnapshot?.Trim(), UbicacionReal?.Trim(), StringComparison.OrdinalIgnoreCase);
+        !UbicacionSnapshot.Trim().Equals(UbicacionReal.Trim(), StringComparison.OrdinalIgnoreCase);
+
+    // ✅ CORRECCIÓN APLICADA
     public bool FuncionarioDiferente =>
         !string.IsNullOrWhiteSpace(FuncionarioSnapshot) &&
         !string.IsNullOrWhiteSpace(FuncionarioReal) &&
-        !string.Equals(FuncionarioSnapshot?.Trim(), FuncionarioReal?.Trim(), StringComparison.OrdinalIgnoreCase);
+        !FuncionarioSnapshot.Trim().Equals(FuncionarioReal.Trim(), StringComparison.OrdinalIgnoreCase);
 }
 
 public class TomaFisicaCerradaDTO

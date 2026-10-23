@@ -102,18 +102,20 @@ public class AsistenteIAService
     private async Task<RespuestaAsistenteDTO> ResumenGeneralAsync(int? sedeIdFiltro)
     {
         var (filtro, parametros) = GenerarFiltro(sedeIdFiltro);
+
+        // ✅ BUG CORREGIDO: Consultamos la tabla 'bienes' directamente y separamos devolutivos de consumibles
         var sql = $@"
             SELECT 
-                COALESCE(SUM(total_devolutivos), 0)::int AS TotalDevolutivos,
-                COALESCE(SUM(total_consumibles), 0)::int AS TotalConsumibles,
-                COALESCE(SUM(total_bajas), 0)::int AS TotalBajas,
-                COALESCE(SUM(valor_total_inventario), 0)::numeric AS ValorTotalInventario,
-                COALESCE(SUM(depreciacion_total), 0)::numeric AS DepreciacionTotal,
-                COALESCE(SUM(valor_neto_total), 0)::numeric AS ValorNetoTotal,
-                COALESCE(SUM(sin_responsable), 0)::int AS SinResponsable,
-                COALESCE(SUM(sin_ubicacion), 0)::int AS SinUbicacion
-            FROM v_asistente_resumen
-            WHERE institucion_id = @InstitucionId {filtro}";
+                COUNT(*) FILTER (WHERE tipo_bien = 'devolutivo' AND activo = TRUE)::int AS TotalDevolutivos,
+                COUNT(*) FILTER (WHERE tipo_bien = 'consumo' AND activo = TRUE)::int AS TotalConsumibles,
+                COUNT(*) FILTER (WHERE activo = FALSE)::int AS TotalBajas,
+                COALESCE(SUM(CASE WHEN activo = TRUE THEN (CASE WHEN tipo_bien = 'devolutivo' THEN valor_adquisicion ELSE (stock_actual * cpp_actual) END) ELSE 0 END), 0)::numeric AS ValorTotalInventario,
+                COALESCE(SUM(CASE WHEN tipo_bien = 'devolutivo' AND activo = TRUE THEN depreciacion_acumulada ELSE 0 END), 0)::numeric AS DepreciacionTotal,
+                COALESCE(SUM(CASE WHEN activo = TRUE THEN (CASE WHEN tipo_bien = 'devolutivo' THEN valor_neto ELSE (stock_actual * cpp_actual) END) ELSE 0 END), 0)::numeric AS ValorNetoTotal,
+                COUNT(*) FILTER (WHERE tipo_bien = 'devolutivo' AND activo = TRUE AND funcionario_id IS NULL)::int AS SinResponsable,
+                COUNT(*) FILTER (WHERE tipo_bien = 'devolutivo' AND activo = TRUE AND aula_id IS NULL)::int AS SinUbicacion
+            FROM bienes
+            WHERE institucion_id = @InstitucionId {filtro.Replace("sede_id", "sede_id")}";
 
         await using var db = await CrearConexionAsync();
         var r = await db.QueryFirstOrDefaultAsync<AsistenteResumenDTO>(sql, parametros);
@@ -129,8 +131,8 @@ public class AsistenteIAService
 💎 **Valor neto:** {FormatearMoneda(r.ValorNetoTotal)}
 
 ⚠️ **Alertas de control:**
-• {r.SinResponsable} bienes sin responsable
-• {r.SinUbicacion} bienes sin ubicación";
+• {r.SinResponsable} bienes sin responsable (solo PPE)
+• {r.SinUbicacion} bienes sin ubicación (solo PPE)";
 
         return new RespuestaAsistenteDTO { Pregunta = "resumen", Respuesta = texto, TipoRespuesta = "info", Sugerencia = "Prueba: ¿Qué se va a agotar primero?" };
     }
@@ -170,13 +172,15 @@ public class AsistenteIAService
     private async Task<RespuestaAsistenteDTO> ValorTotalAsync(int? sedeIdFiltro)
     {
         var (filtro, parametros) = GenerarFiltro(sedeIdFiltro);
+
+        // ✅ BUG CORREGIDO: Sumamos el valor del stock de los consumibles al total
         var sql = $@"
             SELECT 
-                COALESCE(SUM(valor_total_inventario), 0)::numeric AS ValorTotalInventario,
-                COALESCE(SUM(depreciacion_total), 0)::numeric AS DepreciacionTotal,
-                COALESCE(SUM(valor_neto_total), 0)::numeric AS ValorNetoTotal
-            FROM v_asistente_resumen
-            WHERE institucion_id = @InstitucionId {filtro}";
+                COALESCE(SUM(CASE WHEN tipo_bien = 'devolutivo' THEN valor_adquisicion ELSE (stock_actual * cpp_actual) END), 0)::numeric AS ValorTotalInventario,
+                COALESCE(SUM(CASE WHEN tipo_bien = 'devolutivo' THEN depreciacion_acumulada ELSE 0 END), 0)::numeric AS DepreciacionTotal,
+                COALESCE(SUM(CASE WHEN tipo_bien = 'devolutivo' THEN valor_neto ELSE (stock_actual * cpp_actual) END), 0)::numeric AS ValorNetoTotal
+            FROM bienes
+            WHERE institucion_id = @InstitucionId AND activo = TRUE {filtro}";
 
         await using var db = await CrearConexionAsync();
         var r = await db.QueryFirstOrDefaultAsync<AsistenteResumenDTO>(sql, parametros);
@@ -185,8 +189,8 @@ public class AsistenteIAService
 
         var texto = $@"💰 **Valor del Inventario**
 
-📊 **Valor de adquisición:** {FormatearMoneda(r.ValorTotalInventario)}
-📉 **Depreciación acumulada:** {FormatearMoneda(r.DepreciacionTotal)}
+📊 **Valor de adquisición (PPE + Consumo):** {FormatearMoneda(r.ValorTotalInventario)}
+📉 **Depreciación acumulada (PPE):** {FormatearMoneda(r.DepreciacionTotal)}
 💎 **Valor neto contable:** {FormatearMoneda(r.ValorNetoTotal)}
 
 El valor neto es lo que vale el inventario hoy después de depreciación.";
@@ -204,7 +208,7 @@ El valor neto es lo que vale el inventario hoy después de depreciación.";
             WHERE b.institucion_id = @InstitucionId 
               AND b.activo = TRUE 
               AND b.tipo_bien = 'devolutivo'
-              {filtro.Replace("sede_id", "b.sede_id")} -- Adaptación para tabla con alias
+              {filtro.Replace("sede_id", "b.sede_id")}
             ORDER BY b.valor_adquisicion DESC
             LIMIT 5";
 
@@ -231,16 +235,24 @@ El valor neto es lo que vale el inventario hoy después de depreciación.";
     private async Task<RespuestaAsistenteDTO> SinResponsableAsync(int? sedeIdFiltro)
     {
         var (filtro, parametros) = GenerarFiltro(sedeIdFiltro);
+
+        // ✅ BUG CORREGIDO: Solo consultamos bienes devolutivos (PPE), no consumibles
         var sql = $@"
-            SELECT codigo, nombre, valor_adquisicion, categoria, aula
-            FROM v_alertas_sin_responsable
-            WHERE institucion_id = @InstitucionId {filtro}
-            ORDER BY valor_adquisicion DESC LIMIT 10";
+            SELECT b.codigo, b.nombre, b.valor_adquisicion, c.nombre AS categoria, a.nombre AS aula
+            FROM bienes b
+            LEFT JOIN categorias c ON c.id = b.categoria_id
+            LEFT JOIN aulas a ON a.id = b.aula_id
+            WHERE b.institucion_id = @InstitucionId 
+              AND b.activo = TRUE 
+              AND b.tipo_bien = 'devolutivo' 
+              AND b.funcionario_id IS NULL 
+            {filtro.Replace("sede_id", "b.sede_id")}
+            ORDER BY b.valor_adquisicion DESC LIMIT 10";
 
         await using var db = await CrearConexionAsync();
         var items = (await db.QueryAsync(sql, parametros)).ToList();
 
-        if (!items.Any()) return new RespuestaAsistenteDTO { Pregunta = "sin_responsable", Respuesta = "✅ ¡Perfecto! Todos los bienes tienen responsable asignado.", TipoRespuesta = "success" };
+        if (!items.Any()) return new RespuestaAsistenteDTO { Pregunta = "sin_responsable", Respuesta = "✅ ¡Perfecto! Todos los bienes devolutivos tienen responsable asignado.", TipoRespuesta = "success" };
 
         var respuesta = $"⚠️ **Hay {items.Count} bienes activos sin responsable asignado.** Se recomienda asignarlos para tener control:";
         var tabla = new RespuestaTablaDTO { Columnas = new List<string> { "Código", "Bien", "Categoría", "Ubicación", "Valor" } };
@@ -259,16 +271,24 @@ El valor neto es lo que vale el inventario hoy después de depreciación.";
     private async Task<RespuestaAsistenteDTO> SinUbicacionAsync(int? sedeIdFiltro)
     {
         var (filtro, parametros) = GenerarFiltro(sedeIdFiltro);
+
+        // ✅ BUG CORREGIDO: Solo consultamos bienes devolutivos (PPE), no consumibles
         var sql = $@"
-            SELECT codigo, nombre, valor_adquisicion, categoria, responsable
-            FROM v_alertas_sin_ubicacion
-            WHERE institucion_id = @InstitucionId {filtro}
-            ORDER BY valor_adquisicion DESC LIMIT 10";
+            SELECT b.codigo, b.nombre, b.valor_adquisicion, c.nombre AS categoria, f.nombre_completo AS responsable
+            FROM bienes b
+            LEFT JOIN categorias c ON c.id = b.categoria_id
+            LEFT JOIN funcionarios f ON f.id = b.funcionario_id
+            WHERE b.institucion_id = @InstitucionId 
+              AND b.activo = TRUE 
+              AND b.tipo_bien = 'devolutivo' 
+              AND b.aula_id IS NULL
+            {filtro.Replace("sede_id", "b.sede_id")}
+            ORDER BY b.valor_adquisicion DESC LIMIT 10";
 
         await using var db = await CrearConexionAsync();
         var items = (await db.QueryAsync(sql, parametros)).ToList();
 
-        if (!items.Any()) return new RespuestaAsistenteDTO { Pregunta = "sin_ubicacion", Respuesta = "✅ ¡Perfecto! Todos los bienes tienen ubicación asignada.", TipoRespuesta = "success" };
+        if (!items.Any()) return new RespuestaAsistenteDTO { Pregunta = "sin_ubicacion", Respuesta = "✅ ¡Perfecto! Todos los bienes devolutivos tienen ubicación asignada.", TipoRespuesta = "success" };
 
         var respuesta = $"⚠️ **Hay {items.Count} bienes activos sin ubicación asignada:**";
         var tabla = new RespuestaTablaDTO { Columnas = new List<string> { "Código", "Bien", "Categoría", "Responsable", "Valor" } };
@@ -287,12 +307,16 @@ El valor neto es lo que vale el inventario hoy después de depreciación.";
     private async Task<RespuestaAsistenteDTO> CategoriasAsync(int? sedeIdFiltro)
     {
         var (filtro, parametros) = GenerarFiltro(sedeIdFiltro);
+
+        // ✅ MEJORA: Consultamos directo a la tabla de bienes para asegurar que salgan los consumibles
         var sql = $@"
-            SELECT categoria_nombre, codigo_cgn, tipo_bien, SUM(cantidad) AS cantidad, SUM(valor_total) AS valor_total
-            FROM v_distribucion_categoria
-            WHERE institucion_id = @InstitucionId {filtro}
-            GROUP BY categoria_nombre, codigo_cgn, tipo_bien
-            ORDER BY SUM(valor_total) DESC";
+            SELECT c.nombre AS categoria_nombre, c.codigo_cgn, b.tipo_bien, COUNT(b.id) AS cantidad, 
+                   SUM(CASE WHEN b.tipo_bien = 'devolutivo' THEN b.valor_adquisicion ELSE (b.stock_actual * b.cpp_actual) END) AS valor_total
+            FROM bienes b
+            LEFT JOIN categorias c ON c.id = b.categoria_id
+            WHERE b.institucion_id = @InstitucionId AND b.activo = TRUE {filtro.Replace("sede_id", "b.sede_id")}
+            GROUP BY c.nombre, c.codigo_cgn, b.tipo_bien
+            ORDER BY SUM(CASE WHEN b.tipo_bien = 'devolutivo' THEN b.valor_adquisicion ELSE (b.stock_actual * b.cpp_actual) END) DESC";
 
         await using var db = await CrearConexionAsync();
         var items = (await db.QueryAsync(sql, parametros)).ToList();

@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace Almacen.DTOs;
 
@@ -31,7 +31,8 @@ public class BienDTO
     [StringLength(80)]
     public string? Serie { get; set; }
 
-    [Range(0, double.MaxValue, ErrorMessage = "El valor debe ser mayor o igual a 0")]
+    [Required(ErrorMessage = "El valor de adquisición es obligatorio")]
+    [Range(1, double.MaxValue, ErrorMessage = "El valor debe ser mayor a 0")]
     public decimal ValorAdquisicion { get; set; }
 
     public DateTime? FechaAdquisicion { get; set; }
@@ -39,15 +40,17 @@ public class BienDTO
     [StringLength(20)]
     public string? EstadoFisico { get; set; } = "Bueno";
 
-    // ── FKs a la jerarquía ──
     public int? InstitucionId { get; set; }
 
-    // ⬇️ Sede — OBLIGATORIA
     [Required(ErrorMessage = "La sede es obligatoria")]
     public int? SedeId { get; set; }
 
+    [Required(ErrorMessage = "Debe seleccionar un Aula (Ubicación)")]
     public int? AulaId { get; set; }
+
+    [Required(ErrorMessage = "Debe seleccionar un Responsable")]
     public int? FuncionarioId { get; set; }
+
     public int? VidaUtilId { get; set; }
     public string? CodigoQr { get; set; }
     public decimal ValorResidual { get; set; }
@@ -55,13 +58,11 @@ public class BienDTO
     [Range(1, int.MaxValue, ErrorMessage = "La cantidad debe ser al menos 1")]
     public int Cantidad { get; set; } = 1;
 
-    // ── LEGACY ──
     public string? Ubicacion { get; set; }
     public string? Responsable { get; set; }
 
     public bool Activo { get; set; } = true;
 
-    // ── Navegación ──
     public string? CategoriaNombre { get; set; }
     public string? AulaNombre { get; set; }
     public string? BloqueNombre { get; set; }

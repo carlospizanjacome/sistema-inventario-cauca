@@ -72,15 +72,15 @@
             {
                 <div class="info-banner">
                     <i class="bi bi-info-circle-fill"></i>
-                    <span>Al seleccionar el bien, se cargará automáticamente su ubicación y responsable actuales.</span>
+                    <span>Al cambiar la Sede Destino, el sistema asignará automáticamente la Bodega de esa sede.</span>
                 </div>
             }
 
             <EditForm @key="trasladoEditandoId" Model="trasladoDTO" OnValidSubmit="Guardar">
                 <DataAnnotationsValidator />
 
-                @* ═══ FILA 1: Bien | Fecha | Aula Destino ═══ *@
-                <div class="form-fila-1">
+                @* ═══ FILA 1: Bien | Fecha | Sede Destino ═══ *@
+                <div class="form-fila-1" style="grid-template-columns: 2fr 1fr 1.2fr;">
                     <div class="ff-bien">
                         <label>Bien *</label>
                         @if (_bienSeleccionado != null)
@@ -169,64 +169,14 @@
                         <ValidationMessage For="() => trasladoDTO.FechaTraslado" class="form-error" />
                     </div>
 
-                    <div class="ff-aula-destino">
-                        <label>Aula Destino *</label>
-                        <div class="input-icon">
-                            <i class="bi bi-door-open"></i>
-                            <InputSelect class="form-select" @bind-Value="trasladoDTO.AulaDestinoId" disabled="@editando">
-                                <option value="0">— Seleccione aula —</option>
-                                @foreach (var a in aulas)
-                                {
-                                    <option value="@a.Id">@a.SedeNombre / @a.BloqueNombre / @a.Nombre</option>
-                                }
-                            </InputSelect>
-                        </div>
-                        <ValidationMessage For="() => trasladoDTO.AulaDestinoId" class="form-error" />
-                    </div>
-                </div>
-
-                @* ═══ FILA 2: Aula Origen | Func. Anterior | Func. Nuevo ═══ *@
-                <div class="form-fila-2">
-                    <div class="ff-aula-origen">
-                        <label>Aula Origen</label>
-                        <div class="input-icon input-icon-readonly" title="@_aulaOrigenNombre">
-                            <i class="bi bi-geo-alt-fill"></i>
-                            <span class="readonly-value">@_aulaOrigenNombre</span>
-                        </div>
-                    </div>
-
-                    <div class="ff-func-anterior">
-                        <label>Funcionario Anterior</label>
-                        <div class="input-icon input-icon-readonly" title="@_funcionarioAnteriorNombre">
-                            <i class="bi bi-person-dash-fill"></i>
-                            <span class="readonly-value">@_funcionarioAnteriorNombre</span>
-                        </div>
-                    </div>
-
-                    <div class="ff-func-nuevo">
-                        <label>Funcionario Nuevo</label>
-                        <div class="input-icon">
-                            <i class="bi bi-person-check-fill"></i>
-                            <InputSelect class="form-select" @bind-Value="trasladoDTO.FuncionarioNuevoId" disabled="@editando">
-                                <option value="">— Sin asignar —</option>
-                                @foreach (var f in funcionarios)
-                                {
-                                    <option value="@f.Id">@f.NombreCompleto (@f.Cedula)</option>
-                                }
-                            </InputSelect>
-                        </div>
-                    </div>
-                </div>
-
-                @* ═══ FILA 3: Sede | Motivo | Botones (en una sola línea) ═══ *@
-                <div class="form-fila-3">
                     <div class="ff-sede">
-                        <label>Sede @(!Sesion.VeTodasLasSedes ? "" : "*")</label>
+                        <label>Sede Destino *</label>
                         <div class="input-icon">
                             <i class="bi bi-geo-alt-fill"></i>
                             <InputSelect class="form-control"
                                          @bind-Value="trasladoDTO.SedeId"
-                                         disabled="@(!Sesion.VeTodasLasSedes || editando)">
+                                         @bind-Value:after="OnSedeChanged"
+                                         disabled="@(editando)">
                                 @if (!Sesion.VeTodasLasSedes)
                                 {
                                     <option value="@Sesion.SedeId">@Sesion.SedeNombre</option>
@@ -242,14 +192,76 @@
                             </InputSelect>
                         </div>
                     </div>
+                </div>
+
+                @* ═══ FILA 2: Aula Origen | Aula Destino | Func. Anterior ═══ *@
+                <div class="form-fila-2" style="grid-template-columns: 1fr 1fr 1fr;">
+                    <div class="ff-aula-origen">
+                        <label>Aula Origen</label>
+                        <div class="input-icon input-icon-readonly" title="@_aulaOrigenNombre">
+                            <i class="bi bi-geo-alt-fill"></i>
+                            <span class="readonly-value">@_aulaOrigenNombre</span>
+                        </div>
+                    </div>
+
+                    <div class="ff-aula-destino">
+                        <label>Aula Destino *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-door-open"></i>
+                            <InputSelect class="form-select" @bind-Value="trasladoDTO.AulaDestinoId" disabled="@(editando || EsTrasladoInterSede)">
+                                <option value="0">— Seleccione aula —</option>
+                                @foreach (var a in _aulasFiltradas)
+                                {
+                                    <option value="@a.Id">@a.Nombre</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <ValidationMessage For="() => trasladoDTO.AulaDestinoId" class="form-error" />
+                    </div>
+
+                    <div class="ff-func-anterior">
+                        <label>Funcionario Anterior</label>
+                        <div class="input-icon input-icon-readonly" title="@_funcionarioAnteriorNombre">
+                            <i class="bi bi-person-dash-fill"></i>
+                            <span class="readonly-value">@_funcionarioAnteriorNombre</span>
+                        </div>
+                    </div>
+                </div>
+
+                @* ═══ FILA 3: Func. Nuevo | Motivo | Botones ═══ *@
+                <div class="form-fila-3" style="display: grid; grid-template-columns: 1.2fr 2fr 0.8fr; gap: 10px; align-items: end; padding-top: 10px; border-top: 1px solid #f1f5f9;">
+                    
+                    <div class="ff-func-nuevo">
+                        <label>Funcionario Nuevo</label>
+                        <div class="input-icon">
+                            @if (EsTrasladoInterSede)
+                            {
+                                <!-- Si es Inter-Sede, se bloquea y se muestra un mensaje claro -->
+                                <i class="bi bi-building"></i>
+                                <input type="text" class="form-control" value="Lo recibe Almacén de Sede Destino" disabled style="background: #f1f5f9; color: #64748b; font-size: 0.75rem;" />
+                            }
+                            else
+                            {
+                                <!-- Si es traslado interno, se deja elegir al funcionario -->
+                                <i class="bi bi-person-check-fill"></i>
+                                <InputSelect class="form-select" @bind-Value="trasladoDTO.FuncionarioNuevoId" disabled="@editando">
+                                    <option value="">— Sin asignar —</option>
+                                    @foreach (var f in _funcionariosFiltrados)
+                                    {
+                                        <option value="@f.Id">@f.NombreCompleto (@f.Cedula)</option>
+                                    }
+                                </InputSelect>
+                            }
+                        </div>
+                    </div>
 
                     <div class="ff-motivo">
-                        <label>Motivo del Traslado</label>
+                        <label>Motivo del Traslado *</label>
                         <div class="input-icon">
                             <i class="bi bi-chat-left-text"></i>
                             <InputText class="form-control" @bind-Value="trasladoDTO.Motivo"
                                        disabled="@editando"
-                                       placeholder="Descripción del motivo del traslado" />
+                                       placeholder="Justifique el motivo (ej: Acta 045 del Rector)" />
                         </div>
                     </div>
 
@@ -473,9 +485,11 @@
     private static readonly System.Globalization.CultureInfo CulturaCOP = System.Globalization.CultureInfo.GetCultureInfo("es-CO");
 
     private ResultadoPaginado<TrasladoDTO>? _pagina;
-    private IEnumerable<Bien> bienes = [];
-    private IEnumerable<AulaDTO> aulas = [];
-    private IEnumerable<FuncionarioDTO> funcionarios = [];
+    private List<Bien> bienes = new();
+    private List<AulaDTO> aulas = new();
+    private List<AulaDTO> _aulasFiltradas = new();
+    private List<FuncionarioDTO> funcionarios = new();
+    private List<FuncionarioDTO> _funcionariosFiltrados = new();
     private List<SedeDTO> _sedes = new();
 
     private TrasladoDTO trasladoDTO = new();
@@ -510,6 +524,11 @@
 
     private bool _exportando = false;
 
+    // ✅ Propiedad para saber si es un traslado a otra sede
+    private bool EsTrasladoInterSede => 
+        _bienSeleccionado?.SedeId != null && trasladoDTO.SedeId != null && 
+        _bienSeleccionado.SedeId != trasladoDTO.SedeId;
+
     private bool _hayFiltrosActivos =>
         !string.IsNullOrEmpty(_filtroTexto) ||
         _filtroFechaDesde.HasValue ||
@@ -531,9 +550,11 @@
         puedeEditar = await Seguridad.TienePermisoAsync("traslados.editar");
         puedeAnular = await Seguridad.TienePermisoAsync("traslados.anular");
 
-        bienes = await BienRepo.ObtenerTodosAsync();
-        aulas = await AulaRepo.ObtenerTodasAsync();
-        funcionarios = await FuncRepo.ObtenerTodosAsync();
+        bienes = (await BienRepo.ObtenerTodosAsync()).Where(b => b.Activo).ToList();
+        aulas = (await AulaRepo.ObtenerTodasAsync()).ToList();
+        _aulasFiltradas = aulas.ToList();
+        funcionarios = (await FuncRepo.ObtenerTodosAsync()).ToList();
+        _funcionariosFiltrados = funcionarios.ToList();
         _sedes = (await SedeRepo.ObtenerTodasAsync()).ToList();
         _bienesFiltrados = bienes.Take(20).ToList();
 
@@ -577,6 +598,8 @@
         _mostrarDropdownBien = false;
         _bloquearAperturaDropdown = false;
         _bienesFiltrados = bienes.Take(20).ToList();
+        _aulasFiltradas = aulas.ToList();
+        _funcionariosFiltrados = funcionarios.ToList();
     }
 
     private void Cancelar()
@@ -593,6 +616,8 @@
         _textoBusquedaBien = string.Empty;
         _mostrarDropdownBien = false;
         _bloquearAperturaDropdown = false;
+        _aulasFiltradas = aulas.ToList();
+        _funcionariosFiltrados = funcionarios.ToList();
 
         StateHasChanged();
     }
@@ -612,6 +637,8 @@
             _textoBusquedaBien = string.Empty;
             _mostrarDropdownBien = false;
             _bloquearAperturaDropdown = false;
+            _aulasFiltradas = aulas.ToList();
+            _funcionariosFiltrados = funcionarios.ToList();
         }
     }
 
@@ -685,11 +712,18 @@
     {
         _bienSeleccionado = bien;
         trasladoDTO.BienId = bien.Id;
+        trasladoDTO.SedeId = bien.SedeId; 
+
         _textoBusquedaBien = string.Empty;
         _bienesFiltrados = new List<Bien>();
         _mostrarDropdownBien = false;
         _bloquearAperturaDropdown = false;
+        
         await CargarUbicacionActualAsync(bien.Id);
+        
+        ActualizarAulasFiltradas();
+        ActualizarFuncionariosFiltrados();
+
         StateHasChanged();
     }
 
@@ -699,6 +733,11 @@
         trasladoDTO.BienId = 0;
         trasladoDTO.AulaOrigenId = null;
         trasladoDTO.FuncionarioAnteriorId = null;
+        
+        trasladoDTO.SedeId = Sesion.VeTodasLasSedes ? null : Sesion.SedeId;
+        _aulasFiltradas = aulas.ToList();
+        _funcionariosFiltrados = funcionarios.ToList();
+
         _aulaOrigenNombre = "— Sin ubicación previa —";
         _funcionarioAnteriorNombre = "— Sin responsable previo —";
         _textoBusquedaBien = string.Empty;
@@ -720,6 +759,62 @@
         _funcionarioAnteriorNombre = func != null ? $"{func.NombreCompleto} ({func.Cedula})" : "— Sin responsable previo —";
     }
 
+    private void OnSedeChanged()
+    {
+        trasladoDTO.AulaDestinoId = 0;
+        trasladoDTO.FuncionarioNuevoId = null; 
+        
+        ActualizarAulasFiltradas();
+        ActualizarFuncionariosFiltrados();
+
+        // ✅ Si es traslado inter-sede, seleccionamos automáticamente la Bodega
+        if (EsTrasladoInterSede)
+        {
+            var bodegaDestino = _aulasFiltradas.FirstOrDefault(a => a.Nombre.ToLower().Contains("bodega"));
+            if (bodegaDestino != null)
+            {
+                trasladoDTO.AulaDestinoId = bodegaDestino.Id;
+            }
+        }
+    }
+
+    private void ActualizarAulasFiltradas()
+    {
+        if (trasladoDTO.SedeId.HasValue)
+        {
+            var sedeSeleccionada = _sedes.FirstOrDefault(s => s.Id == trasladoDTO.SedeId.Value);
+            if (sedeSeleccionada != null)
+            {
+                _aulasFiltradas = aulas.Where(a => a.SedeNombre == sedeSeleccionada.Nombre).ToList();
+            }
+            else
+            {
+                _aulasFiltradas = new List<AulaDTO>();
+            }
+        }
+        else
+        {
+            _aulasFiltradas = aulas.ToList();
+        }
+    }
+
+    private void ActualizarFuncionariosFiltrados()
+    {
+        var query = funcionarios.AsQueryable();
+
+        if (trasladoDTO.SedeId.HasValue)
+        {
+            query = query.Where(f => f.SedeId == trasladoDTO.SedeId.Value);
+        }
+
+        if (trasladoDTO.FuncionarioAnteriorId.HasValue)
+        {
+            query = query.Where(f => f.Id != trasladoDTO.FuncionarioAnteriorId.Value);
+        }
+
+        _funcionariosFiltrados = query.ToList();
+    }
+
     private async Task Guardar()
     {
         if (!puedeCrear) { Toast.Error("No tiene permiso para registrar traslados."); return; }
@@ -727,7 +822,31 @@
         if (trasladoDTO.AulaDestinoId <= 0) { Toast.Error("Debe seleccionar un aula destino."); return; }
 
         if (!Sesion.VeTodasLasSedes) trasladoDTO.SedeId = Sesion.SedeId;
-        if (trasladoDTO.SedeId == null) { Toast.Error("Debe seleccionar una Sede."); return; }
+        
+        if (trasladoDTO.SedeId == null) 
+        { 
+            Toast.Error("Debe seleccionar la Sede Destino."); 
+            return; 
+        }
+
+        // ✅ VALIDACIÓN: Si es intra-sede, el funcionario es obligatorio. Si es inter-sede, se ignora.
+        if (!EsTrasladoInterSede && (trasladoDTO.FuncionarioNuevoId == null || trasladoDTO.FuncionarioNuevoId == 0))
+        {
+            Toast.Warning("Para traslados dentro de la misma sede, debe asignar el funcionario que recibe.");
+            return;
+        }
+
+        // ✅ Si es inter-sede, forzamos el funcionario a nulo en la BD
+        if (EsTrasladoInterSede)
+        {
+            trasladoDTO.FuncionarioNuevoId = null;
+        }
+
+        if (string.IsNullOrWhiteSpace(trasladoDTO.Motivo))
+        {
+            Toast.Warning("Debe justificar el motivo del traslado para que quede el soporte legal en la Contraloría.");
+            return;
+        }
 
         if (trasladoDTO.AulaOrigenId == trasladoDTO.AulaDestinoId && trasladoDTO.FuncionarioAnteriorId == trasladoDTO.FuncionarioNuevoId)
         {
@@ -738,7 +857,7 @@
         try
         {
             var nuevoId = await TrasladoRepo.CrearAsync(trasladoDTO);
-            await TrasladoRepo.ActualizarUbicacionBienAsync(trasladoDTO.BienId, trasladoDTO.AulaDestinoId, trasladoDTO.FuncionarioNuevoId);
+            await TrasladoRepo.ActualizarUbicacionBienAsync(trasladoDTO.BienId, trasladoDTO.AulaDestinoId, trasladoDTO.FuncionarioNuevoId, trasladoDTO.SedeId);
 
             await Auditoria.RegistrarCreacionAsync(
                 modulo: "traslados", objetoTipo: "Traslado", objetoId: nuevoId, objetoCodigo: null, objetoDescripcion: $"Traslado de bien ID {trasladoDTO.BienId}",
@@ -758,6 +877,8 @@
             _bienesFiltrados = bienes.Take(20).ToList();
             _aulaOrigenNombre = "— Sin ubicación previa —";
             _funcionarioAnteriorNombre = "— Sin responsable previo —";
+            _aulasFiltradas = aulas.ToList();
+            _funcionariosFiltrados = funcionarios.ToList();
 
             await Cargar();
             StateHasChanged();

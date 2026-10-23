@@ -1,0 +1,1016 @@
+@page "/bienes"
+@rendermode InteractiveServer
+
+@using Almacen.Models
+@using Almacen.DTOs
+@using Almacen.Interfaces
+@using Almacen.Services
+@using Almacen.Helpers
+@using Almacen.Components.Shared
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
+
+@inject IBienRepository BienRepository
+@inject ICategoriaRepository CategoriaRepository
+@inject IAulaRepository AulaRepository
+@inject IFuncionarioRepository FuncionarioRepository
+@inject IVidaUtilRepository VidaUtilRepo
+@inject ISedeRepository SedeRepo
+@inject IJSRuntime JS
+@inject SeguridadService Seguridad
+@inject NavigationManager Navigation
+@inject ToastService Toast
+@inject ConfirmService Confirm
+@inject ExcelExportService ExcelService
+@inject UsuarioSesionService Sesion
+@inject IInstitucionRepository InstRepo
+@inject AuditoriaService Auditoria
+
+<PageTitle>Bienes · Almacén</PageTitle>
+
+<div class="page-container page-crud @(_mostrarFormulario ? "form-abierto" : "")">
+
+    @if (!_mostrarFormulario)
+    {
+        <div class="page-header">
+            <div>
+                <h1><i class="bi bi-box-seam"></i> Bienes</h1>
+                <p class="subtitle">Catálogo de bienes devolutivos</p>
+            </div>
+
+            <div class="header-actions">
+                @if (puedeCrear)
+                {
+                    <button class="btn-nuevo" @onclick="AbrirFormulario">
+                        <i class="bi bi-plus-lg"></i> Nuevo Bien
+                    </button>
+                }
+            </div>
+        </div>
+    }
+
+    @if (_mostrarFormulario)
+    {
+        <div class="card-form">
+            <div class="form-header">
+                <div class="form-header-left">
+                    <i class="bi bi-@(editando ? "pencil-square" : "plus-circle")"></i>
+                    <span>@(editando ? "Editar Bien" : "Nuevo Bien")</span>
+                </div>
+
+                <div class="form-header-center">
+                    <i class="bi bi-box-seam"></i>
+                    <div>
+                        <div class="form-header-title">Bienes</div>
+                        <div class="form-header-subtitle">Catálogo de bienes devolutivos</div>
+                    </div>
+                </div>
+
+                <button class="btn-cerrar-form" @onclick="CerrarFormulario" title="Cerrar">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <EditForm @key="bienEditandoId" Model="bienDTO" OnValidSubmit="GuardarBien">
+                <DataAnnotationsValidator />
+
+                @* ═══ FILA 1: Código | Nombre | Categoría | Marca | Modelo | Serie ═══ *@
+                <div class="form-fila-1">
+
+                    @if (editando)
+                    {
+                        <div class="ff-code">
+                            <label>Código</label>
+                            <div class="input-icon">
+                                <i class="bi bi-upc-scan"></i>
+                                <input type="text" class="form-control" value="@bienDTO.Codigo" disabled />
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="ff-code">
+                            <label>Código</label>
+                            <div class="auto-codigo-chip">
+                                <i class="bi bi-magic"></i>
+                                <span>Auto</span>
+                            </div>
+                        </div>
+                    }
+
+                    <div class="ff-nombre">
+                        <label>Nombre *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-box-fill"></i>
+                            <InputText class="form-control" @bind-Value="bienDTO.Nombre" placeholder="Ej: Monitor Asus" />
+                        </div>
+                    </div>
+
+                    <div class="ff-categoria">
+                        <label>Categoría *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-tags-fill"></i>
+                            <InputSelect class="form-control" @bind-Value="bienDTO.CategoriaId">
+                                <option value="">Seleccione categoría</option>
+                                @foreach (var cat in categorias)
+                                {
+                                    <option value="@cat.Id">@cat.Nombre</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    <div class="ff-marca">
+                        <label>Marca</label>
+                        <div class="input-icon">
+                            <i class="bi bi-building"></i>
+                            <InputText class="form-control" @bind-Value="bienDTO.Marca" />
+                        </div>
+                    </div>
+
+                    <div class="ff-modelo">
+                        <label>Modelo</label>
+                        <div class="input-icon">
+                            <i class="bi bi-cpu"></i>
+                            <InputText class="form-control" @bind-Value="bienDTO.Modelo" />
+                        </div>
+                    </div>
+
+                    <div class="ff-serie">
+                        <label>Serie</label>
+                        <div class="input-icon">
+                            <i class="bi bi-upc"></i>
+                            <InputText class="form-control" @bind-Value="bienDTO.Serie" />
+                        </div>
+                    </div>
+                </div>
+
+                @* ═══ FILA 2: Valor | Cantidad | Fecha | Vida útil | Residual | Sede ═══ *@
+                <div class="form-fila-2">
+
+                    <div class="ff-valor">
+                        <label>Valor Adquisición</label>
+                        <div class="input-icon">
+                            <i class="bi bi-currency-dollar"></i>
+                            <InputMoneda class="form-control" @bind-Value="bienDTO.ValorAdquisicion" />
+                        </div>
+                    </div>
+
+                    <div class="ff-cantidad">
+                        <label>Cantidad</label>
+                        <div class="input-icon">
+                            <i class="bi bi-hash"></i>
+                            <InputNumber class="form-control" @bind-Value="bienDTO.Cantidad" min="1" />
+                        </div>
+                    </div>
+
+                    <div class="ff-fecha">
+                        <label>Fecha Adquisición</label>
+                        <div class="input-icon">
+                            <i class="bi bi-calendar-check"></i>
+                            <InputDate class="form-control" @bind-Value="bienDTO.FechaAdquisicion" />
+                        </div>
+                    </div>
+
+                    <div class="ff-vida">
+                        <label>Categoría CGN *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-clock-history"></i>
+                            <InputSelect class="form-control" @bind-Value="bienDTO.VidaUtilId">
+                                <option value="">— Sin asignar —</option>
+                                @foreach (var v in vidasUtiles)
+                                {
+                                    <option value="@v.Id">@v.NombreCompletoConVidaUtil</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    <div class="ff-residual">
+                        <label>Valor Residual</label>
+                        <div class="input-icon">
+                            <i class="bi bi-piggy-bank"></i>
+                            <InputMoneda class="form-control" @bind-Value="bienDTO.ValorResidual" />
+                        </div>
+                    </div>
+
+                    @* ⬇️ Sede *@
+                    @if (Sesion.VeTodasLasSedes)
+                    {
+                        <div class="ff-sede">
+                            <label>Sede *</label>
+                            <div class="input-icon">
+                                <i class="bi bi-geo-alt-fill"></i>
+                                <InputSelect class="form-control" @bind-Value="bienDTO.SedeId">
+                                    <option value="">— Seleccione sede —</option>
+                                    @foreach (var s in _sedes)
+                                    {
+                                        <option value="@s.Id">@s.Nombre</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="ff-sede">
+                            <label>Sede</label>
+                            <div class="input-icon input-readonly">
+                                <i class="bi bi-geo-alt-fill"></i>
+                                <input type="text" class="form-control"
+                                       value="@(Sesion.SedeNombre ?? "Sin sede")" disabled />
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                @* ═══ FILA 3: Ubicación | Responsable | Estado físico ═══ *@
+                <div class="form-fila-3">
+
+                    <div class="ff-aula">
+                        <label>Ubicación (Aula)</label>
+                        <div class="input-icon">
+                            <i class="bi bi-geo-alt-fill"></i>
+                            <InputSelect class="form-control" @bind-Value="bienDTO.AulaId">
+                                <option value="">— Sin asignar —</option>
+                                @foreach (var a in aulas)
+                                {
+                                    <option value="@a.Id">@a.Nombre</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    <div class="ff-responsable">
+                        <label>Responsable</label>
+                        <div class="input-icon">
+                            <i class="bi bi-person-fill"></i>
+                            <InputSelect class="form-control" @bind-Value="bienDTO.FuncionarioId">
+                                <option value="">— Sin asignar —</option>
+                                @foreach (var f in funcionarios)
+                                {
+                                    <option value="@f.Id">@f.NombreCompleto (@f.Cedula)</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    <div class="ff-estado">
+                        <label>Estado Físico</label>
+                        <div class="input-icon">
+                            <i class="bi bi-heart-pulse-fill"></i>
+                            <InputSelect class="form-control" @bind-Value="bienDTO.EstadoFisico">
+                                <option value="bueno">Bueno</option>
+                                <option value="regular">Regular</option>
+                                <option value="malo">Malo</option>
+                                <option value="baja">Baja</option>
+                            </InputSelect>
+                        </div>
+                    </div>
+                </div>
+
+                @* ═══ FILA 4: Descripción + Activo + Botones ═══ *@
+                <div class="form-fila-4">
+
+                    <div class="ff-descripcion">
+                        <label>Descripción</label>
+                        <div class="input-icon">
+                            <i class="bi bi-card-text"></i>
+                            <InputText class="form-control" @bind-Value="bienDTO.Descripcion" placeholder="Descripción detallada…" />
+                        </div>
+                    </div>
+
+                    <div class="ff-activo">
+                        <label>&nbsp;</label>
+                        <label class="checkbox-inline">
+                            <InputCheckbox @bind-Value="bienDTO.Activo" />
+                            <span>Activo</span>
+                        </label>
+                    </div>
+
+                    <div class="ff-botones">
+                        <button type="button" class="btn btn-cancel" @onclick="CerrarFormulario">
+                            <i class="bi bi-x-lg"></i> Cerrar
+                        </button>
+                        <button type="submit" class="btn btn-save">
+                            <i class="bi @(editando ? "bi-check-circle-fill" : "bi-save-fill")"></i>
+                            @(editando ? "Actualizar" : "Guardar")
+                        </button>
+                    </div>
+                </div>
+            </EditForm>
+        </div>
+    }
+
+    <div class="card-table">
+
+        @* ═══ BARRA SUPERIOR ═══ *@
+        <div class="filtros-toolbar">
+            <div class="filtro-busqueda-principal">
+                <i class="bi bi-search"></i>
+                <input type="text"
+                       placeholder="Buscar por código, nombre, marca o serie…"
+                       @bind="_filtroTexto"
+                       @bind:event="oninput"
+                       @bind:after="BuscarConDebounce" />
+                @if (!string.IsNullOrEmpty(_filtroTexto))
+                {
+                    <button class="filtro-clear" @onclick="LimpiarFiltro" title="Limpiar búsqueda">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                }
+            </div>
+
+            <div class="filtros-toolbar-actions">
+                <span class="badge-total">
+                    <i class="bi bi-box-seam"></i>
+                    <strong>@(_pagina?.TotalRegistros ?? 0)</strong> bienes
+                    @if (_hayFiltrosActivos)
+                    {
+                        <span class="filtro-activo-tag">· Filtrado</span>
+                    }
+                </span>
+
+                <button class="btn-filtros @(_mostrarFiltros ? "active" : "")"
+                        @onclick="ToggleFiltros">
+                    <i class="bi bi-sliders"></i>
+                    <span>Filtros</span>
+                    @if (_hayFiltrosAvanzados)
+                    {
+                        <span class="filtros-badge"></span>
+                    }
+                    <i class="bi @(_mostrarFiltros ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                </button>
+
+                <button class="btn-export-cgn" @onclick="ExportarExcel" disabled="@(_exportando)">
+                    <i class="bi @(_exportando ? "bi-hourglass-split" : "bi-download")"></i>
+                    <span>@(_exportando ? "Generando…" : "Exportar")</span>
+                </button>
+            </div>
+        </div>
+
+        @* ═══ PANEL DE FILTROS ═══ *@
+        @if (_mostrarFiltros)
+        {
+            <div class="panel-filtros">
+                <div class="filtros-grid">
+                    <div class="filtro-select">
+                        <i class="bi bi-tags"></i>
+                        <select @bind="_filtroCategoriaId" @bind:after="AplicarFiltrosAvanzados">
+                            <option value="">Todas las categorías</option>
+                            @foreach (var cat in categorias)
+                            {
+                                <option value="@cat.Id">@cat.Nombre</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="filtro-select">
+                        <i class="bi bi-heart-pulse"></i>
+                        <select @bind="_filtroEstadoFisico" @bind:after="AplicarFiltrosAvanzados">
+                            <option value="">Todos los estados</option>
+                            <option value="bueno">Bueno</option>
+                            <option value="regular">Regular</option>
+                            <option value="malo">Malo</option>
+                            <option value="baja">Baja</option>
+                        </select>
+                    </div>
+                    <div class="filtro-select">
+                        <i class="bi bi-check-circle"></i>
+                        <select @bind="_filtroActivo" @bind:after="AplicarFiltrosAvanzados">
+                            <option value="">Activos e inactivos</option>
+                            <option value="true">Solo activos</option>
+                            <option value="false">Solo inactivos</option>
+                        </select>
+                    </div>
+                    <div class="filtro-select">
+                        <i class="bi bi-geo-alt"></i>
+                        <select @bind="_filtroAulaId" @bind:after="AplicarFiltrosAvanzados">
+                            <option value="">Todas las aulas</option>
+                            @foreach (var a in aulas)
+                            {
+                                <option value="@a.Id">@a.Nombre</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="filtro-select">
+                        <i class="bi bi-person"></i>
+                        <select @bind="_filtroFuncionarioId" @bind:after="AplicarFiltrosAvanzados">
+                            <option value="">Todos los responsables</option>
+                            @foreach (var f in funcionarios)
+                            {
+                                <option value="@f.Id">@f.NombreCompleto</option>
+                            }
+                        </select>
+                    </div>
+
+                    @if (Sesion.VeTodasLasSedes && _sedes.Any())
+                    {
+                        <div class="filtro-select">
+                            <i class="bi bi-geo-alt-fill"></i>
+                            <select @bind="_filtroSedeId" @bind:after="AplicarFiltrosAvanzados">
+                                <option value="">Todas las sedes</option>
+                                @foreach (var s in _sedes)
+                                {
+                                    <option value="@s.Id">@s.Nombre</option>
+                                }
+                            </select>
+                        </div>
+                    }
+
+                    @if (_hayFiltrosAvanzados)
+                    {
+                        <button class="btn-limpiar-filtros" @onclick="LimpiarTodosLosFiltros" title="Limpiar filtros">
+                            <i class="bi bi-arrow-counterclockwise"></i>
+                            Limpiar
+                        </button>
+                    }
+                </div>
+            </div>
+        }
+
+        <div class="table-responsive">
+            <table class="table modern-table">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Bien</th>
+                        <th class="text-center">Cant.</th>
+                        <th>Sede</th>
+                        <th>Ubicación</th>
+                        <th>Responsable</th>
+                        <th class="text-center">Estado</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (_pagina is null)
+                    {
+                        <tr><td colspan="8" class="text-center py-3 text-muted">Cargando bienes…</td></tr>
+                    }
+                    else if (!_pagina.Items.Any())
+                    {
+                        <tr><td colspan="8" class="text-center py-3 text-muted">Sin bienes para mostrar.</td></tr>
+                    }
+                    else
+                    {
+                        @foreach (var bien in _pagina.Items)
+                        {
+                            <tr class="table-row-hover" @key="bien.Id">
+                                <td><code>@bien.Codigo</code></td>
+                                <td>
+                                    <div class="table-cell-primary">
+                                        <strong>@bien.Nombre</strong>
+                                        @if (!string.IsNullOrEmpty(bien.CategoriaNombre))
+                                        {
+                                            <small>@bien.CategoriaNombre</small>
+                                        }
+                                    </div>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge badge-neutral">@bien.Cantidad</span>
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(bien.SedeNombre))
+                                    {
+                                        <span class="badge-sede">
+                                            <i class="bi bi-geo-alt-fill"></i> @bien.SedeNombre
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(bien.AulaNombre))
+                                    {
+                                        <span>@bien.AulaNombre</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(bien.FuncionarioNombre))
+                                    {
+                                        <span>@bien.FuncionarioNombre</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge @(bien.Activo ? "badge-ok" : "badge-off")">
+                                        @(bien.Activo ? "Activo" : "Inactivo")
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    <button class="btn-icon me-1"
+                                            @onclick="() => VerExpediente(bien.Id)"
+                                            title="Ver expediente del bien">
+                                        <i class="bi bi-eye-fill"></i>
+                                    </button>
+                                    @if (puedeEditar)
+                                    {
+                                        <button class="btn-icon me-1" @onclick="() => Editar(bien)" title="Editar">
+                                            <i class="bi bi-pencil-fill"></i>
+                                        </button>
+                                    }
+                                    @if (puedeEliminar)
+                                    {
+                                        <button class="btn-icon danger" @onclick="() => Eliminar(bien.Id, bien.Nombre)" title="Eliminar">
+                                            <i class="bi bi-trash-fill"></i>
+                                        </button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (_pagina is not null && _pagina.TotalRegistros > 0 && !_mostrarFormulario)
+        {
+            <Paginador T="Bien"
+                       Resultado="_pagina"
+                       OnCambioPagina="CambioPagina"
+                       OnCambioTamano="CambioTamano" />
+        }
+    </div>
+</div>
+
+@code {
+    private bool _mostrarFormulario = false;
+    private BienDTO bienDTO = new();
+    private bool editando;
+    private int bienEditandoId;
+    private Bien? _bienAntesDeEditar;
+
+    private ResultadoPaginado<Bien>? _pagina;
+    private List<Categoria> categorias = new();
+    private List<AulaDTO> aulas = new();
+    private List<FuncionarioDTO> funcionarios = new();
+    private List<VidaUtilDTO> vidasUtiles = new();
+    private List<SedeDTO> _sedes = new();
+
+    private int _paginaActual = 1;
+    private int _tamanoPagina = 25;
+    private string _filtroTexto = string.Empty;
+    private CancellationTokenSource? _debounceCts;
+
+    private bool puedeCrear;
+    private bool puedeEditar;
+    private bool puedeEliminar;
+
+    private bool _exportando = false;
+
+    private bool _mostrarFiltros = false;
+    private string? _filtroCategoriaId;
+    private string? _filtroEstadoFisico;
+    private string? _filtroActivo;
+    private string? _filtroAulaId;
+    private string? _filtroFuncionarioId;
+    private string? _filtroSedeId;
+
+    private bool _hayFiltrosActivos =>
+        !string.IsNullOrEmpty(_filtroTexto) ||
+        !string.IsNullOrEmpty(_filtroCategoriaId) ||
+        !string.IsNullOrEmpty(_filtroEstadoFisico) ||
+        !string.IsNullOrEmpty(_filtroActivo) ||
+        !string.IsNullOrEmpty(_filtroAulaId) ||
+        !string.IsNullOrEmpty(_filtroFuncionarioId) ||
+        !string.IsNullOrEmpty(_filtroSedeId);
+
+    private bool _hayFiltrosAvanzados =>
+        !string.IsNullOrEmpty(_filtroCategoriaId) ||
+        !string.IsNullOrEmpty(_filtroEstadoFisico) ||
+        !string.IsNullOrEmpty(_filtroActivo) ||
+        !string.IsNullOrEmpty(_filtroAulaId) ||
+        !string.IsNullOrEmpty(_filtroFuncionarioId) ||
+        !string.IsNullOrEmpty(_filtroSedeId);
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await Seguridad.TienePermisoAsync("bienes.ver"))
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+
+        puedeCrear = await Seguridad.TienePermisoAsync("bienes.crear");
+        puedeEditar = await Seguridad.TienePermisoAsync("bienes.editar");
+        puedeEliminar = await Seguridad.TienePermisoAsync("bienes.eliminar");
+
+        var t1 = CategoriaRepository.ObtenerPorTipoBienAsync("devolutivo");
+        var t2 = AulaRepository.ObtenerTodasAsync();
+        var t3 = FuncionarioRepository.ObtenerTodosAsync();
+        var t4 = VidaUtilRepo.ObtenerTodosAsync();
+        var t5 = SedeRepo.ObtenerTodasAsync();
+
+        await Task.WhenAll(t1, t2, t3, t4, t5);
+
+        categorias = (await t1).ToList();
+        aulas = (await t2).ToList();
+        funcionarios = (await t3).ToList();
+        vidasUtiles = (await t4).ToList();
+        _sedes = (await t5).ToList();
+
+        await CargarBienes();
+    }
+
+    private void AbrirFormulario()
+    {
+        bienDTO = new BienDTO
+        {
+            Activo = true,
+            TipoBien = "devolutivo",
+            EstadoFisico = "bueno",
+            Cantidad = 1,
+            SedeId = Sesion.VeTodasLasSedes ? null : Sesion.SedeId
+        };
+        editando = false;
+        bienEditandoId = 0;
+        _bienAntesDeEditar = null;
+        _mostrarFormulario = true;
+        _mostrarFiltros = false;
+    }
+
+    private void CerrarFormulario()
+    {
+        _mostrarFormulario = false;
+        bienDTO = new();
+        editando = false;
+        bienEditandoId = 0;
+        _bienAntesDeEditar = null;
+        StateHasChanged();
+    }
+
+    private void ToggleFiltros()
+    {
+        _mostrarFiltros = !_mostrarFiltros;
+
+        if (_mostrarFiltros && _mostrarFormulario)
+        {
+            _mostrarFormulario = false;
+            bienDTO = new();
+            editando = false;
+            bienEditandoId = 0;
+            _bienAntesDeEditar = null;
+        }
+    }
+
+    private async Task CargarBienes()
+    {
+        int? categoriaId = int.TryParse(_filtroCategoriaId, out var c) ? c : null;
+        int? aulaId = int.TryParse(_filtroAulaId, out var a) ? a : null;
+        int? funcionarioId = int.TryParse(_filtroFuncionarioId, out var f) ? f : null;
+        int? sedeFiltroId = int.TryParse(_filtroSedeId, out var s) ? s : null;
+        bool? activo = bool.TryParse(_filtroActivo, out var act) ? act : null;
+
+        if (_hayFiltrosAvanzados)
+        {
+            _pagina = await BienRepository.ObtenerPaginadoConFiltrosAsync(
+                new FiltroBienDTO
+                {
+                    CategoriaId = categoriaId,
+                    TipoBien = "devolutivo",
+                    EstadoFisico = _filtroEstadoFisico,
+                    Activo = activo,
+                    AulaId = aulaId,
+                    FuncionarioId = funcionarioId,
+                    SedeId = sedeFiltroId
+                },
+                _paginaActual,
+                _tamanoPagina);
+        }
+        else
+        {
+            _pagina = await BienRepository.ObtenerPaginadoAsync(
+                _paginaActual,
+                _tamanoPagina,
+                string.IsNullOrWhiteSpace(_filtroTexto) ? null : _filtroTexto);
+        }
+    }
+
+    private async Task CambioPagina(int nuevaPagina)
+    {
+        _paginaActual = nuevaPagina;
+        await CargarBienes();
+        StateHasChanged();
+    }
+
+    private async Task CambioTamano(int nuevoTamano)
+    {
+        _tamanoPagina = nuevoTamano;
+        _paginaActual = 1;
+        await CargarBienes();
+        StateHasChanged();
+    }
+
+    private async Task AplicarFiltrosAvanzados()
+    {
+        _paginaActual = 1;
+        await CargarBienes();
+        StateHasChanged();
+    }
+
+    private async Task BuscarConDebounce()
+    {
+        _debounceCts?.Cancel();
+        _debounceCts = new CancellationTokenSource();
+        var token = _debounceCts.Token;
+
+        try
+        {
+            await Task.Delay(350, token);
+            if (token.IsCancellationRequested) return;
+
+            _paginaActual = 1;
+            await CargarBienes();
+            StateHasChanged();
+        }
+        catch (TaskCanceledException) { }
+    }
+
+    private async Task LimpiarFiltro()
+    {
+        _filtroTexto = string.Empty;
+        _paginaActual = 1;
+        await CargarBienes();
+        StateHasChanged();
+    }
+
+    private async Task LimpiarTodosLosFiltros()
+    {
+        _filtroTexto = string.Empty;
+        _filtroCategoriaId = null;
+        _filtroEstadoFisico = null;
+        _filtroActivo = null;
+        _filtroAulaId = null;
+        _filtroFuncionarioId = null;
+        _filtroSedeId = null;
+        _paginaActual = 1;
+        await CargarBienes();
+        StateHasChanged();
+    }
+
+    private async Task GuardarBien()
+    {
+        if (!editando && !puedeCrear) return;
+        if (editando && !puedeEditar) return;
+
+        try
+        {
+            var bien = new Bien
+            {
+                Id = bienEditandoId,
+                Codigo = bienDTO.Codigo,
+                Nombre = bienDTO.Nombre,
+                Descripcion = bienDTO.Descripcion,
+                CategoriaId = bienDTO.CategoriaId,
+                TipoBien = "devolutivo",
+                Marca = bienDTO.Marca,
+                Modelo = bienDTO.Modelo,
+                Serie = bienDTO.Serie,
+                ValorAdquisicion = bienDTO.ValorAdquisicion,
+                FechaAdquisicion = bienDTO.FechaAdquisicion,
+                EstadoFisico = string.IsNullOrWhiteSpace(bienDTO.EstadoFisico) ? "bueno" : bienDTO.EstadoFisico.ToLower(),
+                Activo = bienDTO.Activo,
+                AulaId = bienDTO.AulaId,
+                FuncionarioId = bienDTO.FuncionarioId,
+                InstitucionId = bienDTO.InstitucionId,
+                SedeId = bienDTO.SedeId,
+                VidaUtilId = bienDTO.VidaUtilId,
+                CodigoQr = bienDTO.CodigoQr,
+                ValorResidual = bienDTO.ValorResidual,
+                Cantidad = bienDTO.Cantidad > 0 ? bienDTO.Cantidad : 1,
+                Ubicacion = bienDTO.Ubicacion,
+                Responsable = bienDTO.Responsable
+            };
+
+            if (editando)
+            {
+                var antes = new
+                {
+                    Nombre = _bienAntesDeEditar?.Nombre,
+                    ValorAdquisicion = _bienAntesDeEditar?.ValorAdquisicion,
+                    EstadoFisico = _bienAntesDeEditar?.EstadoFisico,
+                    AulaId = _bienAntesDeEditar?.AulaId,
+                    FuncionarioId = _bienAntesDeEditar?.FuncionarioId,
+                    SedeId = _bienAntesDeEditar?.SedeId,
+                    Activo = _bienAntesDeEditar?.Activo,
+                    Cantidad = _bienAntesDeEditar?.Cantidad
+                };
+
+                await BienRepository.ActualizarAsync(bien);
+
+                await Auditoria.RegistrarEdicionAsync(
+                    modulo: "bienes",
+                    objetoTipo: "Bien",
+                    objetoId: bien.Id,
+                    objetoCodigo: bien.Codigo,
+                    objetoDescripcion: bien.Nombre,
+                    antes: antes,
+                    despues: new
+                    {
+                        Nombre = bien.Nombre,
+                        ValorAdquisicion = bien.ValorAdquisicion,
+                        EstadoFisico = bien.EstadoFisico,
+                        AulaId = bien.AulaId,
+                        FuncionarioId = bien.FuncionarioId,
+                        SedeId = bien.SedeId,
+                        Activo = bien.Activo,
+                        Cantidad = bien.Cantidad
+                    },
+                    motivo: "Edición de datos del bien"
+                );
+
+                Toast.Exito($"Bien '{bien.Nombre}' actualizado. Puede seguir editando.");
+            }
+            else
+            {
+                await BienRepository.CrearAsync(bien);
+
+                await Auditoria.RegistrarCreacionAsync(
+                    modulo: "bienes",
+                    objetoTipo: "Bien",
+                    objetoId: bien.Id,
+                    objetoCodigo: bien.Codigo,
+                    objetoDescripcion: bien.Nombre,
+                    despues: new
+                    {
+                        bien.Codigo,
+                        bien.Nombre,
+                        bien.ValorAdquisicion,
+                        bien.EstadoFisico,
+                        bien.Cantidad,
+                        bien.AulaId,
+                        bien.FuncionarioId,
+                        bien.SedeId
+                    }
+                );
+
+                Toast.Exito($"Bien '{bien.Nombre}' creado con código {bien.Codigo}.");
+
+                var estadoActual = bienDTO.EstadoFisico;
+                var categoriaActual = bienDTO.CategoriaId;
+                var aulaActual = bienDTO.AulaId;
+                var funcionarioActual = bienDTO.FuncionarioId;
+                var sedeActual = bienDTO.SedeId;
+
+                bienDTO = new BienDTO
+                {
+                    Activo = true,
+                    TipoBien = "devolutivo",
+                    EstadoFisico = estadoActual,
+                    Cantidad = 1,
+                    CategoriaId = categoriaActual,
+                    AulaId = aulaActual,
+                    FuncionarioId = funcionarioActual,
+                    SedeId = sedeActual
+                };
+
+                await JS.InvokeVoidAsync("eval",
+                    "setTimeout(() => { const el = document.querySelector('.card-form input'); if (el) el.focus(); }, 100);");
+            }
+
+            await CargarBienes();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error: {ex.Message}");
+        }
+    }
+
+    private void Editar(Bien bien)
+    {
+        editando = true;
+        bienEditandoId = bien.Id;
+        _bienAntesDeEditar = bien;
+        _mostrarFormulario = true;
+        _mostrarFiltros = false;
+
+        bienDTO = new BienDTO
+        {
+            Id = bien.Id,
+            Codigo = bien.Codigo,
+            Nombre = bien.Nombre,
+            Descripcion = bien.Descripcion,
+            CategoriaId = bien.CategoriaId,
+            TipoBien = bien.TipoBien,
+            Marca = bien.Marca,
+            Modelo = bien.Modelo,
+            Serie = bien.Serie,
+            ValorAdquisicion = bien.ValorAdquisicion,
+            FechaAdquisicion = bien.FechaAdquisicion,
+            EstadoFisico = bien.EstadoFisico,
+            Activo = bien.Activo,
+            AulaId = bien.AulaId,
+            FuncionarioId = bien.FuncionarioId,
+            InstitucionId = bien.InstitucionId,
+            SedeId = bien.SedeId,
+            VidaUtilId = bien.VidaUtilId,
+            CodigoQr = bien.CodigoQr,
+            ValorResidual = bien.ValorResidual,
+            Cantidad = bien.Cantidad,
+            Ubicacion = bien.Ubicacion,
+            Responsable = bien.Responsable
+        };
+
+        StateHasChanged();
+    }
+
+    private void VerExpediente(int id)
+        => Navigation.NavigateTo($"/expediente/{id}");
+
+    private async Task Eliminar(int id, string nombre)
+    {
+        var ok = await Confirm.Peligroso(
+            $"¿Eliminar el bien '{nombre}'? Esta acción no se puede deshacer.");
+        if (!ok) return;
+
+        try
+        {
+            await BienRepository.EliminarAsync(id);
+
+            await Auditoria.RegistrarEliminacionAsync(
+                modulo: "bienes",
+                objetoTipo: "Bien",
+                objetoId: id,
+                objetoCodigo: null,
+                objetoDescripcion: nombre,
+                motivo: "Eliminación de bien"
+            );
+
+            Toast.Exito("Bien eliminado correctamente");
+            await CargarBienes();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            var msg = ex.Message;
+
+            if (msg.Contains("23503") || msg.Contains("llave foránea") || msg.Contains("foreign key"))
+            {
+                Toast.Warning($"No se puede eliminar '{nombre}': tiene movimientos registrados (entradas, salidas, traslados, kárdex, tomas físicas o depreciación). Para darlo de baja, ve al módulo Salidas / Bajas.");
+            }
+            else
+            {
+                Toast.Error($"Error: {msg}");
+            }
+        }
+    }
+
+    private async Task ExportarExcel()
+    {
+        _exportando = true;
+        StateHasChanged();
+
+        try
+        {
+            var todos = (await BienRepository.ObtenerTodosAsync())
+                .Where(b => b.TipoBien == "devolutivo")
+                .ToList();
+
+            if (!todos.Any())
+            {
+                Toast.Warning("No hay bienes para exportar.");
+                return;
+            }
+
+            var institucion = await InstRepo.ObtenerPorIdAsync(Sesion.InstitucionId);
+            var nombreInst = institucion?.Nombre ?? "Institución no identificada";
+
+            var bytes = ExcelService.ExportarInventarioCGN(
+                nombreInst,
+                Sesion.UsuarioActual?.NombreCompleto ?? "N/A",
+                todos);
+
+            var nombreArchivo = $"InventarioCGN_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+            await JS.InvokeVoidAsync("descargarArchivo",
+                Convert.ToBase64String(bytes),
+                nombreArchivo,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+
+            await Auditoria.RegistrarExportacionAsync(
+                "bienes",
+                $"Exportación Excel de inventario CGN con {todos.Count} bienes"
+            );
+
+            Toast.Exito($"Excel generado con {todos.Count} bienes");
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Error al exportar: {ex.Message}");
+        }
+        finally
+        {
+            _exportando = false;
+            StateHasChanged();
+        }
+    }
+}

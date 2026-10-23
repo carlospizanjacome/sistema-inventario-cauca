@@ -201,13 +201,13 @@ public class ReporteNormativoRepository : IReporteNormativoRepository
 
         var parametros = new DynamicParameters(paramBase);
 
-        // ✅ SOLUCIÓN: Solo filtrar por sede si NO puede ver todas las sedes
         if (!_sesion.VeTodasLasSedes && _sesion.SedeId.HasValue)
         {
             filtro += " AND e.sede_id = @SedeId";
             parametros.Add("SedeId", _sesion.SedeId.Value);
         }
 
+        // ✅ CORREGIDO: Hacemos JOIN con bienes y filtramos para que solo salgan bienes Activos
         var sql = $@"
             SELECT
                 e.bien_id                    AS BienId,
@@ -220,9 +220,11 @@ public class ReporteNormativoRepository : IReporteNormativoRepository
                 e.observaciones              AS Observaciones,
                 f.nombre_completo            AS FuncionarioRecibeNombre
             FROM entradas e
+            INNER JOIN bienes b ON b.id = e.bien_id -- ✅ JOIN AGREGADO
             LEFT JOIN proveedores p ON p.id = e.proveedor_id
             LEFT JOIN funcionarios f ON f.id = e.funcionario_recibe_id
             WHERE e.anulada = FALSE
+              AND b.activo = TRUE -- ✅ FILTRO AGREGADO
               {filtro}
             ORDER BY e.fecha_entrada DESC;";
 
@@ -242,7 +244,6 @@ public class ReporteNormativoRepository : IReporteNormativoRepository
 
         var parametros = new DynamicParameters(paramBase);
 
-        // ✅ SOLUCIÓN: Solo filtrar por sede si NO puede ver todas las sedes
         if (!_sesion.VeTodasLasSedes && _sesion.SedeId.HasValue)
         {
             filtro += " AND m.sede_id = @SedeId";
@@ -268,7 +269,7 @@ public class ReporteNormativoRepository : IReporteNormativoRepository
             f.nombre_completo           AS FuncionarioNombre,
             m.observaciones             AS Observaciones
         FROM movimientos_consumo m
-        LEFT JOIN bienes b       ON b.id = m.bien_id
+        INNER JOIN bienes b       ON b.id = m.bien_id
         LEFT JOIN categorias c   ON c.id = b.categoria_id
         LEFT JOIN proveedores p  ON p.id = m.proveedor_id
         LEFT JOIN funcionarios f ON f.id = m.funcionario_recibe_id

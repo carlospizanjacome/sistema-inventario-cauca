@@ -175,17 +175,25 @@ public class TrasladoRepository : ITrasladoRepository
         return await cn.QueryFirstOrDefaultAsync<(int?, int?)>(sql, new { Id = bienId });
     }
 
-    public async Task ActualizarUbicacionBienAsync(int bienId, int aulaId, int? funcionarioId)
+    // ✅ CORREGIDO: Ahora actualiza la sede del bien
+    public async Task ActualizarUbicacionBienAsync(int bienId, int? aulaId, int? funcionarioId, int? sedeId)
     {
         const string sql = @"
             UPDATE bienes
             SET aula_id = @AulaId,
                 funcionario_id = @FuncionarioId,
+                sede_id = @SedeId,
                 updated_at = NOW()
             WHERE id = @BienId;";
 
         using var cn = new NpgsqlConnection(_cs);
-        await cn.ExecuteAsync(sql, new { BienId = bienId, AulaId = aulaId, FuncionarioId = funcionarioId });
+        await cn.ExecuteAsync(sql, new
+        {
+            BienId = bienId,
+            AulaId = aulaId,
+            FuncionarioId = funcionarioId,
+            SedeId = sedeId
+        });
     }
 
     public async Task<ResultadoPaginado<TrasladoDTO>> ObtenerPaginadoAsync(

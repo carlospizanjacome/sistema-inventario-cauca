@@ -16,7 +16,7 @@ public interface ITrasladoRepository
     Task AnularAsync(int id, string motivo);
 
     Task<(int? AulaId, int? FuncionarioId)> ObtenerUbicacionActualAsync(int bienId);
-    Task ActualizarUbicacionBienAsync(int bienId, int aulaId, int? funcionarioId);
+    Task ActualizarUbicacionBienAsync(int bienId, int? aulaId, int? funcionarioId, int? sedeId);
 
     Task<ResultadoPaginado<TrasladoDTO>> ObtenerPaginadoAsync(
         int pagina = 1,

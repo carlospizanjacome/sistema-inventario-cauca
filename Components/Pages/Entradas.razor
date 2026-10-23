@@ -83,9 +83,12 @@
                                     <span class="bien-chip-codigo">@_bienSeleccionado.Codigo</span>
                                     <span class="bien-chip-nombre">@_bienSeleccionado.Nombre</span>
                                 </div>
-                                <button type="button" class="bien-chip-cambiar" @onclick="CambiarBien" title="Cambiar bien">
-                                    <i class="bi bi-arrow-repeat"></i>
-                                </button>
+                                @if (!editando)
+                                {
+                                    <button type="button" class="bien-chip-cambiar" @onclick="CambiarBien" title="Cambiar bien">
+                                        <i class="bi bi-arrow-repeat"></i>
+                                    </button>
+                                }
                             </div>
                         }
                         else
@@ -499,6 +502,7 @@
     private IEnumerable<FuncionarioDTO> funcionarios = [];
     private IEnumerable<ProveedorDTO> proveedores = [];
     private List<SedeDTO> _sedes = new();
+    private HashSet<int> _bienesConEntradaIds = new(); // ✅ NUEVO: Guarda los IDs de los bienes que ya tienen entrada
 
     private EntradaDTO entradaDTO = new();
     private bool editando = false;
@@ -543,10 +547,18 @@
         puedeEditar = await Seguridad.TienePermisoAsync("entradas.editar");
         puedeAnular = await Seguridad.TienePermisoAsync("entradas.anular");
 
-        bienes = await BienRepo.ObtenerTodosAsync();
+        // ✅ Cargamos todos los bienes activos
+        var todosLosBienes = await BienRepo.ObtenerTodosAsync();
+        bienes = todosLosBienes.Where(b => b.Activo).ToList();
+        
+        // ✅ NUEVO: Cargamos las entradas existentes y guardamos los IDs de los bienes que ya ingresaron
+        var entradasExistentes = await EntradaRepo.ObtenerTodasAsync();
+        _bienesConEntradaIds = entradasExistentes.Select(e => e.BienId).ToHashSet();
+
         funcionarios = await FuncRepo.ObtenerTodosAsync();
         proveedores = await ProveedorRepo.ObtenerTodosAsync();
         _sedes = (await SedeRepo.ObtenerTodasAsync()).ToList();
+        
         _bienesFiltrados = bienes.Take(20).ToList();
 
         await Cargar();
@@ -585,7 +597,9 @@
         _bienSeleccionado = null;
         _textoBusquedaBien = string.Empty;
         _mostrarDropdownBien = false;
-        _bienesFiltrados = bienes.Take(20).ToList();
+        
+        // ✅ Filtramos la lista inicial para que no salgan los que ya tienen entrada
+        _bienesFiltrados = bienes.Where(b => !_bienesConEntradaIds.Contains(b.Id)).Take(20).ToList();
     }
 
     private void Cancelar()
@@ -654,13 +668,17 @@
 
     private async Task LimpiarFiltro() { _filtroTexto = string.Empty; _paginaActual = 1; await Cargar(); StateHasChanged(); }
 
-    private void OnBusquedaBienFocus() { _mostrarDropdownBien = true; if (string.IsNullOrWhiteSpace(_textoBusquedaBien)) _bienesFiltrados = bienes.Take(20).ToList(); else FiltrarBienes(); }
-    private void OnBusquedaBienInput(ChangeEventArgs e) { _textoBusquedaBien = e.Value?.ToString() ?? string.Empty; _mostrarDropdownBien = true; if (string.IsNullOrWhiteSpace(_textoBusquedaBien)) _bienesFiltrados = bienes.Take(20).ToList(); else FiltrarBienes(); }
+    private void OnBusquedaBienFocus() { _mostrarDropdownBien = true; if (string.IsNullOrWhiteSpace(_textoBusquedaBien)) _bienesFiltrados = bienes.Where(b => !_bienesConEntradaIds.Contains(b.Id)).Take(20).ToList(); else FiltrarBienes(); }
+    private void OnBusquedaBienInput(ChangeEventArgs e) { _textoBusquedaBien = e.Value?.ToString() ?? string.Empty; _mostrarDropdownBien = true; if (string.IsNullOrWhiteSpace(_textoBusquedaBien)) _bienesFiltrados = bienes.Where(b => !_bienesConEntradaIds.Contains(b.Id)).Take(20).ToList(); else FiltrarBienes(); }
 
     private void FiltrarBienes()
     {
         var filtro = _textoBusquedaBien.Trim().ToLowerInvariant();
-        _bienesFiltrados = bienes.Where(b => (b.Codigo?.ToLowerInvariant().Contains(filtro) ?? false) || (b.Nombre?.ToLowerInvariant().Contains(filtro) ?? false)).OrderBy(b => b.Codigo).ToList();
+        // ✅ NUEVO: Filtramos por los que NO tienen entrada y luego por texto
+        _bienesFiltrados = bienes
+            .Where(b => !_bienesConEntradaIds.Contains(b.Id))
+            .Where(b => (b.Codigo?.ToLowerInvariant().Contains(filtro) ?? false) || (b.Nombre?.ToLowerInvariant().Contains(filtro) ?? false))
+            .OrderBy(b => b.Codigo).ToList();
     }
 
     private void OnBusquedaBienKeyDown(KeyboardEventArgs e)
@@ -669,15 +687,50 @@
         if (e.Key == "Enter" && _mostrarDropdownBien && _bienesFiltrados.Count > 0) SeleccionarBienEntrada(_bienesFiltrados[0]);
     }
 
-    private void LimpiarBusquedaBien() { _textoBusquedaBien = string.Empty; _bienesFiltrados = bienes.Take(20).ToList(); _mostrarDropdownBien = true; }
-    private void SeleccionarBienEntrada(Bien bien) { _bienSeleccionado = bien; entradaDTO.BienId = bien.Id; _textoBusquedaBien = string.Empty; _bienesFiltrados = new List<Bien>(); _mostrarDropdownBien = false; StateHasChanged(); }
-    private void CambiarBien() { _bienSeleccionado = null; entradaDTO.BienId = 0; _textoBusquedaBien = string.Empty; _bienesFiltrados = bienes.Take(20).ToList(); _mostrarDropdownBien = true; StateHasChanged(); }
+    private void LimpiarBusquedaBien() { _textoBusquedaBien = string.Empty; _bienesFiltrados = bienes.Where(b => !_bienesConEntradaIds.Contains(b.Id)).Take(20).ToList(); _mostrarDropdownBien = true; }
+    
+    // ✅ BUG 1 y 2 CORREGIDOS: Autocompletar Valor y Sede
+    private void SeleccionarBienEntrada(Bien bien) 
+    { 
+        _bienSeleccionado = bien; 
+        entradaDTO.BienId = bien.Id; 
+        
+        // Autocompletar el valor
+        if (bien.ValorAdquisicion > 0)
+        {
+            entradaDTO.Valor = bien.ValorAdquisicion;
+        }
+
+        // Autocompletar la sede (solo si el usuario tiene permisos para ver todas las sedes)
+        if (Sesion.VeTodasLasSedes && bien.SedeId.HasValue)
+        {
+            entradaDTO.SedeId = bien.SedeId;
+        }
+
+        _textoBusquedaBien = string.Empty; 
+        _bienesFiltrados = new List<Bien>(); 
+        _mostrarDropdownBien = false; 
+        StateHasChanged(); 
+    }
+    
+    private void CambiarBien() { _bienSeleccionado = null; entradaDTO.BienId = 0; _textoBusquedaBien = string.Empty; _bienesFiltrados = bienes.Where(b => !_bienesConEntradaIds.Contains(b.Id)).Take(20).ToList(); _mostrarDropdownBien = true; StateHasChanged(); }
 
     private async Task Guardar()
     {
         if (!editando && !puedeCrear) { Toast.Error("No tiene permiso."); return; }
         if (editando && !puedeEditar) { Toast.Error("No tiene permiso."); return; }
         if (entradaDTO.BienId <= 0) { Toast.Error("Debe seleccionar un bien."); return; }
+
+        // ✅ BARRERA DE SEGURIDAD: Validamos en la base de datos antes de guardar (solo si es nueva entrada)
+        if (!editando)
+        {
+            var yaTieneEntrada = await EntradaRepo.BienTieneEntradaAsync(entradaDTO.BienId);
+            if (yaTieneEntrada)
+            {
+                Toast.Error("Este bien ya tiene una entrada registrada. Para moverlo a otra sede, use el módulo de Traslados.");
+                return;
+            }
+        }
 
         if (!Sesion.VeTodasLasSedes)
             entradaDTO.SedeId = Sesion.SedeId;
@@ -706,6 +759,9 @@
                 await Auditoria.RegistrarCreacionAsync(modulo: "entradas", objetoTipo: "Entrada", objetoId: entradaDTO.Id, objetoCodigo: entradaDTO.NumeroFactura, objetoDescripcion: $"Entrada de {entradaDTO.TipoFuente}", despues: new { entradaDTO.BienId, entradaDTO.TipoFuente, entradaDTO.NumeroFactura, entradaDTO.FechaEntrada, entradaDTO.Valor, entradaDTO.ProveedorId, entradaDTO.FuncionarioRecibeId, entradaDTO.Observaciones, entradaDTO.SedeId });
                 Toast.Exito($"Entrada '{entradaDTO.NumeroFactura}' creada. Puede continuar.");
 
+                // ✅ NUEVO: Al crear, agregamos el bien a la lista negra para que no vuelva a salir
+                _bienesConEntradaIds.Add(entradaDTO.BienId);
+
                 var tipoFuenteActual = entradaDTO.TipoFuente;
                 var proveedorActual = entradaDTO.ProveedorId;
                 var fechaActual = entradaDTO.FechaEntrada;
@@ -715,7 +771,10 @@
                 _bienSeleccionado = null;
                 _textoBusquedaBien = string.Empty;
                 _mostrarDropdownBien = false;
-                _bienesFiltrados = bienes.Take(20).ToList();
+                
+                // ✅ NUEVO: Refrescamos el dropdown con la nueva lista negra
+                _bienesFiltrados = bienes.Where(b => !_bienesConEntradaIds.Contains(b.Id)).Take(20).ToList();
+                
                 try { await JS.InvokeVoidAsync("eval", "setTimeout(() => { const el = document.querySelector('.bien-buscador-input input'); if (el) el.focus(); }, 100);"); } catch { }
                 await Cargar();
                 StateHasChanged();
@@ -768,6 +827,13 @@
             await EntradaRepo.AnularAsync(_itemAAnular.Id, _motivoAnulacion);
             await Auditoria.RegistrarAnulacionAsync(modulo: "entradas", objetoTipo: "Entrada", objetoId: _itemAAnular.Id, objetoCodigo: _itemAAnular.NumeroFactura, objetoDescripcion: $"Anulación de entrada para '{_itemAAnular.BienNombre}'", antes: new { _itemAAnular.BienId, _itemAAnular.TipoFuente, _itemAAnular.NumeroFactura, _itemAAnular.Valor, Anulada = false }, despues: new { Anulada = true, Motivo = _motivoAnulacion, AnuladaPor = Sesion.UsuarioActual?.Id, AnuladaFecha = DateTime.Now }, motivo: _motivoAnulacion);
             Toast.Exito("Entrada anulada correctamente.");
+            
+            // ✅ NUEVO: Al anular una entrada, el bien vuelve a estar disponible para una nueva entrada
+            if (_itemAAnular.BienId > 0)
+            {
+                _bienesConEntradaIds.Remove(_itemAAnular.BienId);
+            }
+
             CancelarAnulacion();
             await Cargar();
             StateHasChanged();

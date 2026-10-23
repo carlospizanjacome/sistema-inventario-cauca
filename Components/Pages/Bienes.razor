@@ -1,4 +1,4 @@
-﻿@page "/bienes"
+@page "/bienes"
 @rendermode InteractiveServer
 
 @using Almacen.Models
@@ -149,11 +149,12 @@
                 <div class="form-fila-2">
 
                     <div class="ff-valor">
-                        <label>Valor Adquisición</label>
+                        <label>Valor Adquisición *</label>
                         <div class="input-icon">
                             <i class="bi bi-currency-dollar"></i>
                             <InputMoneda class="form-control" @bind-Value="bienDTO.ValorAdquisicion" />
                         </div>
+                        <ValidationMessage For="@(() => bienDTO.ValorAdquisicion)" style="color: #dc2626; font-size: 12px;" />
                     </div>
 
                     <div class="ff-cantidad">
@@ -972,13 +973,14 @@
 
         try
         {
+            // ✅ CORREGIDO: Solo exportamos bienes activos para el reporte normativo
             var todos = (await BienRepository.ObtenerTodosAsync())
-                .Where(b => b.TipoBien == "devolutivo")
+                .Where(b => b.TipoBien == "devolutivo" && b.Activo)
                 .ToList();
 
             if (!todos.Any())
             {
-                Toast.Warning("No hay bienes para exportar.");
+                Toast.Warning("No hay bienes activos para exportar.");
                 return;
             }
 
@@ -1001,7 +1003,7 @@
                 $"Exportación Excel de inventario CGN con {todos.Count} bienes"
             );
 
-            Toast.Exito($"Excel generado con {todos.Count} bienes");
+            Toast.Exito($"Excel generado con {todos.Count} bienes activos");
         }
         catch (Exception ex)
         {

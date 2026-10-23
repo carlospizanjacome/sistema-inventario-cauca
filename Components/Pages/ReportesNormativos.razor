@@ -792,13 +792,29 @@
 
             await Task.WhenAll(tBienes, tEntradas, tKardex);
 
-            var bienes    = (await tBienes).ToList();
+            // ✅ CORRECCIÓN QA: Filtramos solo los activos y corregimos la vida útil antes de enviarlo al Excel
+            var bienesOriginales = (await tBienes).ToList();
+            var bienesFiltrados = new List<Bien>();
+
+            foreach(var b in bienesOriginales)
+            {
+                if (b.Activo) // Solo activos
+                {
+                    if (b.VidaUtilMeses == null || b.VidaUtilMeses <= 0)
+                    {
+                        var cat = (b.CategoriaNombre ?? "").ToUpper();
+                        b.VidaUtilMeses = (cat.Contains("MUEBLE") || cat.Contains("ENSERES")) ? 120 : 60;
+                    }
+                    bienesFiltrados.Add(b);
+                }
+            }
+
             var entradas  = (await tEntradas).ToList();
             var kardex    = (await tKardex).ToList();
 
             var bytes = PlantillaService.GenerarReporte(
                 plantillaBytes,
-                bienes,
+                bienesFiltrados,
                 entradas,
                 kardex,
                 Sesion.InstitucionNombre ?? "",
@@ -816,7 +832,7 @@
                 modulo: "reportes_normativos",
                 descripcion: $"Exportación de '{r.NombreReporte}'");
 
-            Toast.Exito($"Reporte '{r.NombreReporte}' generado.");
+            Toast.Exito($"Reporte '{r.NombreReporte}' generado sin bienes inactivos.");
         }
         catch (Exception ex)
         {

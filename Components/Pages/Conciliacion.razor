@@ -121,7 +121,6 @@
                                         <code>@c.CodigoCgn</code>
                                     } else
                                     {
-
                                         <span class="text-muted">—</span>
                                     }
                                 </td>
@@ -136,7 +135,6 @@
                                     <span class="badge badge-warn"><i class="bi bi-exclamation-triangle-fill"></i> Diferencia</span>
                                 } else
                                 {
-
                                     <span class="badge badge-ok"><i class="bi bi-check-lg"></i> OK</span>
                                 }
                             </td>
@@ -184,7 +182,6 @@
                             <code>@d.CodigoCgn</code>
                         } else
                         {
-
                             <span class="text-muted">—</span>
                         }
                     </td>
@@ -194,7 +191,6 @@
                         <span class="text-muted" title="@d.UbicacionSnapshot">@d.UbicacionSnapshot</span>
                     } else
                     {
-
                         <span class="text-muted">—</span>
                     }
                 </td>
@@ -205,7 +201,6 @@
                 </span>
             } else
             {
-
                 <span class="text-muted">—</span>
             }
         </td>
@@ -213,7 +208,6 @@
             <span class="text-muted" title="@d.FuncionarioSnapshot">@d.FuncionarioSnapshot</span>
         } else
         {
-
             <span class="text-muted">—</span>
         }
     </td>
@@ -224,7 +218,6 @@
     </span>
 } else
 {
-
     <span class="text-muted">—</span>
 }
 </td>
@@ -246,7 +239,10 @@
     private ConciliacionGlobalDTO? _global;
     private List<ConciliacionCategoriaDTO> _porCategoria = new();
     private List<ConciliacionDetalleDTO> _detalle = new();
-    private IEnumerable<ConciliacionDetalleDTO> _detalleFiltrado = Enumerable.Empty<ConciliacionDetalleDTO>();
+    
+    // ✅ BUG CORREGIDO: Cambiamos IEnumerable por List para que Blazor renderice de inmediato
+    private List<ConciliacionDetalleDTO> _detalleFiltrado = new();
+    
     private string? _filtroDetalle;
     private bool _cargando = false;
     private bool _exportando = false;
@@ -276,7 +272,7 @@
 
     private async Task CambiarToma()
     {
-        _global = null; _porCategoria.Clear(); _detalle.Clear(); _detalleFiltrado = Enumerable.Empty<ConciliacionDetalleDTO>(); _filtroDetalle = null;
+        _global = null; _porCategoria.Clear(); _detalle.Clear(); _detalleFiltrado = new(); _filtroDetalle = null;
         if (_tomaSeleccionadaId == 0) return;
         _cargando = true; StateHasChanged();
         try
@@ -285,7 +281,12 @@
             var t2 = ConcilRepo.ObtenerPorCategoriaAsync(_tomaSeleccionadaId);
             var t3 = ConcilRepo.ObtenerDetalleAsync(_tomaSeleccionadaId);
             await Task.WhenAll(t1, t2, t3);
-            _global = await t1; _porCategoria = (await t2).ToList(); _detalle = (await t3).ToList(); _detalleFiltrado = _detalle;
+            _global = await t1; 
+            _porCategoria = (await t2).ToList(); 
+            _detalle = (await t3).ToList(); 
+            
+            // ✅ Aseguramos que se asigne la lista completa como List
+            _detalleFiltrado = _detalle.ToList(); 
         }
         catch (Exception ex) { Toast.Error($"Error: {ex.Message}"); }
         finally { _cargando = false; StateHasChanged(); }
@@ -300,7 +301,20 @@
     private void AplicarFiltro(string? filtro)
     {
         _filtroDetalle = filtro;
-        _detalleFiltrado = filtro switch { "faltantes" => _detalle.Where(x => x.EsFaltante), "sobrantes" => _detalle.Where(x => x.EsSobrante), "ubicacion" => _detalle.Where(x => x.UbicacionDiferente), "funcionario" => _detalle.Where(x => x.FuncionarioDiferente), _ => _detalle };
+        
+        // ✅ BUG CORREGIDO: Usamos .ToList() para materializar el filtro y StateHasChanged() para refrescar
+        if (filtro == "faltantes") 
+            _detalleFiltrado = _detalle.Where(x => x.EsFaltante).ToList();
+        else if (filtro == "sobrantes") 
+            _detalleFiltrado = _detalle.Where(x => x.EsSobrante).ToList();
+        else if (filtro == "ubicacion") 
+            _detalleFiltrado = _detalle.Where(x => x.UbicacionDiferente).ToList();
+        else if (filtro == "funcionario") 
+            _detalleFiltrado = _detalle.Where(x => x.FuncionarioDiferente).ToList();
+        else 
+            _detalleFiltrado = _detalle.ToList();
+            
+        StateHasChanged();
     }
 
     private string GetPillClass(string? filtro) { var activo = _filtroDetalle == filtro; return activo ? "pill-btn active-indigo" : "pill-btn inactive"; }
