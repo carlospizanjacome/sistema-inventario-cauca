@@ -19,22 +19,21 @@ public class SedeRepository : ISedeRepository
         _sesion = sesion;
     }
 
+    // ═══════════════════════════════════════════════════════════
+    // ✅ FIX CRÍTICO: agregadas s.latitud y s.longitud al SELECT
+    // Sin esto el mapa nunca recibe coordenadas y no pinta pines.
+    // ═══════════════════════════════════════════════════════════
     private const string BaseSelect = @"
         SELECT s.id, s.institucion_id AS InstitucionId, s.nombre, s.direccion, s.telefono,
-               s.tipo, s.activo, s.created_at AS CreatedAt,
+               s.tipo, s.activo,
+               s.latitud, s.longitud,
+               s.created_at AS CreatedAt,
                i.nombre AS InstitucionNombre
         FROM sedes s
         LEFT JOIN instituciones i ON i.id = s.institucion_id";
 
-    // ═══════════════════════════════════════════════════════════
-    // Regla: usuarios que NO ven todas las sedes → filtrar por la suya
-    // ═══════════════════════════════════════════════════════════
-    private bool DebeFiltrarPorSede()
-        => !_sesion.VeTodasLasSedes;
+    private bool DebeFiltrarPorSede() => !_sesion.VeTodasLasSedes;
 
-    // ═══════════════════════════════════════════════════════════
-    // Construir filtros (institución + sede) en C#
-    // ═══════════════════════════════════════════════════════════
     private (string Sql, DynamicParameters Parametros) ConstruirFiltros(string alias)
     {
         var condiciones = new List<string>();
@@ -79,9 +78,9 @@ public class SedeRepository : ISedeRepository
         return await cn.QueryFirstOrDefaultAsync<SedeDTO>(sql, parametros);
     }
 
+    // ✅ FIX: ahora guarda latitud y longitud al crear
     public async Task<int> CrearAsync(SedeDTO dto)
     {
-        // Solo los que ven todas las sedes pueden crear
         if (!_sesion.VeTodasLasSedes)
         {
             throw new InvalidOperationException(
@@ -94,17 +93,17 @@ public class SedeRepository : ISedeRepository
         }
 
         const string sql = @"
-            INSERT INTO sedes (institucion_id, nombre, direccion, telefono, tipo, activo)
-            VALUES (@InstitucionId, @Nombre, @Direccion, @Telefono, @Tipo, @Activo)
+            INSERT INTO sedes (institucion_id, nombre, direccion, telefono, tipo, activo, latitud, longitud)
+            VALUES (@InstitucionId, @Nombre, @Direccion, @Telefono, @Tipo, @Activo, @Latitud, @Longitud)
             RETURNING id;";
 
         using var cn = new NpgsqlConnection(_cs);
         return await cn.ExecuteScalarAsync<int>(sql, dto);
     }
 
+    // ✅ FIX: ahora actualiza latitud y longitud al editar
     public async Task<bool> ActualizarAsync(SedeDTO dto)
     {
-        // Solo los que ven todas las sedes pueden editar
         if (!_sesion.VeTodasLasSedes)
         {
             throw new InvalidOperationException(
@@ -123,7 +122,9 @@ public class SedeRepository : ISedeRepository
                 direccion      = @Direccion,
                 telefono       = @Telefono,
                 tipo           = @Tipo,
-                activo         = @Activo
+                activo         = @Activo,
+                latitud        = @Latitud,
+                longitud       = @Longitud
             WHERE id = @Id
               AND (@EsSuperAdmin = TRUE OR institucion_id = @InstitucionId);";
 
@@ -137,13 +138,41 @@ public class SedeRepository : ISedeRepository
             dto.Telefono,
             dto.Tipo,
             dto.Activo,
+            dto.Latitud,
+            dto.Longitud,
+            EsSuperAdmin = _sesion.EsSuperAdmin
+        }) > 0;
+    }
+
+    // ✅ NUEVO: para georreferenciar arrastrando un pin desde el mapa
+    public async Task<bool> ActualizarCoordenadasAsync(int sedeId, decimal latitud, decimal longitud)
+    {
+        if (!_sesion.VeTodasLasSedes)
+        {
+            throw new InvalidOperationException(
+                "No tiene permisos para georreferenciar sedes.");
+        }
+
+        const string sql = @"
+            UPDATE sedes
+            SET latitud  = @Latitud,
+                longitud = @Longitud
+            WHERE id = @Id
+              AND (@EsSuperAdmin = TRUE OR institucion_id = @InstitucionId);";
+
+        using var cn = new NpgsqlConnection(_cs);
+        return await cn.ExecuteAsync(sql, new
+        {
+            Id = sedeId,
+            Latitud = latitud,
+            Longitud = longitud,
+            InstitucionId = _sesion.InstitucionId,
             EsSuperAdmin = _sesion.EsSuperAdmin
         }) > 0;
     }
 
     public async Task<bool> EliminarAsync(int id)
     {
-        // Solo los que ven todas las sedes pueden eliminar
         if (!_sesion.VeTodasLasSedes)
         {
             throw new InvalidOperationException(

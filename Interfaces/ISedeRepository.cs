@@ -10,4 +10,7 @@ public interface ISedeRepository
     Task<bool> ActualizarAsync(SedeDTO dto);
     Task<bool> EliminarAsync(int id);
     Task<bool> TieneBloquesAsync(int sedeId);
+
+    // ✅ NUEVO: para georreferenciar desde el mapa
+    Task<bool> ActualizarCoordenadasAsync(int sedeId, decimal latitud, decimal longitud);
 }

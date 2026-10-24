@@ -1,0 +1,97 @@
+﻿@page "/mapa-sedes"
+@rendermode InteractiveServer
+@implements IAsyncDisposable
+
+@using Almacen.DTOs
+@using Almacen.Interfaces
+@using Almacen.Services
+@using Microsoft.JSInterop
+
+@inject ISedeRepository SedeRepo
+@inject IReporteRepository ReporteRepo
+@inject IJSRuntime JS
+@inject ToastService Toast
+
+<PageTitle>Mapa de Sedes · Almacén</PageTitle>
+
+<div class="page-container page-crud">
+    <div class="page-header">
+        <div>
+            <h1><i class="bi bi-map-fill"></i> Georreferenciación de Sedes</h1>
+            <p class="subtitle">Ubicación geográfica y resumen de inventario por sede</p>
+        </div>
+    </div>
+
+    <div class="card-table" style="padding: 0; overflow: hidden; position: relative;">
+        <div id="mapa-sedes-global" style="height: 600px; width: 100%;"></div>
+    </div>
+</div>
+
+@code {
+    private List<SedeDTO> _sedes = new();
+    private List<ConsolidadoInstitucionDTO> _stats = new();
+    private DotNetObjectReference<MapaSedes>? _objRef;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _objRef = DotNetObjectReference.Create(this);
+        
+        var t1 = SedeRepo.ObtenerTodasAsync();
+        var t2 = ReporteRepo.ObtenerConsolidadoInstitucionesAsync(); 
+
+        await Task.WhenAll(t1, t2);
+
+        _sedes = (await t1).ToList();
+        _stats = (await t2).ToList();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // 1. Cargar el archivo JS que contiene la lógica del mapa
+            await JS.InvokeVoidAsync("eval", @"
+                (function() {
+                    if (!document.querySelector('script[src=""/js/mapa-sedes.js""]')) {
+                        const s = document.createElement('script');
+                        s.src = '/js/mapa-sedes.js';
+                        document.head.appendChild(s);
+                    }
+                })();
+            ");
+
+            // 2. Esperar a que el JS esté listo
+            await Task.Delay(500);
+
+            var sedesConMapa = _sedes
+                .Where(s => s.Latitud.HasValue && s.Longitud.HasValue)
+                .Select(s => {
+                    var stat = _stats.FirstOrDefault(x => x.SedeId == s.Id);
+                    return new {
+                        id = s.Id,
+                        nombre = s.Nombre,
+                        tipo = s.Tipo,
+                        direccion = s.Direccion,
+                        lat = (double)s.Latitud!.Value,
+                        lng = (double)s.Longitud!.Value,
+                        bienes = stat?.TotalBienes ?? 0,
+                        ppe = stat?.ValorAdquisicion ?? 0,
+                        consumo = stat?.ValorStockConsumo ?? 0
+                    };
+                }).ToList();
+
+            try
+            {
+                await JS.InvokeVoidAsync("inicializarMapaSedes", _objRef, sedesConMapa);
+            }
+            catch (Exception ex) { Toast.Error("Error al cargar el mapa: " + ex.Message); }
+        }
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        try { JS.InvokeVoidAsync("eval", "if (window._mapaSedes) { window._mapaSedes.remove(); window._mapaSedes = null; }"); } catch { }
+        _objRef?.Dispose();
+        return ValueTask.CompletedTask;
+    }
+}

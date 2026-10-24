@@ -17,7 +17,6 @@
 
 <div class="page-container page-crud">
 
-    @* ═══════════════ PAGE HEADER (oculto si form abierto) ═══════════════ *@
     @if (!_mostrarFormulario)
     {
         <div class="page-header">
@@ -25,7 +24,6 @@
                 <h1><i class="bi bi-buildings"></i> Sedes</h1>
                 <p class="subtitle">Administración de sedes por institución educativa</p>
             </div>
-
             <div class="header-actions">
                 <button class="btn-nuevo" @onclick="AbrirFormulario">
                     <i class="bi bi-plus-lg"></i> Nueva Sede
@@ -34,7 +32,6 @@
         </div>
     }
 
-    @* ═══════════════ FORM COLAPSABLE ═══════════════ *@
     @if (_mostrarFormulario)
     {
         <div class="card-form">
@@ -43,15 +40,13 @@
                     <i class="bi bi-@(_editando ? "pencil-square" : "plus-circle")"></i>
                     <span>@(_editando ? "Editar Sede" : "Nueva Sede")</span>
                 </div>
-
                 <div class="form-header-center">
                     <i class="bi bi-buildings"></i>
                     <div>
                         <div class="form-header-title">Sedes</div>
-                        <div class="form-header-subtitle">Administración de sedes por institución educativa</div>
+                        <div class="form-header-subtitle">Administración de sedes</div>
                     </div>
                 </div>
-
                 <button class="btn-cerrar-form" @onclick="CerrarFormulario" title="Cerrar">
                     <i class="bi bi-x-lg"></i>
                 </button>
@@ -117,11 +112,21 @@
                         </div>
                     </div>
 
-                    <div class="form-group checkbox-group">
-                        <label>
-                            <InputCheckbox @bind-Value="_model.Activo" />
-                            Activa
-                        </label>
+                    <!-- Coordenadas simples (para que el mapa grande las lea) -->
+                    <div class="form-group">
+                        <label>Latitud</label>
+                        <div class="input-icon">
+                            <i class="bi bi-crosshair"></i>
+                            <InputNumber @bind-Value="_model.Latitud" class="form-control" step="0.000001" placeholder="Ej: 2.4448" />
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Longitud</label>
+                        <div class="input-icon">
+                            <i class="bi bi-crosshair"></i>
+                            <InputNumber @bind-Value="_model.Longitud" class="form-control" step="0.000001" placeholder="Ej: -76.6065" />
+                        </div>
                     </div>
                 </div>
 
@@ -138,7 +143,6 @@
         </div>
     }
     
-    @* ═══════════════ CARD TABLE ═══════════════ *@
     <div class="card-table">
         <div class="table-responsive">
             <table class="table modern-table">
@@ -149,6 +153,7 @@
                         <th>Tipo</th>
                         <th>Dirección</th>
                         <th>Teléfono</th>
+                        <th>Ubicación</th>
                         <th>Estado</th>
                         <th class="text-center">Acciones</th>
                     </tr>
@@ -156,7 +161,7 @@
                 <tbody>
                     @if (_sedes.Count == 0)
                     {
-                        <tr><td colspan="7" class="text-center py-3 text-muted">Sin sedes registradas.</td></tr>
+                        <tr><td colspan="8" class="text-center py-3 text-muted">Sin sedes registradas.</td></tr>
                     }
                     else
                     {
@@ -168,6 +173,19 @@
                                 <td>@s.Tipo</td>
                                 <td>@s.Direccion</td>
                                 <td>@s.Telefono</td>
+                                <td>
+                                    @if (s.Latitud.HasValue && s.Longitud.HasValue)
+                                    {
+                                        <a href="https://www.google.com/maps?q=@s.Latitud,@s.Longitud" 
+                                           target="_blank" class="badge badge-info" style="text-decoration:none;">
+                                            <i class="bi bi-geo-alt-fill"></i> Ver Mapa
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                </td>
                                 <td>
                                     <span class="badge @(s.Activo ? "badge-ok" : "badge-off")">
                                         @(s.Activo ? "Activa" : "Inactiva")
@@ -233,17 +251,14 @@
         {
             if (_editando)
             {
-                // ── EDICIÓN: guardar y MANTENER ABIERTO con los datos ──
                 await SedeRepo.ActualizarAsync(_model);
-                Toast.Exito($"Sede '{_model.Nombre}' actualizada. Puede seguir editando.");
+                Toast.Exito($"Sede '{_model.Nombre}' actualizada.");
             }
             else
             {
-                // ── CREACIÓN: guardar y MANTENER ABIERTO, limpiar form ──
                 await SedeRepo.CrearAsync(_model);
-                Toast.Exito($"Sede '{_model.Nombre}' creada. Puede continuar registrando.");
-
-                // Mantener institución y tipo para registros masivos
+                Toast.Exito($"Sede '{_model.Nombre}' creada.");
+                
                 var institucionActual = _model.InstitucionId;
                 var tipoActual = _model.Tipo;
 
@@ -253,14 +268,6 @@
                     Tipo = tipoActual,
                     InstitucionId = institucionActual
                 };
-
-                // Enfocar el primer campo (Nombre)
-                try
-                {
-                    await JS.InvokeVoidAsync("eval",
-                        "setTimeout(() => { const el = document.querySelector('.card-form input'); if (el) el.focus(); }, 100);");
-                }
-                catch { /* silencioso */ }
             }
 
             await Cargar();
@@ -282,7 +289,9 @@
             Direccion = s.Direccion,
             Telefono = s.Telefono,
             Tipo = s.Tipo,
-            Activo = s.Activo
+            Activo = s.Activo,
+            Latitud = s.Latitud,
+            Longitud = s.Longitud
         };
         _editando = true;
         _mostrarFormulario = true;
@@ -291,8 +300,7 @@
 
     private async Task Eliminar(SedeDTO s)
     {
-        var ok = await Confirm.Peligroso(
-            $"¿Eliminar la sede '{s.Nombre}'? Esta acción no se puede deshacer.");
+        var ok = await Confirm.Peligroso($"¿Eliminar la sede '{s.Nombre}'?");
         if (!ok) return;
 
         if (await SedeRepo.TieneBloquesAsync(s.Id))
@@ -304,12 +312,9 @@
         try
         {
             await SedeRepo.EliminarAsync(s.Id);
-            Toast.Exito("Sede eliminada correctamente");
+            Toast.Exito("Sede eliminada");
             await Cargar();
         }
-        catch (Exception ex)
-        {
-            Toast.Error($"Error: {ex.Message}");
-        }
+        catch (Exception ex) { Toast.Error($"Error: {ex.Message}"); }
     }
 }
