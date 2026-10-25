@@ -75,7 +75,7 @@ public class CienciaDatosService
             FROM bienes b
             WHERE b.institucion_id = @InstitucionId 
               AND b.tipo_bien = 'devolutivo'
-              AND b.activo = TRUE -- ✅ Solo activos
+              AND b.activo = TRUE
               {filtroSede}
 
             UNION ALL
@@ -96,7 +96,7 @@ public class CienciaDatosService
             FROM bienes b
             WHERE b.institucion_id = @InstitucionId 
               AND b.tipo_bien = 'consumo'
-              AND b.activo = TRUE -- ✅ Solo activos
+              AND b.activo = TRUE
               {filtroSede}";
 
         await using var db = await CrearConexionAsync();
@@ -163,17 +163,17 @@ public class CienciaDatosService
         var (filtroSede, parametros) = GenerarFiltroSede(sedeIdFiltro, "b.");
         parametros.Add("InstitucionId", _sesion.InstitucionId);
 
-        // Solo bienes devolutivos activos con valor > 0
+        // ✅ CORRECCIÓN: El CTE "stats" ahora usa el alias "b" para que el filtro de sede no falle
         var sql = $@"
             WITH stats AS (
                 SELECT 
-                    COALESCE(AVG(valor_adquisicion), 0) AS media,
-                    COALESCE(STDDEV(valor_adquisicion), 0) AS desv
-                FROM bienes
-                WHERE institucion_id = @InstitucionId 
-                  AND activo = TRUE 
-                  AND tipo_bien = 'devolutivo'
-                  AND valor_adquisicion > 0
+                    COALESCE(AVG(b.valor_adquisicion), 0) AS media,
+                    COALESCE(STDDEV(b.valor_adquisicion), 0) AS desv
+                FROM bienes b
+                WHERE b.institucion_id = @InstitucionId 
+                  AND b.activo = TRUE 
+                  AND b.tipo_bien = 'devolutivo'
+                  AND b.valor_adquisicion > 0
                   {filtroSede}
             )
             SELECT 
@@ -239,7 +239,6 @@ public class CienciaDatosService
 
         await using var db = await CrearConexionAsync();
         var resultado = await db.QueryAsync<TendenciaMensualDTO>(sql, parametros);
-        // Ordenamos de más antiguo a más reciente para el gráfico
         return resultado.OrderBy(t => t.Mes).ToList();
     }
 

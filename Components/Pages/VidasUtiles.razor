@@ -1,0 +1,259 @@
+﻿@page "/vidas-utiles"
+@rendermode InteractiveServer
+
+@using Almacen.DTOs
+@using Almacen.Interfaces
+@using Almacen.Services
+@using Microsoft.AspNetCore.Components.Forms
+
+@inject IVidaUtilRepository VidaRepo
+@inject SeguridadService Seguridad
+@inject NavigationManager Navigation
+@inject ToastService Toast
+@inject ConfirmService Confirm
+
+<PageTitle>Vidas Útiles · Almacén</PageTitle>
+
+<div class="page-container page-crud @(_mostrarFormulario ? "form-abierto" : "")">
+
+    @if (!_mostrarFormulario)
+    {
+        <div class="page-header">
+            <div>
+                <h1><i class="bi bi-clock-history"></i> Catálogo de Vidas Útiles</h1>
+                <p class="subtitle">Configuración de depreciación según la Contraloría (NICSP)</p>
+            </div>
+            <div class="header-actions">
+                <button class="btn-nuevo" @onclick="AbrirFormulario">
+                    <i class="bi bi-plus-lg"></i> Nuevo Registro
+                </button>
+            </div>
+        </div>
+    }
+
+    @if (_mostrarFormulario)
+    {
+        <div class="card-form">
+            <div class="form-header">
+                <div class="form-header-left">
+                    <i class="bi bi-@(editando ? "pencil-square" : "plus-circle")"></i>
+                    <span>@(editando ? "Editar Vida Útil" : "Nueva Vida Útil")</span>
+                </div>
+                <button class="btn-cerrar-form" @onclick="Cancelar" title="Cerrar">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <EditForm Model="_model" OnValidSubmit="Guardar">
+                <div class="form-fila-1" style="display: flex; gap: 15px; margin-top: 15px;">
+                    <div class="form-group" style="flex: 1;">
+                        <label>Código CGN *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-hash"></i>
+                            <InputText class="form-control" @bind-Value="_model.CodigoCgn" placeholder="Ej: 163507" />
+                        </div>
+                    </div>
+                    <div class="form-group" style="flex: 2;">
+                        <label>Descripción / Nombre *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-tag"></i>
+                            <InputText class="form-control" @bind-Value="_model.Descripcion" placeholder="Ej: Equipos de Cómputo" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-fila-2" style="display: flex; gap: 15px; margin-top: 15px;">
+                    <div class="form-group" style="flex: 1;">
+                        <label>Clase Contable</label>
+                        <div class="input-icon">
+                            <i class="bi bi-folder"></i>
+                            <InputText class="form-control" @bind-Value="_model.Clase" placeholder="Ej: Propiedad Planta y Equipo" />
+                        </div>
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>Vida Útil (Meses) *</label>
+                        <div class="input-icon">
+                            <i class="bi bi-calendar-month"></i>
+                            <InputNumber class="form-control" @bind-Value="_model.VidaUtilMeses" placeholder="Ej: 60" />
+                        </div>
+                        <small style="color: #64748b;">60 meses = 5 años.</small>
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>Valor Residual (%)</label>
+                        <div class="input-icon">
+                            <i class="bi bi-percent"></i>
+                            <InputNumber class="form-control" @bind-Value="_model.ValorResidualPct" placeholder="Ej: 0" />
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                    <button type="button" class="btn btn-cancel" @onclick="Cancelar">
+                        <i class="bi bi-x-lg"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-save">
+                        <i class="bi bi-save-fill"></i> Guardar
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    }
+
+    <div class="card-table">
+        <div class="table-responsive">
+            <table class="table modern-table">
+                <thead>
+                    <tr>
+                        <th style="width: 120px;">Código CGN</th>
+                        <th>Descripción</th>
+                        <th style="width: 200px;">Clase</th>
+                        <th class="text-center" style="width: 150px;">Vida Útil (Meses)</th>
+                        <th class="text-center" style="width: 120px;">% Residual</th>
+                        <th class="text-center" style="width: 120px;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (_items is null || !_items.Any())
+                    {
+                        <tr><td colspan="6" class="text-center py-3 text-muted">No hay vidas útiles registradas.</td></tr>
+                    }
+                    else
+                    {
+                        @foreach (var item in _items)
+                        {
+                            <tr>
+                                <td><code class="codigo-badge">@item.CodigoCgn</code></td>
+                                <td>@item.Descripcion</td>
+                                <td>@item.Clase</td>
+                                <td class="text-center"><strong>@item.VidaUtilMeses</strong></td>
+                                <td class="text-center">@item.ValorResidualPct %</td>
+                                <td class="text-center">
+                                    <div class="action-buttons">
+                                        <button class="btn-action btn-action-edit" title="Editar" @onclick="() => Editar(item)">
+                                            <i class="bi bi-pencil-fill"></i>
+                                        </button>
+                                        <button class="btn-action btn-action-delete" title="Eliminar" @onclick="() => Eliminar(item)">
+                                            <i class="bi bi-trash-fill"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<VidaUtilDTO> _items = new();
+    private VidaUtilDTO _model = new();
+    private bool _mostrarFormulario = false;
+    private bool editando = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Cargar();
+    }
+
+    private async Task Cargar()
+    {
+        try
+        {
+            _items = (await VidaRepo.ObtenerTodosAsync()).ToList();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error("Error al cargar: " + ex.Message);
+        }
+    }
+
+    private void AbrirFormulario()
+    {
+        _model = new VidaUtilDTO { VidaUtilMeses = 60, ValorResidualPct = 0 };
+        editando = false;
+        _mostrarFormulario = true;
+    }
+
+    private void Editar(VidaUtilDTO item)
+    {
+        _model = new VidaUtilDTO
+        {
+            Id = item.Id,
+            CodigoCgn = item.CodigoCgn,
+            Descripcion = item.Descripcion,
+            Clase = item.Clase,
+            VidaUtilMeses = item.VidaUtilMeses,
+            ValorResidualPct = item.ValorResidualPct
+        };
+        editando = true;
+        _mostrarFormulario = true;
+    }
+
+    private async Task Guardar()
+    {
+        try
+        {
+            if (editando)
+            {
+                await VidaRepo.ActualizarAsync(_model);
+                Toast.Exito("Vida útil actualizada correctamente.");
+            }
+            else
+            {
+                await VidaRepo.CrearAsync(_model);
+                Toast.Exito("Vida útil creada correctamente.");
+            }
+            Cancelar();
+            await Cargar();
+        }
+        catch (Exception ex)
+        {
+            Toast.Error("Error al guardar: " + ex.Message);
+        }
+    }
+
+    private async Task Eliminar(VidaUtilDTO item)
+    {
+        try
+        {
+            // 1. Verificamos si tiene hijos (bienes) asociados
+            var bienesAsociados = await VidaRepo.ContarBienesAsociadosAsync(item.Id);
+
+            if (bienesAsociados > 0)
+            {
+                // 2. Si tiene hijos, lanzamos el Toast ROJO igual que en Sedes
+                Toast.Error($"No se puede eliminar: la vida útil tiene {bienesAsociados} bienes asociados.");
+                return;
+            }
+
+            // 3. Si no tiene hijos, pedimos confirmación
+            var ok = await Confirm.Peligroso($"¿Eliminar el registro '{item.CodigoCgn} - {item.Descripcion}'?");
+            if (!ok) return;
+
+            // 4. Eliminamos
+            var eliminado = await VidaRepo.EliminarAsync(item.Id);
+            if (eliminado)
+            {
+                Toast.Exito("Registro eliminado correctamente.");
+                await Cargar();
+            }
+            else
+            {
+                Toast.Error("No se pudo eliminar el registro.");
+            }
+        }
+        catch (Exception)
+        {
+            // 5. Captura de seguridad por si Neon bloquea por llave foránea
+            Toast.Error("No se puede eliminar: el registro está siendo usado por otros datos en el sistema.");
+        }
+    }
+
+    private void Cancelar()
+    {
+        _mostrarFormulario = false;
+        _model = new VidaUtilDTO();
+    }
+}

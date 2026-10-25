@@ -397,8 +397,11 @@
     {
         _tab = nuevoTab;
         _lastRenderedTab = -1;
+
+        // ✅ Auto-actualización: si el usuario cambia de pestaña, recargamos los datos
+        await CargarTodo();
+
         StateHasChanged();
-        await Task.CompletedTask;
     }
 
     private async Task CargarTodo()

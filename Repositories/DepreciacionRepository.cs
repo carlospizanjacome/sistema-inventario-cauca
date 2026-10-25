@@ -58,7 +58,7 @@ public class DepreciacionRepository : IDepreciacionRepository
                 c.nombre                   AS CategoriaNombre,
                 c.codigo_cgn               AS CodigoCgn,
                 b.fecha_adquisicion::timestamp AS FechaAdquisicion,
-                COALESCE(v.vida_util_meses, c.vida_util_meses, 60) AS VidaUtilMeses,
+                COALESCE(v.vida_util_meses, 60) AS VidaUtilMeses,
                 b.valor_adquisicion        AS ValorInicial,
                 b.valor_residual           AS ValorResidual,
                 b.depreciacion_acumulada   AS DepreciacionAcumulada,

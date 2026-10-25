@@ -25,6 +25,13 @@ builder.Services.Configure<Microsoft.AspNetCore.SignalR.HubOptions>(options =>
     options.MaximumReceiveMessageSize = 50 * 1024 * 1024; // 50 MB
 });
 
+// ═══ CONFIGURACIÓN DE COOKIES (Para que funcione en HTTP sin HTTPS) ═══
+builder.Services.Configure<CookiePolicyOptions>(options =>
+{
+    options.MinimumSameSitePolicy = SameSiteMode.Lax;
+    options.Secure = CookieSecurePolicy.SameAsRequest; // Permite HTTP y HTTPS
+});
+
 // ═══ SEGURIDAD / SESIÓN ═══
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<UsuarioSesionService>();
@@ -92,10 +99,11 @@ var app = builder.Build();
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
-    app.UseHsts();
+    // app.UseHsts(); // ❌ DESACTIVADO: Evita que el servidor HTTP bloquee la conexión
 }
 
-app.UseHttpsRedirection();
+// app.UseHttpsRedirection(); // ❌ DESACTIVADO: Evita que redirija a HTTPS si no tienes certificado
+app.UseCookiePolicy();
 app.UseStaticFiles();
 app.UseAntiforgery();
 

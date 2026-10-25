@@ -30,7 +30,7 @@
         <div class="page-header">
             <div>
                 <h1><i class="bi bi-clipboard-check"></i> Tomas Físicas</h1>
-                <p class="subtitle">Auditorías de inventario con congelación y barrido QR</p>
+                <p class="subtitle">Auditorías de inventario. El escaneo se realiza desde la App Móvil.</p>
             </div>
             @if (puedeCrear)
             {
@@ -55,7 +55,7 @@
                     <i class="bi bi-clipboard-check"></i>
                     <div>
                         <div class="form-header-title">Toma Física</div>
-                        <div class="form-header-subtitle">Auditoría de inventario con barrido QR</div>
+                        <div class="form-header-subtitle">Auditoría de inventario</div>
                     </div>
                 </div>
                 <button class="btn-cerrar-form" @onclick="Cancelar" title="Cerrar">
@@ -324,19 +324,23 @@
                                                 <i class="bi bi-trash-fill"></i>
                                             </button>
                                         }
+
                                         @if (t.Estado == "EN_CURSO")
                                         {
-                                            <button class="btn-action btn-action-ok"
-                                                    title="Escanear QR"
-                                                    @onclick="() => IrAlBarrido(t.Id)">
-                                                <i class="bi bi-qr-code-scan"></i>
-                                            </button>
+                                            <!-- Botón para ver los escaneos realizados desde el celular -->
                                             <button class="btn-action btn-action-view"
+                                                    title="Ver escaneos (App Móvil)"
+                                                    @onclick="() => VerEscaneos(t.Id)">
+                                                <i class="bi bi-eye-fill"></i>
+                                            </button>
+
+                                            <button class="btn-action btn-action-ok"
                                                     title="Cerrar toma"
                                                     @onclick="() => Cerrar(t)">
                                                 <i class="bi bi-check2-circle"></i>
                                             </button>
                                         }
+
                                         @if (t.Estado == "CERRADA")
                                         {
                                             <button class="btn-action btn-action-view"
@@ -664,7 +668,7 @@
         var ok = await Confirm.Preguntar(new ConfirmOpciones
         {
             Titulo = "Abrir Toma Física",
-            Mensaje = "Se congelará el inventario actual de la sede. Se crearán los registros pendientes para el barrido QR. ¿Continuar?",
+            Mensaje = "Se congelará el inventario actual de la sede. Los escaneos se realizarán desde la App Móvil. ¿Continuar?",
             Icono = "bi-lock-fill",
             ColorBoton = "#0891b2",
             TextoConfirmar = "Sí, abrir toma"
@@ -691,7 +695,7 @@
                 severidad: "CRITICO"
             );
 
-            Toast.Exito($"Toma abierta. {count} bienes congelados listos para barrido.");
+            Toast.Exito($"Toma abierta. {count} bienes congelados. Ahora puedes escanear con el celular.");
             await Cargar();
         }
         catch (Exception ex)
@@ -897,7 +901,8 @@
         }
     }
 
-    private void IrAlBarrido(int id) => Navigation.NavigateTo($"/toma-fisica/barrido/{id}");
+    // Cambiamos el nombre del método para que redirija a la vista de escaneos (solo lectura)
+    private void VerEscaneos(int id) => Navigation.NavigateTo($"/toma-fisica/barrido/{id}");
     private void IrAlReporte(int id) => Navigation.NavigateTo($"/toma-fisica/reporte/{id}");
 
     private void Cancelar()
