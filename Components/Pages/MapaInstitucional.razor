@@ -6,12 +6,16 @@
 @using Almacen.Interfaces
 @using Almacen.Services
 @using Microsoft.JSInterop
+@using Microsoft.Extensions.Configuration
+@using Dapper
+@using Npgsql
 
 @inject ISedeRepository SedeRepo
 @inject IInstitucionRepository InstRepo
 @inject IReporteRepository ReporteRepo
 @inject IJSRuntime JS
 @inject ToastService Toast
+@inject IConfiguration Config
 
 <PageTitle>Mapa Institucional · Almacén</PageTitle>
 
@@ -22,7 +26,6 @@
             <p class="subtitle">Ubicación de sedes con resumen de inventario</p>
         </div>
 
-        <!-- SELECTOR DE INSTITUCIÓN -->
         <div class="header-actions">
             <div class="input-icon" style="width: 320px; background: white;">
                 <i class="bi bi-bank"></i>
@@ -48,12 +51,10 @@
     {
         <div style="display: flex; gap: 20px; height: calc(100vh - 220px);">
 
-            <!-- MAPA -->
             <div class="card-table" style="flex: 7; padding: 0; overflow: hidden; position: relative;">
                 <div id="mapa-institucional" style="height: 100%; width: 100%;"></div>
             </div>
 
-            <!-- PANEL DE DATOS -->
             <div class="card-table" style="flex: 3; padding: 20px; display: flex; flex-direction: column; overflow-y: auto;">
 
                 @if (_sedeSeleccionada is null)
@@ -121,6 +122,12 @@
     private List<InstitucionDTO> _instituciones = new();
     private List<ConsolidadoInstitucionDTO> _stats = new();
 
+    // Diccionarios para los 4 contadores
+    private Dictionary<int, int> _entradasPpe = new();
+    private Dictionary<int, int> _entradasConsumo = new();
+    private Dictionary<int, int> _salidasPpe = new();
+    private Dictionary<int, int> _salidasConsumo = new();
+
     private int InstitucionSeleccionadaId = 0;
     private SedeDTO? _sedeSeleccionada;
     private ConsolidadoInstitucionDTO? _statsSeleccionada;
@@ -128,6 +135,21 @@
 
     private bool _cargando = true;
     private bool _jsListo = false;
+    private bool _mapaDibujado = false;
+
+    // CLASES PARA MAPEAR DAPPER CORRECTAMENTE Y EVITAR EL ERROR DE DYNAMIC
+    public class ConteoMovimientoDto
+    {
+        public int SedeId { get; set; }
+        public int Count { get; set; }
+    }
+
+    public class ConteoConsumoDto
+    {
+        public int SedeId { get; set; }
+        public int Entradas { get; set; }
+        public int Salidas { get; set; }
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -138,8 +160,9 @@
             var t1 = SedeRepo.ObtenerTodasAsync();
             var t2 = ReporteRepo.ObtenerConsolidadoInstitucionesAsync();
             var t3 = InstRepo.ObtenerTodasAsync();
+            var t4 = ObtenerConteoMovimientosAsync();
 
-            await Task.WhenAll(t1, t2, t3);
+            await Task.WhenAll(t1, t2, t3, t4);
 
             _sedes = (await t1).ToList();
             _stats = (await t2).ToList();
@@ -155,50 +178,92 @@
         }
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    private async Task ObtenerConteoMovimientosAsync()
     {
-        if (!firstRender) return;
-
-        // Cargar el script una sola vez, esperando a que exista la función
         try
         {
-            await JS.InvokeVoidAsync("eval", @"
-                (function() {
-                    if (window.__mapaInstitucionalCargado) return;
-                    window.__mapaInstitucionalCargado = true;
-                    const s = document.createElement('script');
-                    s.src = '/js/mapa-institucional.js';
-                    s.onload = function() { window.__mapaInstitucionalListo = true; };
-                    document.head.appendChild(s);
-                })();
-            ");
+            var cs = Config.GetConnectionString("DefaultConnection");
+            using var cn = new NpgsqlConnection(cs);
 
-            // Esperar hasta que la función esté disponible (máx 5s)
-            for (int i = 0; i < 50; i++)
+            // Consultas independientes para cada tipo
+            var entPpeSql = "SELECT sede_id AS SedeId, COUNT(*)::int AS Count FROM entradas WHERE anulada = FALSE GROUP BY sede_id;";
+            var salPpeSql = "SELECT sede_id AS SedeId, COUNT(*)::int AS Count FROM salidas WHERE anulada = FALSE GROUP BY sede_id;";
+
+            var movConsumoSql = @"
+                SELECT b.sede_id AS SedeId, 
+                       COUNT(CASE WHEN m.tipo_movimiento = 'ENTRADA' THEN 1 END)::int AS Entradas,
+                       COUNT(CASE WHEN m.tipo_movimiento = 'SALIDA' THEN 1 END)::int AS Salidas
+                FROM movimientos_consumo m
+                INNER JOIN bienes b ON b.id = m.bien_id
+                WHERE m.anulada = FALSE
+                GROUP BY b.sede_id;";
+
+            // Usamos DTOs en lugar de dynamic para que no falle por mayúsculas/minúsculas
+            var entPpe = await cn.QueryAsync<ConteoMovimientoDto>(entPpeSql);
+            var salPpe = await cn.QueryAsync<ConteoMovimientoDto>(salPpeSql);
+            var movConsumo = await cn.QueryAsync<ConteoConsumoDto>(movConsumoSql);
+
+            _entradasPpe = entPpe.ToDictionary(x => x.SedeId, x => x.Count);
+            _salidasPpe = salPpe.ToDictionary(x => x.SedeId, x => x.Count);
+
+            _entradasConsumo = new();
+            _salidasConsumo = new();
+            foreach (var row in movConsumo)
             {
-                var listo = await JS.InvokeAsync<bool>("eval",
-                    "typeof window.inicializarMapaInstitucional === 'function'");
-                if (listo) { _jsListo = true; break; }
-                await Task.Delay(100);
+                _entradasConsumo[row.SedeId] = row.Entradas;
+                _salidasConsumo[row.SedeId] = row.Salidas;
             }
-
-            if (!_jsListo)
-            {
-                Toast.Error("No se pudo cargar el script del mapa. Revisa la consola.");
-                return;
-            }
-
-            await FiltrarMapaAsync();
         }
         catch (Exception ex)
         {
-            Toast.Error("Error inicializando el mapa: " + ex.Message);
+            // Ahora si falla, sabremos exactamente por qué en la consola de VS
+            Console.WriteLine("Error conteo movimientos: " + ex.Message);
+            Toast.Error("Error al cargar contadores: " + ex.Message);
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("eval", @"
+                    (function() {
+                        if (window.__mapaInstitucionalCargado) return;
+                        window.__mapaInstitucionalCargado = true;
+                        const s = document.createElement('script');
+                        s.src = '/js/mapa-institucional.js';
+                        s.onload = function() { window.__mapaInstitucionalListo = true; };
+                        document.head.appendChild(s);
+                    })();
+                ");
+
+                for (int i = 0; i < 50; i++)
+                {
+                    var listo = await JS.InvokeAsync<bool>("eval",
+                        "typeof window.inicializarMapaInstitucional === 'function'");
+                    if (listo) { _jsListo = true; break; }
+                    await Task.Delay(100);
+                }
+            }
+            catch (Exception ex)
+            {
+                Toast.Error("Error inicializando el mapa: " + ex.Message);
+            }
+        }
+
+        if (_jsListo && !_cargando && !_mapaDibujado)
+        {
+            _mapaDibujado = true;
+            await Task.Delay(200);
+            await FiltrarMapaAsync();
         }
     }
 
     private async Task FiltrarMapaAsync()
     {
-        if (!_jsListo) return;
+        if (!_jsListo || _sedes == null || !_sedes.Any()) return;
 
         var sedesFiltradas = InstitucionSeleccionadaId == 0
             ? _sedes
@@ -212,20 +277,28 @@
             .Select(s =>
             {
                 var stat = _stats.FirstOrDefault(x => x.SedeId == s.Id);
+
+                int entPpe = _entradasPpe.TryGetValue(s.Id, out var ep) ? ep : 0;
+                int salPpe = _salidasPpe.TryGetValue(s.Id, out var sp) ? sp : 0;
+                int entConsumo = _entradasConsumo.TryGetValue(s.Id, out var ec) ? ec : 0;
+                int salConsumo = _salidasConsumo.TryGetValue(s.Id, out var sc) ? sc : 0;
+
                 return new
                 {
                     id = s.Id,
                     nombre = s.Nombre,
                     tipo = s.Tipo,
-
-                    // ✅ CORRECCIÓN: Ahora sí le pasamos la dirección al mapa
                     direccion = s.Direccion,
-
                     lat = (double)s.Latitud!.Value,
                     lng = (double)s.Longitud!.Value,
                     bienes = stat?.TotalBienes ?? 0,
                     ppe = stat?.ValorAdquisicion ?? 0,
-                    consumo = stat?.ValorStockConsumo ?? 0
+                    consumo = stat?.ValorStockConsumo ?? 0,
+
+                    entradasPpe = entPpe,
+                    entradasConsumo = entConsumo,
+                    salidasPpe = salPpe,
+                    salidasConsumo = salConsumo
                 };
             })
             .ToList();
@@ -238,8 +311,6 @@
         {
             Toast.Error("Error pintando el mapa: " + ex.Message);
         }
-
-        StateHasChanged();
     }
 
     [JSInvokable]
@@ -255,10 +326,9 @@
         if (_sedeSeleccionada is null) return;
         try
         {
-            // Si tienes un método para centrar en el JS, lo llamas aquí
             await JS.InvokeVoidAsync("eval", $"window._mapaInst.setView([{_sedeSeleccionada.Latitud}, {_sedeSeleccionada.Longitud}], 16)");
         }
-        catch { /* silencioso */ }
+        catch { }
     }
 
     public ValueTask DisposeAsync()

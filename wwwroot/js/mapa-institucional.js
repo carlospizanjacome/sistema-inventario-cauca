@@ -1,8 +1,6 @@
 ﻿// wwwroot/js/mapa-institucional.js
-// Versión Final: Popup detallado al hacer clic + Tooltip (nombre) al pasar el mouse.
 
 window.inicializarMapaInstitucional = async function (dotnetHelper, sedesData) {
-    // 1. Cargar Leaflet
     if (!window.L) {
         await new Promise((resolve) => {
             const link = document.createElement('link');
@@ -19,17 +17,18 @@ window.inicializarMapaInstitucional = async function (dotnetHelper, sedesData) {
 
     await new Promise(r => setTimeout(r, 200));
 
-    // Eliminar mapa previo si existe
     if (window._mapaInst) {
         window._mapaInst.remove();
         window._mapaInst = null;
     }
 
-    // 2. Centro por defecto: Popayán
-    const mapa = L.map('mapa-institucional').setView([2.4448, -76.6065], 13);
+    const mapa = L.map('mapa-institucional', {
+        zoomControl: true,
+        scrollWheelZoom: true
+    }).setView([2.4448, -76.6065], 13);
+
     window._mapaInst = mapa;
 
-    // 3. Fondo de mapa OpenStreetMap
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap',
         maxZoom: 19
@@ -37,85 +36,113 @@ window.inicializarMapaInstitucional = async function (dotnetHelper, sedesData) {
 
     const bounds = [];
 
-    // 4. Dibujar las velas azules
     sedesData.forEach(sede => {
         bounds.push([sede.lat, sede.lng]);
 
         const marker = L.marker([sede.lat, sede.lng]).addTo(mapa);
 
-        // ✅ NUEVO: Tooltip (aviso) al pasar el mouse por encima
         marker.bindTooltip(sede.nombre, {
-            direction: 'top',      // Aparece arriba de la vela
-            offset: [0, -35],      // Ajusta la altura para que no tape la vela
-            opacity: 0.9,          // Un poquito de transparencia
-            className: 'tooltip-sede' // Le ponemos una clase para darle estilo
+            direction: 'top',
+            offset: [0, -35],
+            opacity: 0.9,
+            className: 'tooltip-sede'
         });
 
-        // Formatear números para que se vean como $4.450.000
         const formatMoneda = (valor) => new Intl.NumberFormat('es-CO').format(valor || 0);
 
-        // Contenido del globo (Popup) al hacer clic
         const popupContent = `
-            <div style="font-family: 'Segoe UI', sans-serif; min-width: 200px;">
-                <div style="text-align: center; margin-bottom: 8px;">
-                    <strong style="color: #1e3a8a; font-size: 14px;">${sede.nombre}</strong><br>
-                    <span style="color: #64748b; font-size: 11px;">📍 ${sede.direccion || 'Sin dirección'}</span>
+            <div style="font-family: 'Segoe UI', sans-serif; min-width: 220px;">
+                <div style="text-align: center; margin-bottom: 6px;">
+                    <strong style="color: #1e3a8a; font-size: 12px;">${sede.nombre}</strong><br>
+                    <span style="color: #64748b; font-size: 10px;">📍 ${sede.direccion || 'Sin dirección'}</span>
                 </div>
                 
-                <hr style="margin: 8px 0; border: 0; border-top: 1px solid #e2e8f0;">
+                <hr style="margin: 4px 0; border: 0; border-top: 1px solid #e2e8f0;">
                 
-                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                    <span style="font-size: 12px; color: #475569;">Bienes:</span>
-                    <strong style="font-size: 12px; color: #0f172a;">${sede.bienes || 0}</strong>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+                    <span style="font-size: 10px; color: #475569;">Bienes:</span>
+                    <strong style="font-size: 10px; color: #0f172a;">${sede.bienes || 0}</strong>
                 </div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                    <span style="font-size: 12px; color: #475569;">Valor PPE:</span>
-                    <strong style="font-size: 12px; color: #059669;">$${formatMoneda(sede.ppe)}</strong>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+                    <span style="font-size: 10px; color: #475569;">Valor PPE:</span>
+                    <strong style="font-size: 10px; color: #059669;">$${formatMoneda(sede.ppe)}</strong>
                 </div>
-                <div style="display: flex; justify-content: space-between;">
-                    <span style="font-size: 12px; color: #475569;">Consumo:</span>
-                    <strong style="font-size: 12px; color: #d97706;">$${formatMoneda(sede.consumo)}</strong>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+                    <span style="font-size: 10px; color: #475569;">Stock Consumo:</span>
+                    <strong style="font-size: 10px; color: #d97706;">$${formatMoneda(sede.consumo)}</strong>
                 </div>
                 
-                <div style="text-align: center; margin-top: 8px; font-size: 10px; color: #94a3b8; font-style: italic;">
-                    Clic para ver en el panel derecho →
+                <hr style="margin: 4px 0; border: 0; border-top: 1px dashed #cbd5e1;">
+                
+                <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+                    <span style="font-size: 10px; color: #475569;"><i class="bi bi-box-seam" style="color:#3b82f6;"></i> Entradas PPE:</span>
+                    <strong style="font-size: 10px; color: #3b82f6;">${sede.entradasPpe || 0}</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+                    <span style="font-size: 10px; color: #475569;"><i class="bi bi-cart-fill" style="color:#10b981;"></i> Entradas Consumo:</span>
+                    <strong style="font-size: 10px; color: #10b981;">${sede.entradasConsumo || 0}</strong>
+                </div>
+                
+                <hr style="margin: 4px 0; border: 0; border-top: 1px dashed #cbd5e1;">
+                
+                <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+                    <span style="font-size: 10px; color: #475569;"><i class="bi bi-box-arrow-up" style="color:#ef4444;"></i> Salidas PPE:</span>
+                    <strong style="font-size: 10px; color: #ef4444;">${sede.salidasPpe || 0}</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+                    <span style="font-size: 10px; color: #475569;"><i class="bi bi-box-arrow-up-right" style="color:#f59e0b;"></i> Salidas Consumo:</span>
+                    <strong style="font-size: 10px; color: #f59e0b;">${sede.salidasConsumo || 0}</strong>
                 </div>
             </div>
         `;
 
-        marker.bindPopup(popupContent, { maxWidth: 250 });
+        // La configuración del popup se queda igual (a la derecha y con autoPan)
+        marker.bindPopup(popupContent, {
+            maxWidth: 280,
+            autoPan: true,
+            autoPanPadding: [20, 20],
+            offset: [120, 0]
+        });
 
-        // Al hacer clic en la vela:
+        // ✅ SOLO actualizamos el panel derecho. Quitamos el setView para que no descuadre.
         marker.on('click', () => {
-            mapa.setView([sede.lat, sede.lng], 16, { animate: true });
-            marker.openPopup();
             dotnetHelper.invokeMethodAsync('SeleccionarSedeEnMapa', sede.id);
         });
     });
 
-    // 5. Ajustar el zoom inicial
     if (bounds.length > 0) {
         mapa.fitBounds(bounds, { padding: [50, 50] });
     }
 };
 
-// ✅ ESTILO PARA EL TOOLTIP (Que se vea bonito y no como un cuadro blanco feo)
+// Estilos
 const style = document.createElement('style');
 style.innerHTML = `
     .tooltip-sede {
-        background-color: #1e3a8a !important; /* Color azul oscuro elegante */
+        background-color: #1e3a8a !important;
         color: white !important;
         border: none !important;
         border-radius: 6px !important;
-        padding: 6px 12px !important;
+        padding: 4px 10px !important;
         font-family: 'Segoe UI', sans-serif !important;
         font-weight: 600 !important;
-        font-size: 12px !important;
+        font-size: 11px !important;
         box-shadow: 0 4px 6px rgba(0,0,0,0.2) !important;
     }
-    /* Flechita del tooltip */
     .tooltip-sede::before {
         border-top-color: #1e3a8a !important;
+    }
+    
+    .leaflet-popup-content-wrapper {
+        border-radius: 8px !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2) !important;
+    }
+    .leaflet-popup-content {
+        margin: 10px 14px !important;
+    }
+    
+    .leaflet-popup-tip-container {
+        display: none !important;
     }
 `;
 document.head.appendChild(style);

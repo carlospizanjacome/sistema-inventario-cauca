@@ -366,7 +366,7 @@
             Navigation.NavigateTo("/");
             return;
         }
-        await CargarTodo();
+        await CargarTodo(); // Carga inicial
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -393,14 +393,10 @@
         }
     }
 
-    private async Task CambiarTab(int nuevoTab)
+    private void CambiarTab(int nuevoTab)
     {
         _tab = nuevoTab;
-        _lastRenderedTab = -1;
-
-        // ✅ Auto-actualización: si el usuario cambia de pestaña, recargamos los datos
-        await CargarTodo();
-
+        _lastRenderedTab = -1; // Forzar que se dibuje el nuevo gráfico con los datos en memoria
         StateHasChanged();
     }
 
@@ -501,6 +497,7 @@
 
         try
         {
+            // Solo aquí se ejecuta el REFRESH MATERIALIZED VIEW en la base de datos
             await CDService.RefrescarVistasAsync();
             await CargarTodo();
             await Auditoria.RegistrarExportacionAsync("ciencia_datos", "Refresco manual de vistas");
